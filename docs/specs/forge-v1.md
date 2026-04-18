@@ -66,9 +66,9 @@ Validation is deliberately layered:
 
 | Layer | Name | Responsibility | T004 status |
 |---|---|---|---|
-| 0 | Source form | Magic line, UTF-8, LF, NFC, no tabs, no anchors, no duplicate keys | Implemented by the T005 `forge-kernel` source scanner |
+| 0 | Source form | Magic line, UTF-8, LF, NFC, no tabs, no anchors, no duplicate keys | Specified here; parser implementation deferred to T005 |
 | 1 | Schema tree | Required fields, enum values, type shapes, kind-specific required sections | Implemented by `schemas/forge-v1.schema.json` |
-| 2 | Semantic integrity | Canonical hash, attachment hashes, signatures, monotonic revision/generation checks | Canonical hash implemented by T005; signatures, attachment checks, and history monotonicity deferred |
+| 2 | Semantic integrity | Canonical hash, attachment hashes, signatures, monotonic revision/generation checks | Specified here; full kernel deferred to T005+ |
 | 3 | Runtime policy | Approval routing, branch protection, quarantine, rate behavior | Enforced by policy engine in later tasks |
 
 A file is production-valid only when all applicable layers pass. A fixture can be schema-valid while still lacking a computed canonical hash during Phase 0 bootstrap.
@@ -569,13 +569,10 @@ Implemented in T004:
 - JSON Schema definition.
 - Valid and invalid schema fixtures.
 
-Implemented after T004:
+Deferred:
 
-- Canonical parser implementation: T005 `crates/forge-kernel/`.
-- Actual canonical hash computation kernel: T005 `crates/forge-kernel/`.
-
-Still deferred:
-
+- Canonical parser implementation.
+- Actual canonical hash computation kernel.
 - Signature verification.
 - Pack compaction engine.
 - Replay engine.
@@ -583,27 +580,3 @@ Still deferred:
 - UI overlays.
 
 This boundary keeps T004 as the contract layer and leaves executable kernel behavior to T005.
-
-## 19. T005 executable kernel
-
-T005 adds the first executable implementation of the parser/hash contract under `crates/forge-kernel/`.
-
-Implemented in T005:
-
-- source-form validation for magic line, UTF-8, LF-only line endings, NFC, trailing newline, tabs, anchors, aliases, merge keys, duplicate keys, and unsupported flow mappings;
-- YAML parsing into a normalized JSON value tree;
-- minimal shape validation for common required fields and kind-specific sections;
-- canonical serialization with the fixed v1 top-level key order from section 12;
-- SHA-256 canonical hash calculation with `integrity.canonical_hash` replaced by the zero-hash sentinel and `integrity.signatures` replaced by `[]` during hashing;
-- CLI commands for `hash`, `canonicalize`, and `verify`;
-- conformance tests and hash reproduction fixtures under `docs/specs/fixtures/forge-v1/`.
-
-T005 intentionally keeps the kernel conservative. Empty inline maps (`{}`) and empty arrays (`[]`) are accepted because they appear in canonical bootstrap files. Non-empty flow-style mappings are rejected until an event-level YAML duplicate-key detector is introduced; this prevents parser-dependent duplicate-key behavior from becoming part of the hash surface.
-
-Deferred beyond T005:
-
-- full JSON Schema Draft 2020-12 validation inside Rust;
-- signature verification;
-- attachment file existence and attachment hash verification;
-- canonical pack compaction;
-- replay, evaluator, network, and GitHub App integration.

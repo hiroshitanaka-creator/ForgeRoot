@@ -10,10 +10,11 @@ Directory conventions:
 
 Current specs and docs:
 
-- `github-app-permissions.md` — T006 GitHub App permission boundary, selected-repository installation rule, and webhook event shortlist
-- `specs/forge-v1.md` — `.forge` v1 specification, now including the T005 executable-kernel note
+- `github-app-permissions.md` — T006 GitHub App permission boundary, selected-repository installation rule, webhook event shortlist, and T007 implementation note
+- `specs/forge-v1.md` — `.forge` v1 specification
 - `specs/t003-validation-fixture.yaml` — T003 constitution/mind assertions
 - `specs/t004-validation-report.md` — T004 schema fixture result summary
 - `specs/t005-validation-report.md` — T005 parser/hash fixture result summary
 - `specs/t006-validation-report.md` — T006 manifest permission validation summary
+- `specs/t007-validation-report.md` — T007 webhook ingest validation summary
 - `specs/fixtures/forge-v1/` — valid, invalid, and hash reproduction fixtures
