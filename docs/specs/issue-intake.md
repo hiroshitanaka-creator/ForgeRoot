@@ -92,7 +92,7 @@ Accepted items produce a `NormalizedTaskCandidate` with:
 - mutable path hints
 - forbidden path hints for workflows, policies, and network config
 
-The candidate is intentionally not a Plan Spec. T016 owns the Plan Spec DSL.
+The candidate is intentionally not a Plan Spec. T016 implements the Plan Spec DSL in `docs/specs/plan-spec.md` and `packages/planner/src/plan-schema.ts`.
 
 ## Non-goals
 
