@@ -1,0 +1,1219 @@
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/.forge/README.md /mnt/data/forgeroot-work/ForgeRoot/.forge/README.md
+--- /mnt/data/forgeroot-original/ForgeRoot/.forge/README.md	2026-04-18 15:59:58.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/.forge/README.md	2026-04-18 16:35:45.334662876 +0000
+@@ -6,12 +6,23 @@
+ 
+ - `mind.forge` seeds the root Forge Mind.
+ - `policies/constitution.forge` fixes the first non-negotiables and approval classes.
++- `policies/runtime-mode.forge` defines conservative runtime modes and kill-switch behavior.
++- `agents/planner.alpha.forge` defines the T017 Planner Alpha identity, context recipe, and bounded output contract.
+ - `docs/specs/t003-validation-fixture.yaml` records the minimum assertions that later schema and parser work should validate.
+ 
++Current safety boundary:
++
++- Git remains the source of truth.
++- PR remains the only evolution transport path.
++- Planner Alpha may produce at most one Plan Spec from one accepted task candidate.
++- Planner Alpha must not edit files, create branches, create PRs, or generate audit reports.
++
+ Still intentionally deferred:
+ 
+-- `.forge` v1 schema and validation engine
+-- deterministic canonical hashing
+-- runtime loaders and replay logic
++- executor file editing
++- audit report generation
++- PR composer
++- self-evolution
++- federation behavior
+ 
+ Do not treat runtime caches or ad-hoc notes here as source of truth.
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/.forge/agents/planner.alpha.forge /mnt/data/forgeroot-work/ForgeRoot/.forge/agents/planner.alpha.forge
+--- /mnt/data/forgeroot-original/ForgeRoot/.forge/agents/planner.alpha.forge	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/.forge/agents/planner.alpha.forge	2026-04-18 16:34:20.948213610 +0000
+@@ -0,0 +1,171 @@
++#!forge/v1
++forge_version: 1
++schema_ref: urn:forgeroot:forge:agent:v1
++kind: agent
++id: forge://hiroshitanaka-creator/ForgeRoot/agent/planner.alpha
++revision: 01KQ3Y7M000000000000000000
++mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
++status: active
++title: Planner Alpha
++summary: Deterministic bounded planner runtime that turns one accepted ForgeRoot task candidate into one reviewable Plan Spec.
++owners:
++  - github-app://forgeroot
++created_at: 2026-04-18T00:00:00Z
++updated_at: 2026-04-18T00:00:00Z
++identity:
++  role_name: planner
++  species: planner.alpha
++  persona: conservative-scoper
++  visibility: internal
++role:
++  mission: Convert one accepted intake candidate into one bounded one-task-one-PR Plan Spec.
++  inputs:
++    - issue
++    - issue_comment
++    - check_run
++    - workflow_run
++    - normalized_task_candidate
++  outputs:
++    - plan_spec
++  forbidden_actions:
++    - executor_file_editing
++    - branch_creation
++    - commit_creation
++    - pull_request_creation
++    - audit_report_generation
++    - merge_default_branch
++    - edit_workflows
++    - edit_policies
++    - network_or_federation_action
++    - bypass_rulesets
++constitution:
++  objective_function:
++    primary:
++      - small_reviewable_pr
++      - one_task_one_pr
++      - low_blast_radius
++      - machine_checkable_acceptance
++    secondary:
++      - high_merge_probability
++      - maintainability
++  non_negotiables:
++    - one_task_one_pr
++    - no_default_branch_write
++    - no_unbounded_scope_growth
++    - no_executor_mutation
++    - no_pr_composition
++  mutable_paths:
++    - .forge/agents/planner.alpha.forge
++    - packages/planner/src/run.ts
++    - packages/planner/tests/run.test.mjs
++    - packages/planner/README.md
++    - docs/specs/t017-validation-report.md
++  immutable_paths:
++    - .github/workflows/**
++    - .forge/policies/**
++    - .forge/network/**
++  approval_class: B
++context_recipe:
++  static_slots:
++    - mind_summary
++    - constitution_digest
++    - runtime_mode_digest
++    - plan_spec_contract
++  dynamic_slots:
++    - source_issue_or_event
++    - intake_classification
++    - normalized_task_candidate
++    - mutable_path_hints
++  token_budget:
++    input: 24000
++    output: 4000
++    reserve: 2000
++  compaction_policy: deterministic-summary-then-bounded-path-hints
++tools:
++  - namespace: repo
++    name: repo.read_tree
++    mode: read
++    max_calls: 4
++    timeout_ms: 5000
++    approval: none
++    fallback: null
++  - namespace: repo
++    name: repo.search_code
++    mode: read
++    max_calls: 8
++    timeout_ms: 8000
++    approval: none
++    fallback: repo.read_tree
++  - namespace: gh
++    name: gh.read_issue
++    mode: read
++    max_calls: 2
++    timeout_ms: 5000
++    approval: none
++    fallback: null
++memory:
++  working_memory:
++    max_items: 8
++    facts:
++      - T017 planner runtime is deterministic and does not call a model router.
++      - Escalated, blocked, or ignored intake inputs do not produce executable plans.
++      - A valid planner run may produce at most one Plan Spec.
++  episodic_heads: []
++  episodic_packs: []
++  semantic_digests:
++    - pattern: scope-explosion-prevention
++      confidence: 1.0
++      summary: Preserve one-task-one-PR boundaries by deriving mutable paths and out-of-scope text from intake hints.
++  forget_rules:
++    working_memory_ttl_days: 14
++    keep_last_accepted: 32
++    keep_last_rejected: 64
++scores:
++  windows:
++    d7:
++      fitness: 0.0
++      trust: 0.0
++      novelty: 0.0
++      stability: 0.0
++      network_value: 0.0
++      risk: 0.0
++    d30:
++      fitness: 0.0
++      trust: 0.0
++      novelty: 0.0
++      stability: 0.0
++      network_value: 0.0
++      risk: 0.0
++    all:
++      fitness: 0.0
++      trust: 0.0
++      novelty: 0.0
++      stability: 0.0
++      network_value: 0.0
++      risk: 0.0
++evolution:
++  generation: 0
++  speciation_id: sp_planner_alpha
++  parents: []
++  last_selected_at: 2026-04-18T00:00:00Z
++  selection_reason: Seeded for T017 planner runtime boundary.
++  events:
++    - event_id: evo_t017_seed
++      ts: 2026-04-18T00:00:00Z
++      type: seed
++      source_pr: null
++      source_commit: null
++      rationale: Introduce the first deterministic runtime bridge from intake to Plan Spec.
++mutation_log: []
++provenance:
++  seed_task: T017
++  source_issue: 03_issue.md#P1-T017-planner-runtime
++  runtime: forgeroot@0.0.0-t017
++  created_by: github-app://forgeroot
++extensions:
++  forgeroot:
++    bounded_output_contract:
++      max_plan_specs_per_run: 1
++      executor_file_editing: forbidden
++      audit_report_generation: forbidden
++      pr_composer: forbidden
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/README.md /mnt/data/forgeroot-work/ForgeRoot/README.md
+--- /mnt/data/forgeroot-original/ForgeRoot/README.md	2026-04-18 16:04:54.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/README.md	2026-04-18 16:35:45.310029958 +0000
+@@ -29,6 +29,7 @@
+ - T014 — runtime mode and kill switch
+ - T015 — deterministic issue intake classifier
+ - T016 — one-task-one-PR Plan Spec DSL
++- T017 — deterministic planner runtime bridge
+ 
+ ## Repo layout
+ 
+@@ -66,7 +67,9 @@
+ 1. `packages/planner/src/intake.ts` classifies issue/comment/alert-like inputs and only accepts normalized `forge:auto` candidates.
+ 2. `packages/planner/src/plan-schema.ts` turns one accepted candidate into one `forge.plan` with explicit mutable paths, forbidden paths, out-of-scope boundaries, risk/approval linkage, and machine-checkable acceptance criteria.
+ 
+-T017 will add the planner runtime that produces these plans from real queued tasks.
++3. `packages/planner/src/run.ts` is the deterministic runtime bridge that accepts a webhook-like event, normalized intake input, or pre-accepted task candidate and returns at most one valid Plan Spec.
++
++The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports.
+ 
+ ## Safety defaults
+ 
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/docs/specs/t017-validation-report.md /mnt/data/forgeroot-work/ForgeRoot/docs/specs/t017-validation-report.md
+--- /mnt/data/forgeroot-original/ForgeRoot/docs/specs/t017-validation-report.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/docs/specs/t017-validation-report.md	2026-04-18 16:38:15.616058108 +0000
+@@ -0,0 +1,92 @@
++# T017 Validation Report — planner runtime
++
++Date: 2026-04-18 JST
++
++## Scope implemented
++
++T017 adds the first deterministic Planner runtime bridge around the T015 intake classifier and T016 Plan Spec DSL.
++
++Implemented paths:
++
++- `.forge/agents/planner.alpha.forge`
++- `packages/planner/src/run.ts`
++- `packages/planner/tests/run.test.mjs`
++- `packages/planner/src/index.ts`
++- `packages/planner/dist/run.*`
++- `packages/planner/dist/index.*`
++- `packages/planner/README.md`
++- `docs/specs/t017-validation-report.md`
++- `README.md`
++- `.forge/README.md`
++
++## Runtime contract
++
++`runPlanner(input)` accepts exactly one planning input source per call:
++
++- `github_webhook`
++- `intake_input`
++- `task_candidate`
++
++The runtime returns a `PlannerRunResult` with one of these statuses:
++
++- `planned`
++- `ignored`
++- `blocked`
++- `escalated`
++- `invalid`
++
++A `planned` result contains at most one Plan Spec. All other statuses contain no plan and preserve deterministic reasons plus an audit trail.
++
++## Acceptance criteria mapping
++
++| T017 criterion | Implementation evidence |
++|---|---|
++| 1 issue → 1 plan spec | `runPlanner` converts one accepted intake classification into one validated `PlanSpec`; tests assert `plan_count:1`. |
++| out-of-scope is explicit | Plan Spec validation requires `scope_contract.out_of_scope`; runtime tests assert it is non-empty. |
++| approval class is output | Plan Spec includes `risk_and_approval.approval_class`; runtime tests assert it is present. |
++| mutable paths are explicit | Plan Spec validation requires `scope_contract.mutable_paths`; runtime tests assert it is non-empty. |
++
++## Out of scope preserved
++
++T017 intentionally does not implement:
++
++- executor file editing
++- sandbox execution
++- branch creation
++- commit creation
++- audit report generation
++- PR composition
++- GitHub mutating operations
++- workflow or policy mutation
++- network/federation behavior
++- LLM/model-router integration
++
++## Verification commands
++
++```bash
++cd packages/planner
++timeout 20 tsc -p tsconfig.json
++node --test --test-force-exit tests/*.test.mjs
++```
++
++## Verification result
++
++In this sandbox, TypeScript emitted updated `dist/` artifacts and did not report TypeScript diagnostics before the local `tsc` process stayed open. The emitted runtime was syntax-checked with `node --check dist/run.js`, and the planner test suite completed successfully.
++
++```text
++1..23
++# tests 23
++# suites 0
++# pass 23
++# fail 0
++# cancelled 0
++# skipped 0
++# todo 0
++```
++
++## Notes
++
++- Existing T015 and T016 public APIs are preserved.
++- `src/index.ts` now re-exports `run.ts`.
++- `packages/planner/package.json` version is updated to `0.0.0-t017`.
++- The runtime is deterministic when `now` is supplied; otherwise it uses the current UTC timestamp only for `created_at`.
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/README.md /mnt/data/forgeroot-work/ForgeRoot/packages/planner/README.md
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/README.md	2026-04-18 16:21:20.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/README.md	2026-04-18 16:35:45.246814984 +0000
+@@ -26,10 +26,31 @@
+ 
+ The Plan Spec requires explicit `mutable_paths`, `immutable_paths`, `out_of_scope`, risk/approval linkage, and machine-checkable `acceptance_criteria`.
+ 
++## T017 planner runtime
++
++T017 adds `run.ts`, the deterministic runtime bridge from T015 intake to T016 Plan Spec creation.
++
++Main exports:
++
++- `runPlanner(input)`
++- `PlannerRunInput`
++- `PlannerRunResult`
++- `PlannerRunStatus`
++- `PLANNER_CONTEXT_RECIPE`
++- `PLANNER_BOUNDED_OUTPUT_CONTRACT`
++
++`runPlanner` accepts one of three source shapes:
++
++- `github_webhook` — converts a webhook-like payload through the intake classifier.
++- `intake_input` — classifies an already-normalized `IntakeInput`.
++- `task_candidate` — creates a Plan Spec from an already-accepted `NormalizedTaskCandidate`.
++
++The runtime never edits files, creates branches, creates commits, opens PRs, runs tests, or generates audit reports. It returns at most one valid Plan Spec per run. Ignored, blocked, escalated, or invalid inputs return no plan and include deterministic reasons plus an audit trail.
++
+ ## Local development
+ 
+ ```bash
+ cd packages/planner
+-TSC_NONPOLLING_WATCHER=1 tsc -p tsconfig.json --noEmit --pretty false --diagnostics
++timeout 20 tsc -p tsconfig.json
+ node --test --test-force-exit tests/*.test.mjs
+ ```
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/index.d.ts /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/index.d.ts
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/index.d.ts	2026-04-18 16:22:26.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/index.d.ts	2026-04-18 16:36:04.867418272 +0000
+@@ -1,2 +1,3 @@
+ export * from "./intake.js";
+ export * from "./plan-schema.js";
++export * from "./run.js";
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/index.js /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/index.js
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/index.js	2026-04-18 16:22:26.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/index.js	2026-04-18 16:36:04.866444157 +0000
+@@ -1,3 +1,4 @@
+ export * from "./intake.js";
+ export * from "./plan-schema.js";
++export * from "./run.js";
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/index.js.map /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/index.js.map
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/index.js.map	2026-04-18 16:22:26.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/index.js.map	2026-04-18 16:36:04.865864534 +0000
+@@ -1 +1 @@
+-{"version":3,"file":"index.js","sourceRoot":"","sources":["../src/index.ts"],"names":[],"mappings":"AAAA,cAAc,aAAa,CAAC;AAC5B,cAAc,kBAAkB,CAAC"}
+\ No newline at end of file
++{"version":3,"file":"index.js","sourceRoot":"","sources":["../src/index.ts"],"names":[],"mappings":"AAAA,cAAc,aAAa,CAAC;AAC5B,cAAc,kBAAkB,CAAC;AACjC,cAAc,UAAU,CAAC"}
+\ No newline at end of file
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/run.d.ts /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/run.d.ts
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/run.d.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/run.d.ts	2026-04-18 16:36:04.863907485 +0000
+@@ -0,0 +1,38 @@
++import { type IntakeClassification, type IntakeInput, type NormalizedTaskCandidate } from "./intake.js";
++import { type PlanSpec } from "./plan-schema.js";
++export type PlannerRunSource = "github_webhook" | "intake_input" | "task_candidate";
++export type PlannerRunStatus = "planned" | "ignored" | "blocked" | "escalated" | "invalid";
++export interface PlannerRunInput {
++    readonly source: PlannerRunSource;
++    readonly eventName?: string;
++    readonly action?: string | null;
++    readonly deliveryId?: string | null;
++    readonly repositoryFullName?: string | null;
++    readonly receivedAt?: string | null;
++    readonly payload?: unknown;
++    readonly intake?: IntakeInput;
++    readonly task?: NormalizedTaskCandidate;
++    readonly now?: string;
++}
++export interface PlannerRunResult {
++    readonly status: PlannerRunStatus;
++    readonly intake?: IntakeClassification;
++    readonly task?: NormalizedTaskCandidate;
++    readonly plan?: PlanSpec;
++    readonly reasons: readonly string[];
++    readonly auditTrail: readonly string[];
++}
++export interface PlannerContextRecipe {
++    readonly staticSlots: readonly string[];
++    readonly dynamicSlots: readonly string[];
++    readonly forbiddenSlots: readonly string[];
++    readonly outputContract: readonly string[];
++}
++export declare const PLANNER_CONTEXT_RECIPE: PlannerContextRecipe;
++export declare const PLANNER_BOUNDED_OUTPUT_CONTRACT: {
++    readonly produces: readonly ["plan_spec"];
++    readonly forbids: readonly ["executor_file_editing", "branch_creation", "commit_creation", "pull_request_creation", "audit_report_generation", "network_or_federation_action"];
++    readonly maxPlanSpecsPerRun: 1;
++    readonly oneTaskOnePr: true;
++};
++export declare function runPlanner(input: PlannerRunInput): PlannerRunResult;
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/run.js /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/run.js
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/run.js	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/run.js	2026-04-18 16:36:04.858409676 +0000
+@@ -0,0 +1,253 @@
++import { classifyGitHubWebhook, classifyIntake, } from "./intake.js";
++import { createPlanSpecFromTaskCandidate, validatePlanSpec, } from "./plan-schema.js";
++export const PLANNER_CONTEXT_RECIPE = {
++    staticSlots: [
++        "mind_summary",
++        "constitution_digest",
++        "runtime_mode_digest",
++        "plan_spec_contract",
++    ],
++    dynamicSlots: [
++        "source_issue_or_event",
++        "intake_classification",
++        "normalized_task_candidate",
++        "mutable_path_hints",
++    ],
++    forbiddenSlots: [
++        "executor_patch",
++        "audit_report",
++        "pr_body",
++        "branch_or_commit_mutation",
++    ],
++    outputContract: [
++        "at_most_one_plan_spec",
++        "one_task_one_pr_true",
++        "mutable_paths_non_empty",
++        "out_of_scope_non_empty",
++        "approval_class_present",
++        "machine_checkable_acceptance_criteria",
++    ],
++};
++export const PLANNER_BOUNDED_OUTPUT_CONTRACT = {
++    produces: ["plan_spec"],
++    forbids: [
++        "executor_file_editing",
++        "branch_creation",
++        "commit_creation",
++        "pull_request_creation",
++        "audit_report_generation",
++        "network_or_federation_action",
++    ],
++    maxPlanSpecsPerRun: 1,
++    oneTaskOnePr: true,
++};
++const PLANNER_RUN_SOURCES = new Set(["github_webhook", "intake_input", "task_candidate"]);
++const SOURCE_KINDS = new Set(["issue", "issue_comment", "alert", "check_run", "workflow_run"]);
++const CATEGORIES = new Set(["docs", "test", "bug", "ci", "dependency", "security", "workflow", "policy", "feature", "question", "network_offer", "operator_command", "chore", "unknown"]);
++const RISKS = new Set(["low", "medium", "high", "critical"]);
++const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++export function runPlanner(input) {
++    const auditTrail = ["planner_runtime:T017", "contract:one_task_one_pr", "contract:no_mutating_operations"];
++    if (!isPlannerRunSource(input.source)) {
++        return invalidResult([`unsupported_source:${String(input.source)}`], auditTrail);
++    }
++    const nowResult = resolveCreatedAt(input.now);
++    if (!nowResult.ok)
++        return invalidResult([nowResult.reason], [...auditTrail, `source:${input.source}`]);
++    const createdAt = nowResult.value;
++    if (input.source === "github_webhook") {
++        return runFromGitHubWebhook(input, createdAt, [...auditTrail, "source:github_webhook"]);
++    }
++    if (input.source === "intake_input") {
++        return runFromIntakeInput(input, createdAt, [...auditTrail, "source:intake_input"]);
++    }
++    return runFromTaskCandidate(input, createdAt, [...auditTrail, "source:task_candidate"]);
++}
++function runFromGitHubWebhook(input, createdAt, auditTrail) {
++    const eventName = normalizeNonEmptyString(input.eventName);
++    if (eventName === null)
++        return invalidResult(["missing_event_name"], auditTrail);
++    const payload = asJsonObject(input.payload);
++    if (payload === null)
++        return invalidResult(["payload_must_be_object"], [...auditTrail, `event:${eventName}`]);
++    const webhook = {
++        eventName,
++        action: input.action ?? null,
++        deliveryId: input.deliveryId ?? null,
++        receivedAt: input.receivedAt ?? createdAt,
++        repositoryFullName: input.repositoryFullName ?? null,
++        payload,
++    };
++    const intake = classifyGitHubWebhook(webhook);
++    if (intake === null)
++        return invalidResult([`unsupported_or_malformed_webhook:${eventName}`], [...auditTrail, `event:${eventName}`]);
++    return resultFromClassification(intake, createdAt, [...auditTrail, `event:${eventName}`, `classification:${intake.disposition}`]);
++}
++function runFromIntakeInput(input, createdAt, auditTrail) {
++    if (!isIntakeInput(input.intake))
++        return invalidResult(["intake_input_required"], auditTrail);
++    const intake = classifyIntake(input.intake);
++    return resultFromClassification(intake, createdAt, [...auditTrail, `classification:${intake.disposition}`]);
++}
++function runFromTaskCandidate(input, createdAt, auditTrail) {
++    if (!isNormalizedTaskCandidate(input.task))
++        return invalidResult(["task_candidate_required"], auditTrail);
++    return plannedResult(input.task, undefined, createdAt, [...auditTrail, "classification:pre_accepted_task_candidate"]);
++}
++function resultFromClassification(intake, createdAt, auditTrail) {
++    const baseReasons = combineReasons(intake.reasons);
++    if (intake.disposition === "ignore") {
++        return {
++            status: "ignored",
++            intake,
++            reasons: combineReasons(baseReasons, intake.ignoredBy),
++            auditTrail: [...auditTrail, "plan:none", "reason:ignored_before_planning"],
++        };
++    }
++    if (intake.disposition === "block") {
++        return {
++            status: "blocked",
++            intake,
++            reasons: combineReasons(baseReasons, intake.blockedBy),
++            auditTrail: [...auditTrail, "plan:none", "reason:block_before_planning"],
++        };
++    }
++    if (intake.disposition === "escalate") {
++        return {
++            status: "escalated",
++            intake,
++            reasons: combineReasons(baseReasons, intake.escalatedBy),
++            auditTrail: [...auditTrail, "plan:none", "reason:human_review_required_before_planning"],
++        };
++    }
++    if (intake.task === null) {
++        return {
++            status: "invalid",
++            intake,
++            reasons: combineReasons(baseReasons, ["accepted_intake_missing_task_candidate"]),
++            auditTrail: [...auditTrail, "plan:none", "reason:accepted_without_task_candidate"],
++        };
++    }
++    return plannedResult(intake.task, intake, createdAt, auditTrail);
++}
++function plannedResult(task, intake, createdAt, auditTrail) {
++    const options = { createdAt };
++    const plan = createPlanSpecFromTaskCandidate(task, options);
++    const validation = validatePlanSpec(plan);
++    if (!validation.ok) {
++        return {
++            status: "invalid",
++            ...(intake === undefined ? {} : { intake }),
++            task,
++            reasons: combineReasons(["generated_plan_failed_validation"], validation.issues.map(formatValidationIssue)),
++            auditTrail: [...auditTrail, "plan:invalid", `validation_issues:${validation.issues.length}`],
++        };
++    }
++    return {
++        status: "planned",
++        ...(intake === undefined ? {} : { intake }),
++        task,
++        plan,
++        reasons: combineReasons([
++            "accepted_for_planner_runtime",
++            `plan_status:${plan.status}`,
++            `approval_class:${plan.risk_and_approval.approval_class}`,
++            `risk:${plan.risk_and_approval.risk}`,
++        ]),
++        auditTrail: [
++            ...auditTrail,
++            "plan:created",
++            "plan_count:1",
++            `plan_id:${plan.plan_id}`,
++            `plan_status:${plan.status}`,
++            `mutable_paths:${plan.scope_contract.mutable_paths.length}`,
++            `out_of_scope:${plan.scope_contract.out_of_scope.length}`,
++            `approval_class:${plan.risk_and_approval.approval_class}`,
++            "validation:ok",
++        ],
++    };
++}
++function invalidResult(reasons, auditTrail) {
++    return { status: "invalid", reasons: combineReasons(reasons), auditTrail: [...auditTrail, "plan:none"] };
++}
++function resolveCreatedAt(now) {
++    if (now === undefined)
++        return { ok: true, value: new Date().toISOString() };
++    if (!RFC3339_UTC.test(now))
++        return { ok: false, reason: "now_must_be_rfc3339_utc" };
++    return { ok: true, value: now };
++}
++function isPlannerRunSource(value) {
++    return typeof value === "string" && PLANNER_RUN_SOURCES.has(value);
++}
++function isIntakeInput(value) {
++    const record = asRecord(value);
++    if (record === null)
++        return false;
++    return typeof record.sourceKind === "string" && SOURCE_KINDS.has(record.sourceKind);
++}
++function isNormalizedTaskCandidate(value) {
++    const record = asRecord(value);
++    if (record === null)
++        return false;
++    const hints = asRecord(record.plannerHints);
++    return (typeof record.candidateId === "string" && record.candidateId.length > 0 &&
++        typeof record.sourceKey === "string" && record.sourceKey.length > 0 &&
++        typeof record.sourceKind === "string" && SOURCE_KINDS.has(record.sourceKind) &&
++        (typeof record.repositoryFullName === "string" || record.repositoryFullName === null) &&
++        (typeof record.number === "number" || record.number === null) &&
++        (typeof record.url === "string" || record.url === null) &&
++        typeof record.title === "string" && record.title.length > 0 &&
++        typeof record.summary === "string" && record.summary.length > 0 &&
++        typeof record.category === "string" && CATEGORIES.has(record.category) &&
++        typeof record.risk === "string" && RISKS.has(record.risk) &&
++        typeof record.approvalClass === "string" && APPROVAL_CLASSES.has(record.approvalClass) &&
++        isStringArray(record.labels) &&
++        record.autoRequested === true &&
++        typeof record.bodyExcerpt === "string" &&
++        isPlannerHints(hints));
++}
++function isPlannerHints(value) {
++    return value !== null &&
++        value.oneTaskOnePr === true &&
++        typeof value.recommendedScope === "string" &&
++        isStringArray(value.mutablePathHints) &&
++        isStringArray(value.forbiddenPathHints) &&
++        typeof value.requiresHumanReviewBeforePlanning === "boolean";
++}
++function asJsonObject(value) {
++    const record = asRecord(value);
++    return record === null ? null : record;
++}
++function asRecord(value) {
++    return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null;
++}
++function isStringArray(value) {
++    return Array.isArray(value) && value.every((item) => typeof item === "string");
++}
++function normalizeNonEmptyString(value) {
++    if (typeof value !== "string")
++        return null;
++    const normalized = value.trim();
++    return normalized.length === 0 ? null : normalized;
++}
++function combineReasons(...reasonGroups) {
++    const result = [];
++    const seen = new Set();
++    for (const group of reasonGroups) {
++        const reasons = typeof group === "string" ? [group] : group;
++        for (const reason of reasons) {
++            const normalized = reason.trim();
++            if (normalized.length === 0 || seen.has(normalized))
++                continue;
++            seen.add(normalized);
++            result.push(normalized);
++        }
++    }
++    return result;
++}
++function formatValidationIssue(issue) {
++    return `${issue.path}:${issue.code}`;
++}
++//# sourceMappingURL=run.js.map
+\ No newline at end of file
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/run.js.map /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/run.js.map
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/dist/run.js.map	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/dist/run.js.map	2026-04-18 16:36:04.857501920 +0000
+@@ -0,0 +1 @@
++{"version":3,"file":"run.js","sourceRoot":"","sources":["../src/run.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/package.json /mnt/data/forgeroot-work/ForgeRoot/packages/planner/package.json
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/package.json	2026-04-18 16:21:20.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/package.json	2026-04-18 16:35:45.225588757 +0000
+@@ -1,9 +1,9 @@
+ {
+   "name": "@forgeroot/planner",
+-  "version": "0.0.0-t016",
++  "version": "0.0.0-t017",
+   "private": true,
+   "type": "module",
+-  "description": "ForgeRoot planner primitives: deterministic intake classification and one-task-one-PR Plan Spec DSL.",
++  "description": "ForgeRoot planner primitives: deterministic intake classification, Plan Spec DSL, and planner runtime.",
+   "scripts": {
+     "build": "tsc -p tsconfig.json",
+     "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/src/index.ts /mnt/data/forgeroot-work/ForgeRoot/packages/planner/src/index.ts
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/src/index.ts	2026-04-18 16:21:20.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/src/index.ts	2026-04-18 16:34:20.901891841 +0000
+@@ -1,2 +1,3 @@
+ export * from "./intake.js";
+ export * from "./plan-schema.js";
++export * from "./run.js";
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/src/run.ts /mnt/data/forgeroot-work/ForgeRoot/packages/planner/src/run.ts
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/src/run.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/src/run.ts	2026-04-18 16:35:17.437083946 +0000
+@@ -0,0 +1,325 @@
++import {
++  classifyGitHubWebhook,
++  classifyIntake,
++  type GitHubWebhookLike,
++  type IntakeCategory,
++  type IntakeClassification,
++  type IntakeInput,
++  type IntakeRisk,
++  type IntakeSourceKind,
++  type JsonObject,
++  type NormalizedTaskCandidate,
++  type PlannerHints,
++  type ApprovalClass,
++} from "./intake.js";
++import {
++  createPlanSpecFromTaskCandidate,
++  validatePlanSpec,
++  type CreatePlanSpecOptions,
++  type PlanSpec,
++  type PlanValidationIssue,
++} from "./plan-schema.js";
++
++export type PlannerRunSource = "github_webhook" | "intake_input" | "task_candidate";
++export type PlannerRunStatus = "planned" | "ignored" | "blocked" | "escalated" | "invalid";
++
++export interface PlannerRunInput {
++  readonly source: PlannerRunSource;
++  readonly eventName?: string;
++  readonly action?: string | null;
++  readonly deliveryId?: string | null;
++  readonly repositoryFullName?: string | null;
++  readonly receivedAt?: string | null;
++  readonly payload?: unknown;
++  readonly intake?: IntakeInput;
++  readonly task?: NormalizedTaskCandidate;
++  readonly now?: string;
++}
++
++export interface PlannerRunResult {
++  readonly status: PlannerRunStatus;
++  readonly intake?: IntakeClassification;
++  readonly task?: NormalizedTaskCandidate;
++  readonly plan?: PlanSpec;
++  readonly reasons: readonly string[];
++  readonly auditTrail: readonly string[];
++}
++
++export interface PlannerContextRecipe {
++  readonly staticSlots: readonly string[];
++  readonly dynamicSlots: readonly string[];
++  readonly forbiddenSlots: readonly string[];
++  readonly outputContract: readonly string[];
++}
++
++export const PLANNER_CONTEXT_RECIPE: PlannerContextRecipe = {
++  staticSlots: [
++    "mind_summary",
++    "constitution_digest",
++    "runtime_mode_digest",
++    "plan_spec_contract",
++  ],
++  dynamicSlots: [
++    "source_issue_or_event",
++    "intake_classification",
++    "normalized_task_candidate",
++    "mutable_path_hints",
++  ],
++  forbiddenSlots: [
++    "executor_patch",
++    "audit_report",
++    "pr_body",
++    "branch_or_commit_mutation",
++  ],
++  outputContract: [
++    "at_most_one_plan_spec",
++    "one_task_one_pr_true",
++    "mutable_paths_non_empty",
++    "out_of_scope_non_empty",
++    "approval_class_present",
++    "machine_checkable_acceptance_criteria",
++  ],
++} as const;
++
++export const PLANNER_BOUNDED_OUTPUT_CONTRACT = {
++  produces: ["plan_spec"],
++  forbids: [
++    "executor_file_editing",
++    "branch_creation",
++    "commit_creation",
++    "pull_request_creation",
++    "audit_report_generation",
++    "network_or_federation_action",
++  ],
++  maxPlanSpecsPerRun: 1,
++  oneTaskOnePr: true,
++} as const;
++
++const PLANNER_RUN_SOURCES = new Set<PlannerRunSource>(["github_webhook", "intake_input", "task_candidate"]);
++const SOURCE_KINDS = new Set<IntakeSourceKind>(["issue", "issue_comment", "alert", "check_run", "workflow_run"]);
++const CATEGORIES = new Set<IntakeCategory>(["docs", "test", "bug", "ci", "dependency", "security", "workflow", "policy", "feature", "question", "network_offer", "operator_command", "chore", "unknown"]);
++const RISKS = new Set<IntakeRisk>(["low", "medium", "high", "critical"]);
++const APPROVAL_CLASSES = new Set<ApprovalClass>(["A", "B", "C", "D"]);
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++
++export function runPlanner(input: PlannerRunInput): PlannerRunResult {
++  const auditTrail = ["planner_runtime:T017", "contract:one_task_one_pr", "contract:no_mutating_operations"];
++  if (!isPlannerRunSource(input.source)) {
++    return invalidResult([`unsupported_source:${String(input.source)}`], auditTrail);
++  }
++
++  const nowResult = resolveCreatedAt(input.now);
++  if (!nowResult.ok) return invalidResult([nowResult.reason], [...auditTrail, `source:${input.source}`]);
++  const createdAt = nowResult.value;
++
++  if (input.source === "github_webhook") {
++    return runFromGitHubWebhook(input, createdAt, [...auditTrail, "source:github_webhook"]);
++  }
++
++  if (input.source === "intake_input") {
++    return runFromIntakeInput(input, createdAt, [...auditTrail, "source:intake_input"]);
++  }
++
++  return runFromTaskCandidate(input, createdAt, [...auditTrail, "source:task_candidate"]);
++}
++
++function runFromGitHubWebhook(input: PlannerRunInput, createdAt: string, auditTrail: readonly string[]): PlannerRunResult {
++  const eventName = normalizeNonEmptyString(input.eventName);
++  if (eventName === null) return invalidResult(["missing_event_name"], auditTrail);
++
++  const payload = asJsonObject(input.payload);
++  if (payload === null) return invalidResult(["payload_must_be_object"], [...auditTrail, `event:${eventName}`]);
++
++  const webhook: GitHubWebhookLike = {
++    eventName,
++    action: input.action ?? null,
++    deliveryId: input.deliveryId ?? null,
++    receivedAt: input.receivedAt ?? createdAt,
++    repositoryFullName: input.repositoryFullName ?? null,
++    payload,
++  };
++  const intake = classifyGitHubWebhook(webhook);
++  if (intake === null) return invalidResult([`unsupported_or_malformed_webhook:${eventName}`], [...auditTrail, `event:${eventName}`]);
++  return resultFromClassification(intake, createdAt, [...auditTrail, `event:${eventName}`, `classification:${intake.disposition}`]);
++}
++
++function runFromIntakeInput(input: PlannerRunInput, createdAt: string, auditTrail: readonly string[]): PlannerRunResult {
++  if (!isIntakeInput(input.intake)) return invalidResult(["intake_input_required"], auditTrail);
++  const intake = classifyIntake(input.intake);
++  return resultFromClassification(intake, createdAt, [...auditTrail, `classification:${intake.disposition}`]);
++}
++
++function runFromTaskCandidate(input: PlannerRunInput, createdAt: string, auditTrail: readonly string[]): PlannerRunResult {
++  if (!isNormalizedTaskCandidate(input.task)) return invalidResult(["task_candidate_required"], auditTrail);
++  return plannedResult(input.task, undefined, createdAt, [...auditTrail, "classification:pre_accepted_task_candidate"]);
++}
++
++function resultFromClassification(intake: IntakeClassification, createdAt: string, auditTrail: readonly string[]): PlannerRunResult {
++  const baseReasons = combineReasons(intake.reasons);
++  if (intake.disposition === "ignore") {
++    return {
++      status: "ignored",
++      intake,
++      reasons: combineReasons(baseReasons, intake.ignoredBy),
++      auditTrail: [...auditTrail, "plan:none", "reason:ignored_before_planning"],
++    };
++  }
++
++  if (intake.disposition === "block") {
++    return {
++      status: "blocked",
++      intake,
++      reasons: combineReasons(baseReasons, intake.blockedBy),
++      auditTrail: [...auditTrail, "plan:none", "reason:block_before_planning"],
++    };
++  }
++
++  if (intake.disposition === "escalate") {
++    return {
++      status: "escalated",
++      intake,
++      reasons: combineReasons(baseReasons, intake.escalatedBy),
++      auditTrail: [...auditTrail, "plan:none", "reason:human_review_required_before_planning"],
++    };
++  }
++
++  if (intake.task === null) {
++    return {
++      status: "invalid",
++      intake,
++      reasons: combineReasons(baseReasons, ["accepted_intake_missing_task_candidate"]),
++      auditTrail: [...auditTrail, "plan:none", "reason:accepted_without_task_candidate"],
++    };
++  }
++
++  return plannedResult(intake.task, intake, createdAt, auditTrail);
++}
++
++function plannedResult(task: NormalizedTaskCandidate, intake: IntakeClassification | undefined, createdAt: string, auditTrail: readonly string[]): PlannerRunResult {
++  const options: CreatePlanSpecOptions = { createdAt };
++  const plan = createPlanSpecFromTaskCandidate(task, options);
++  const validation = validatePlanSpec(plan);
++  if (!validation.ok) {
++    return {
++      status: "invalid",
++      ...(intake === undefined ? {} : { intake }),
++      task,
++      reasons: combineReasons(["generated_plan_failed_validation"], validation.issues.map(formatValidationIssue)),
++      auditTrail: [...auditTrail, "plan:invalid", `validation_issues:${validation.issues.length}`],
++    };
++  }
++
++  return {
++    status: "planned",
++    ...(intake === undefined ? {} : { intake }),
++    task,
++    plan,
++    reasons: combineReasons([
++      "accepted_for_planner_runtime",
++      `plan_status:${plan.status}`,
++      `approval_class:${plan.risk_and_approval.approval_class}`,
++      `risk:${plan.risk_and_approval.risk}`,
++    ]),
++    auditTrail: [
++      ...auditTrail,
++      "plan:created",
++      "plan_count:1",
++      `plan_id:${plan.plan_id}`,
++      `plan_status:${plan.status}`,
++      `mutable_paths:${plan.scope_contract.mutable_paths.length}`,
++      `out_of_scope:${plan.scope_contract.out_of_scope.length}`,
++      `approval_class:${plan.risk_and_approval.approval_class}`,
++      "validation:ok",
++    ],
++  };
++}
++
++function invalidResult(reasons: readonly string[], auditTrail: readonly string[]): PlannerRunResult {
++  return { status: "invalid", reasons: combineReasons(reasons), auditTrail: [...auditTrail, "plan:none"] };
++}
++
++function resolveCreatedAt(now: string | undefined): { ok: true; value: string } | { ok: false; reason: string } {
++  if (now === undefined) return { ok: true, value: new Date().toISOString() };
++  if (!RFC3339_UTC.test(now)) return { ok: false, reason: "now_must_be_rfc3339_utc" };
++  return { ok: true, value: now };
++}
++
++function isPlannerRunSource(value: unknown): value is PlannerRunSource {
++  return typeof value === "string" && PLANNER_RUN_SOURCES.has(value as PlannerRunSource);
++}
++
++function isIntakeInput(value: unknown): value is IntakeInput {
++  const record = asRecord(value);
++  if (record === null) return false;
++  return typeof record.sourceKind === "string" && SOURCE_KINDS.has(record.sourceKind as IntakeSourceKind);
++}
++
++function isNormalizedTaskCandidate(value: unknown): value is NormalizedTaskCandidate {
++  const record = asRecord(value);
++  if (record === null) return false;
++  const hints = asRecord(record.plannerHints);
++  return (
++    typeof record.candidateId === "string" && record.candidateId.length > 0 &&
++    typeof record.sourceKey === "string" && record.sourceKey.length > 0 &&
++    typeof record.sourceKind === "string" && SOURCE_KINDS.has(record.sourceKind as IntakeSourceKind) &&
++    (typeof record.repositoryFullName === "string" || record.repositoryFullName === null) &&
++    (typeof record.number === "number" || record.number === null) &&
++    (typeof record.url === "string" || record.url === null) &&
++    typeof record.title === "string" && record.title.length > 0 &&
++    typeof record.summary === "string" && record.summary.length > 0 &&
++    typeof record.category === "string" && CATEGORIES.has(record.category as IntakeCategory) &&
++    typeof record.risk === "string" && RISKS.has(record.risk as IntakeRisk) &&
++    typeof record.approvalClass === "string" && APPROVAL_CLASSES.has(record.approvalClass as ApprovalClass) &&
++    isStringArray(record.labels) &&
++    record.autoRequested === true &&
++    typeof record.bodyExcerpt === "string" &&
++    isPlannerHints(hints)
++  );
++}
++
++function isPlannerHints(value: Record<string, unknown> | null): boolean {
++  return value !== null &&
++    value.oneTaskOnePr === true &&
++    typeof value.recommendedScope === "string" &&
++    isStringArray(value.mutablePathHints) &&
++    isStringArray(value.forbiddenPathHints) &&
++    typeof value.requiresHumanReviewBeforePlanning === "boolean";
++}
++
++function asJsonObject(value: unknown): JsonObject | null {
++  const record = asRecord(value);
++  return record === null ? null : record as JsonObject;
++}
++
++function asRecord(value: unknown): Record<string, unknown> | null {
++  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
++}
++
++function isStringArray(value: unknown): value is readonly string[] {
++  return Array.isArray(value) && value.every((item) => typeof item === "string");
++}
++
++function normalizeNonEmptyString(value: unknown): string | null {
++  if (typeof value !== "string") return null;
++  const normalized = value.trim();
++  return normalized.length === 0 ? null : normalized;
++}
++
++function combineReasons(...reasonGroups: readonly (readonly string[] | string)[]): readonly string[] {
++  const result: string[] = [];
++  const seen = new Set<string>();
++  for (const group of reasonGroups) {
++    const reasons = typeof group === "string" ? [group] : group;
++    for (const reason of reasons) {
++      const normalized = reason.trim();
++      if (normalized.length === 0 || seen.has(normalized)) continue;
++      seen.add(normalized);
++      result.push(normalized);
++    }
++  }
++  return result;
++}
++
++function formatValidationIssue(issue: PlanValidationIssue): string {
++  return `${issue.path}:${issue.code}`;
++}
+diff -ruN /mnt/data/forgeroot-original/ForgeRoot/packages/planner/tests/run.test.mjs /mnt/data/forgeroot-work/ForgeRoot/packages/planner/tests/run.test.mjs
+--- /mnt/data/forgeroot-original/ForgeRoot/packages/planner/tests/run.test.mjs	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot-work/ForgeRoot/packages/planner/tests/run.test.mjs	2026-04-18 16:34:36.334297702 +0000
+@@ -0,0 +1,175 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++import { classifyIntake } from "../dist/intake.js";
++import { runPlanner, PLANNER_BOUNDED_OUTPUT_CONTRACT, PLANNER_CONTEXT_RECIPE } from "../dist/run.js";
++
++function labels(names) {
++  return names.map((name) => ({ name }));
++}
++
++function issuePayload({ title, body = "", labelNames = [], state = "open" }) {
++  return {
++    action: "opened",
++    repository: { full_name: "hiroshitanaka-creator/ForgeRoot" },
++    issue: {
++      number: 17,
++      title,
++      body,
++      state,
++      html_url: "https://github.example/issues/17",
++      labels: labels(labelNames),
++    },
++  };
++}
++
++function acceptedTask(input) {
++  const result = classifyIntake(input);
++  assert.equal(result.disposition, "accept");
++  assert.ok(result.task);
++  return result.task;
++}
++
++test("planner runtime turns one forge:auto docs issue into one validated Plan Spec", () => {
++  const result = runPlanner({
++    source: "github_webhook",
++    eventName: "issues",
++    deliveryId: "delivery-t017-docs",
++    now: "2026-04-18T00:00:00Z",
++    payload: issuePayload({
++      title: "Fix README typo in planner docs",
++      body: "The planner README has a small typo in the local development section.",
++      labelNames: ["forge:auto", "docs", "risk:low"],
++    }),
++  });
++
++  assert.equal(result.status, "planned");
++  assert.ok(result.intake);
++  assert.ok(result.task);
++  assert.ok(result.plan);
++  assert.equal(result.plan.source.issue_number, 17);
++  assert.equal(result.plan.scope_contract.one_task_one_pr, true);
++  assert.equal(result.plan.scope_contract.source_issue_count, 1);
++  assert.ok(result.plan.scope_contract.mutable_paths.length > 0);
++  assert.ok(result.plan.scope_contract.out_of_scope.length > 0);
++  assert.equal(result.plan.risk_and_approval.approval_class, "A");
++  assert.ok(result.auditTrail.includes("plan_count:1"));
++});
++
++test("planner runtime ignores issues without the forge:auto label", () => {
++  const result = runPlanner({
++    source: "github_webhook",
++    eventName: "issues",
++    now: "2026-04-18T00:00:00Z",
++    payload: issuePayload({
++      title: "Fix README typo without automation label",
++      body: "This is valid docs work but should not run automatically.",
++      labelNames: ["docs", "risk:low"],
++    }),
++  });
++
++  assert.equal(result.status, "ignored");
++  assert.equal(result.plan, undefined);
++  assert.ok(result.reasons.includes("missing_label:forge:auto"));
++});
++
++test("planner runtime escalates security, workflow, and policy issues before plan creation", () => {
++  const security = runPlanner({
++    source: "github_webhook",
++    eventName: "issues",
++    now: "2026-04-18T00:00:00Z",
++    payload: issuePayload({
++      title: "Security: investigate leaked token",
++      body: "Potential secret exposure in CI logs.",
++      labelNames: ["forge:auto", "security", "risk:high"],
++    }),
++  });
++  assert.equal(security.status, "escalated");
++  assert.equal(security.plan, undefined);
++  assert.ok(security.reasons.includes("category:security"));
++
++  const workflow = runPlanner({
++    source: "github_webhook",
++    eventName: "issues",
++    now: "2026-04-18T00:00:00Z",
++    payload: issuePayload({
++      title: "Update .github/workflows/release.yml permissions",
++      body: "This changes workflow permissions.",
++      labelNames: ["forge:auto", "class:D"],
++    }),
++  });
++  assert.equal(workflow.status, "escalated");
++  assert.equal(workflow.plan, undefined);
++  assert.ok(workflow.reasons.includes("category:workflow"));
++
++  const policy = runPlanner({
++    source: "github_webhook",
++    eventName: "issues",
++    now: "2026-04-18T00:00:00Z",
++    payload: issuePayload({
++      title: "Change runtime mode policy thresholds",
++      body: "Tune .forge/policies/runtime-mode.forge thresholds.",
++      labelNames: ["forge:auto", "policy"],
++    }),
++  });
++  assert.equal(policy.status, "escalated");
++  assert.equal(policy.plan, undefined);
++  assert.ok(policy.reasons.includes("category:policy"));
++});
++
++test("planner runtime blocks broad forge:auto requests", () => {
++  const result = runPlanner({
++    source: "intake_input",
++    now: "2026-04-18T00:00:00Z",
++    intake: {
++      sourceKind: "issue",
++      title: "Rewrite everything and refactor all modules",
++      body: "Please refactor all packages and also rewrite docs.",
++      labels: ["forge:auto", "type:maintenance"],
++    },
++  });
++
++  assert.equal(result.status, "blocked");
++  assert.equal(result.plan, undefined);
++  assert.ok(result.reasons.includes("scope:too-large"));
++});
++
++test("planner runtime accepts a direct normalized task candidate deterministically", () => {
++  const task = acceptedTask({
++    sourceKind: "issue",
++    repositoryFullName: "hiroshitanaka-creator/ForgeRoot",
++    number: 18,
++    title: "Add missing unit test for planner run",
++    body: "Cover direct task candidate planning.",
++    labels: ["forge:auto", "type:test"],
++    url: "https://github.example/issues/18",
++  });
++
++  const first = runPlanner({ source: "task_candidate", task, now: "2026-04-18T00:00:00Z" });
++  const second = runPlanner({ source: "task_candidate", task, now: "2026-04-18T00:00:00Z" });
++
++  assert.equal(first.status, "planned");
++  assert.deepEqual(first.plan, second.plan);
++  assert.equal(first.intake, undefined);
++  assert.ok(first.plan.scope_contract.mutable_paths.length > 0);
++  assert.equal(first.plan.risk_and_approval.approval_class, "A");
++});
++
++test("planner runtime rejects invalid payloads without creating a plan", () => {
++  const result = runPlanner({
++    source: "github_webhook",
++    eventName: "issues",
++    now: "2026-04-18T00:00:00Z",
++    payload: null,
++  });
++
++  assert.equal(result.status, "invalid");
++  assert.equal(result.plan, undefined);
++  assert.ok(result.reasons.includes("payload_must_be_object"));
++});
++
++test("planner runtime exposes bounded context and output contracts", () => {
++  assert.ok(PLANNER_CONTEXT_RECIPE.outputContract.includes("at_most_one_plan_spec"));
++  assert.equal(PLANNER_BOUNDED_OUTPUT_CONTRACT.maxPlanSpecsPerRun, 1);
++  assert.equal(PLANNER_BOUNDED_OUTPUT_CONTRACT.oneTaskOnePr, true);
++  assert.ok(PLANNER_BOUNDED_OUTPUT_CONTRACT.forbids.includes("executor_file_editing"));
++});
