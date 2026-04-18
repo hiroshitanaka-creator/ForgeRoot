@@ -1,0 +1,2064 @@
+diff -ruN fr_t023_base/ForgeRoot/.forge/README.md fr_t023_work/ForgeRoot/.forge/README.md
+--- fr_t023_base/ForgeRoot/.forge/README.md	2026-04-18 17:13:57.000000000 +0000
++++ fr_t023_work/ForgeRoot/.forge/README.md	2026-04-18 17:33:59.448003020 +0000
+@@ -9,8 +9,10 @@
+ - `policies/runtime-mode.forge` defines conservative runtime modes and kill-switch behavior.
+ - `agents/planner.alpha.forge` defines the T017 Planner Alpha identity, context recipe, and bounded output contract.
+ - `agents/executor.alpha.forge` defines the T019 Executor Alpha identity and sandbox request boundary.
++- `agents/auditor.alpha.forge` defines the T023 Auditor Alpha identity, independent audit boundary, and PR-composition gate.
+ - `packages/executor/src/worktree.ts` defines the T018 branch/worktree manifest boundary.
+ - `packages/executor/src/sandbox.ts` defines the T019 sandbox execution request harness.
++- `packages/auditor/src/run.ts` defines the T023 independent audit runtime and audit result schema.
+ - `docs/specs/t003-validation-fixture.yaml` records the minimum assertions that later schema and parser work should validate.
+ 
+ Current safety boundary:
+@@ -21,12 +23,12 @@
+ - Planner Alpha must not edit files, create branches, create PRs, or generate audit reports.
+ - T018 may prepare a branch/worktree manifest only; it must not run git, create branches, add worktrees, edit files, commit, compose PRs, or invoke a sandbox.
+ - T019 may prepare a sandbox execution request only; it must not execute commands, edit files, commit, compose PRs, generate audit reports, mount secrets, or mutate GitHub.
++- T023 may validate existing sandbox evidence and emit an audit result only; it must not execute commands, edit files, commit, compose PRs, approve merges, mutate GitHub, update memory, or federate.
+ 
+ Still intentionally deferred:
+ 
+ - executor file editing
+ - real sandbox command execution
+-- audit report generation
+ - PR composer
+ - self-evolution
+ - federation behavior
+diff -ruN fr_t023_base/ForgeRoot/.forge/agents/auditor.alpha.forge fr_t023_work/ForgeRoot/.forge/agents/auditor.alpha.forge
+--- fr_t023_base/ForgeRoot/.forge/agents/auditor.alpha.forge	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/.forge/agents/auditor.alpha.forge	2026-04-18 17:31:29.919581357 +0000
+@@ -0,0 +1,174 @@
++#!forge/v1
++forge_version: 1
++schema_ref: urn:forgeroot:forge:agent:v1
++kind: agent
++id: forge://hiroshitanaka-creator/ForgeRoot/agent/auditor.alpha
++revision: 01KQ3Y7P000000000000000000
++mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
++status: active
++title: Auditor Alpha
++summary: Independent deterministic auditor runtime that validates one Plan Spec, one branch/worktree manifest, one sandbox request, and observed sandbox evidence before PR composition.
++owners:
++  - github-app://forgeroot
++created_at: 2026-04-18T00:00:00Z
++updated_at: 2026-04-18T00:00:00Z
++identity:
++  role_name: auditor
++  species: auditor.alpha
++  persona: independent-verifier
++  visibility: internal
++role:
++  mission: Independently decide whether bounded sandbox evidence satisfies one Plan Spec before any PR composer may consume it.
++  inputs:
++    - plan_spec
++    - branch_worktree_plan
++    - sandbox_execution_request
++    - sandbox_observed_output
++    - command_evidence_summary
++  outputs:
++    - audit_result
++    - pr_composition_gate_decision
++    - acceptance_check_summary
++  forbidden_actions:
++    - command_execution_in_auditor
++    - executor_file_editing
++    - branch_creation
++    - commit_creation
++    - pull_request_creation
++    - github_mutation
++    - approval_checkpoint_mutation
++    - merge_default_branch
++    - edit_workflows
++    - edit_policies
++    - memory_or_evaluation_update
++    - network_or_federation_action
++constitution:
++  objective_function:
++    primary:
++      - independent_verification
++      - policy_compliance
++      - reproducible_audit_result
++      - low_false_pass_rate
++    secondary:
++      - concise_review_evidence
++      - high_pr_composer_signal_quality
++  non_negotiables:
++    - one_task_one_pr
++    - no_default_branch_write
++    - no_pr_creation_by_auditor
++    - no_command_execution_by_auditor
++    - no_executor_self_attestation_as_final_truth
++  mutable_paths:
++    - .forge/agents/auditor.alpha.forge
++    - packages/auditor/src/run.ts
++    - packages/auditor/tests/audit.test.mjs
++    - packages/auditor/README.md
++    - docs/specs/t023-validation-report.md
++  immutable_paths:
++    - .github/workflows/**
++    - .forge/policies/**
++    - .forge/network/**
++  approval_class: B
++context_recipe:
++  static_slots:
++    - mind_summary
++    - constitution_digest
++    - plan_spec_contract
++    - branch_worktree_contract
++    - sandbox_output_contract
++  dynamic_slots:
++    - plan_spec
++    - branch_worktree_manifest
++    - sandbox_execution_request
++    - sandbox_observed_output
++    - command_evidence_summary
++    - declared_artifacts
++  token_budget:
++    input: 24000
++    output: 4000
++    reserve: 2000
++  compaction_policy: deterministic-evidence-first-no-repo-dump
++tools:
++  - namespace: audit
++    name: audit.validate_evidence
++    mode: read
++    max_calls: 1
++    timeout_ms: 5000
++    approval: none
++    fallback: null
++  - namespace: repo
++    name: repo.read_artifact_manifest
++    mode: read
++    max_calls: 4
++    timeout_ms: 5000
++    approval: none
++    fallback: null
++memory:
++  working_memory:
++    max_items: 8
++    facts:
++      - T023 auditor runtime is independent and does not execute commands.
++      - A passed audit only allows a later PR composer to proceed; it does not create the PR itself.
++      - Missing sandbox observed output blocks the audit instead of guessing.
++      - Changed paths must remain inside mutable scope and outside immutable governance paths.
++  episodic_heads: []
++  episodic_packs: []
++  semantic_digests:
++    - pattern: independent-audit-before-pr
++      confidence: 1.0
++      summary: Executor-produced evidence must be checked by Auditor Alpha before any PR composition boundary.
++  forget_rules:
++    working_memory_ttl_days: 14
++    keep_last_accepted: 32
++    keep_last_rejected: 64
++scores:
++  windows:
++    d7:
++      fitness: 0.0
++      trust: 0.0
++      novelty: 0.0
++      stability: 0.0
++      network_value: 0.0
++      risk: 0.0
++    d30:
++      fitness: 0.0
++      trust: 0.0
++      novelty: 0.0
++      stability: 0.0
++      network_value: 0.0
++      risk: 0.0
++    all:
++      fitness: 0.0
++      trust: 0.0
++      novelty: 0.0
++      stability: 0.0
++      network_value: 0.0
++      risk: 0.0
++evolution:
++  generation: 0
++  speciation_id: sp_auditor_alpha
++  parents: []
++  last_selected_at: 2026-04-18T00:00:00Z
++  selection_reason: Seeded for T023 auditor runtime boundary.
++  events:
++    - event_id: evo_t023_seed
++      ts: 2026-04-18T00:00:00Z
++      type: seed
++      source_pr: null
++      source_commit: null
++      rationale: Introduce the first independent audit gate between sandbox evidence and PR composition.
++mutation_log: []
++provenance:
++  seed_task: T023
++  source_issue: docs/ops/thread-handoff-after-t019.md#recommended-t023-boundary
++  runtime: forgeroot@0.0.0-t023
++  created_by: github-app://forgeroot
++extensions:
++  forgeroot:
++    bounded_output_contract:
++      max_audit_results_per_sandbox_request: 1
++      command_execution_in_auditor: forbidden
++      file_editing: forbidden
++      pr_composer: forbidden
++      github_mutation: forbidden
++      merge_operation: forbidden
+diff -ruN fr_t023_base/ForgeRoot/README.md fr_t023_work/ForgeRoot/README.md
+--- fr_t023_base/ForgeRoot/README.md	2026-04-18 17:13:47.000000000 +0000
++++ fr_t023_work/ForgeRoot/README.md	2026-04-18 17:33:44.033587617 +0000
+@@ -32,6 +32,7 @@
+ - T017 — deterministic planner runtime bridge
+ - T018 — deterministic branch/worktree manager manifest
+ - T019 — deterministic executor sandbox request harness
++- T023 — deterministic independent auditor runtime and PR-composition gate
+ 
+ ## Repo layout
+ 
+@@ -55,6 +56,7 @@
+ packages/
+   planner/
+   executor/
++  auditor/
+ labs/
+ docs/
+   specs/
+@@ -72,8 +74,9 @@
+ 3. `packages/planner/src/run.ts` is the deterministic runtime bridge that accepts a webhook-like event, normalized intake input, or pre-accepted task candidate and returns at most one valid Plan Spec.
+ 4. `packages/executor/src/worktree.ts` consumes one ready Plan Spec-like object and returns at most one branch/worktree manifest with default-branch write protection, an ephemeral runtime worktree path, and mutable/immutable path guards.
+ 5. `packages/executor/src/sandbox.ts` consumes one T018 branch/worktree manifest and returns at most one sandbox execution request with command, environment, path-scope, network, token, and artifact guards.
++6. `packages/auditor/src/run.ts` consumes one Plan Spec, one branch/worktree manifest, one sandbox request, and observed sandbox evidence, then emits one independent audit result with a PR-composition gate decision.
+ 
+-The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request.
++The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request. The T023 auditor runtime validates existing evidence only; it does not execute commands, edit files, compose PRs, mutate GitHub, approve merges, update memory, or federate.
+ 
+ ## Safety defaults
+ 
+@@ -83,4 +86,4 @@
+ - Workflow, policy, permission, and network changes are elevated.
+ - Kill switch can close the mutating lane in one operation.
+ - Event Inbox dedupes GitHub delivery IDs before downstream processing.
+-- One task becomes one plan, one branch/worktree manifest, one sandbox execution request, and later one PR.
++- One task becomes one plan, one branch/worktree manifest, one sandbox execution request, one audit result, and later one PR.
+diff -ruN fr_t023_base/ForgeRoot/docs/README.md fr_t023_work/ForgeRoot/docs/README.md
+--- fr_t023_base/ForgeRoot/docs/README.md	2026-04-18 17:14:02.000000000 +0000
++++ fr_t023_work/ForgeRoot/docs/README.md	2026-04-18 17:34:13.882832213 +0000
+@@ -13,6 +13,7 @@
+ - `ops/thread-handoff-after-t016.md` — handoff summary for starting a clean T017 planner-runtime thread
+ - `ops/thread-handoff-after-t018.md` — handoff summary for starting T019 executor sandbox harness
+ - `ops/thread-handoff-after-t019.md` — handoff summary for starting T023 auditor runtime
++- `ops/thread-handoff-after-t023.md` — handoff summary for starting T024 PR composer
+ - `specs/forge-v1.md` — T004 `.forge` v1 specification seed
+ - `specs/issue-intake.md` — T015 deterministic issue intake classifier
+ - `specs/plan-spec.md` — T016 one-task-one-PR Plan Spec DSL
+@@ -28,3 +29,4 @@
+ - `specs/t017-validation-report.md` — T017 planner runtime report
+ - `specs/t018-validation-report.md` — T018 branch/worktree manager report
+ - `specs/t019-validation-report.md` — T019 executor sandbox harness report
++- `specs/t023-validation-report.md` — T023 auditor runtime report
+diff -ruN fr_t023_base/ForgeRoot/docs/ops/thread-handoff-after-t023.md fr_t023_work/ForgeRoot/docs/ops/thread-handoff-after-t023.md
+--- fr_t023_base/ForgeRoot/docs/ops/thread-handoff-after-t023.md	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/docs/ops/thread-handoff-after-t023.md	2026-04-18 17:33:49.488751845 +0000
+@@ -0,0 +1,95 @@
++# ForgeRoot Thread Handoff: after T023
++
++Date: 2026-04-18 JST
++
++Recommended next target: **T024 PR composer**
++
++## Current state
++
++ForgeRoot has completed the deterministic intake, planning, branch/worktree preparation, sandbox-request boundary, and independent audit boundary for the first Phase 1 forging loop:
++
++- T015 issue intake classifier
++- T016 Plan Spec DSL
++- T017 planner runtime
++- T018 branch/worktree manager
++- T019 executor sandbox harness
++- T023 auditor runtime
++
++T023 introduced `.forge/agents/auditor.alpha.forge` and `packages/auditor/src/run.ts`. The auditor consumes one Plan Spec, one branch/worktree manifest, one sandbox request, and observed sandbox evidence. It produces a bounded audit result with a PR-composition gate decision.
++
++The auditor is intentionally evidence-only. It validates chain consistency, declared artifacts, observed command IDs, environment safety, mutable/immutable path scope, and machine-checkable acceptance criteria. It does not execute commands, edit files, create branches, create commits, compose pull requests, mutate GitHub, approve merges, update memory, or perform federation behavior.
++
++## Key files from T023
++
++- `.forge/agents/auditor.alpha.forge`
++- `packages/auditor/src/run.ts`
++- `packages/auditor/src/index.ts`
++- `packages/auditor/tests/audit.test.mjs`
++- `packages/auditor/tests/run.test.mjs`
++- `packages/auditor/README.md`
++- `docs/specs/t023-validation-report.md`
++
++## T023 API surface
++
++```ts
++runAuditor(input)
++validatePlanSpecForAudit(plan)
++validateBranchWorktreePlanForAudit(worktreePlan)
++validateSandboxExecutionRequestForAudit(request)
++validateAuditResult(report)
++validateAuditReport(report)
++AUDITOR_RUNTIME_CONTRACT
++```
++
++## Audit result contract
++
++Runtime statuses:
++
++- `passed` — evidence and acceptance criteria pass; a later PR composer may proceed.
++- `failed` — evidence exists but violates scope, artifact, command, environment, or acceptance checks.
++- `blocked` — sandbox observed output is missing, so audit cannot pass.
++- `invalid` — supplied plan/worktree/sandbox chain is malformed or inconsistent.
++
++Gate decisions:
++
++- `allow_pr_composition`
++- `request_changes`
++- `block_pr_composition`
++- `invalid`
++
++## Invariants preserved
++
++- Git remains the source of truth.
++- PR remains the only evolution transport path.
++- One accepted task becomes one Plan Spec.
++- One ready Plan Spec becomes at most one branch/worktree manifest.
++- One branch/worktree manifest becomes at most one sandbox execution request.
++- One sandbox request and observed output become at most one audit result.
++- Default branch writes remain forbidden.
++- Sandbox network defaults to off.
++- GitHub token mode defaults to none.
++- Secret mounts are forbidden.
++- Auditor does not execute commands or trust executor self-attestation as final truth.
++- Workflow, policy, and network paths remain immutable unless a separate elevated task approves them.
++
++## Recommended T024 boundary
++
++T024 should add a PR composer that consumes a passed T023 audit result and prepares a reviewable pull-request payload/body/check metadata. It should not silently merge, bypass review, mutate policy, edit workflow files, or loosen approval gates.
++
++Suggested shape:
++
++- consume Plan Spec, branch/worktree manifest, sandbox request, sandbox observed output, and AuditResultReport
++- require `audit.status === "passed"` and `audit.decision === "allow_pr_composition"`
++- produce a deterministic PR draft/composition object with title, body, labels, reviewers/check summary, risk summary, acceptance criteria, and provenance
++- preserve one-task-one-PR and no-default-branch-write invariants
++- keep actual GitHub mutation isolated behind a later adapter or explicit boundary if T024 is scoped as composer-only
++
++Suggested out of scope for T024:
++
++- merge operation
++- auto-approval
++- workflow mutation
++- policy mutation
++- memory/evaluation updates
++- network/federation behavior
++- self-evolution
+diff -ruN fr_t023_base/ForgeRoot/docs/specs/t023-validation-report.md fr_t023_work/ForgeRoot/docs/specs/t023-validation-report.md
+--- fr_t023_base/ForgeRoot/docs/specs/t023-validation-report.md	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/docs/specs/t023-validation-report.md	2026-04-18 17:33:49.478908746 +0000
+@@ -0,0 +1,142 @@
++# T023 validation report — Auditor runtime
++
++Date: 2026-04-18 JST
++
++## Scope
++
++T023 adds the deterministic Auditor runtime after the T019 sandbox request harness and before the future PR composer.
++
++Implemented paths:
++
++- `.forge/agents/auditor.alpha.forge`
++- `packages/auditor/src/run.ts`
++- `packages/auditor/src/index.ts`
++- `packages/auditor/tests/audit.test.mjs`
++- `packages/auditor/tests/run.test.mjs`
++- `packages/auditor/scripts/build.mjs`
++- `docs/specs/t023-validation-report.md`
++- `docs/ops/thread-handoff-after-t023.md`
++
++Updated paths:
++
++- `README.md`
++- `.forge/README.md`
++- `docs/README.md`
++
++## Contract
++
++The Auditor runtime is evidence-only. It consumes one Plan Spec, one T018 branch/worktree manifest, one T019 sandbox execution request, and one observed sandbox output or evidence summary. It emits one `AuditResultReport` with a PR-composition gate decision.
++
++The Auditor runtime does not execute commands, edit files, create branches, add worktrees, create commits, compose pull requests, mutate GitHub, approve merges, update memory/evaluation state, or perform federation/network behavior.
++
++The generated audit result records:
++
++- the Plan Spec, worktree manifest, and sandbox request identifiers
++- chain-consistency checks across plan/worktree/sandbox inputs
++- mutable and immutable path validation for observed changed paths
++- required artifact validation
++- undeclared command and artifact rejection
++- secret-looking environment rejection
++- machine-checkable acceptance-criteria outcomes
++- risk and approval-class summary
++- PR-composition gate decision
++- auditor guard assertions proving the auditor did not perform mutation-side actions
++
++## API surface
++
++```ts
++runAuditor(input)
++validatePlanSpecForAudit(plan)
++validateBranchWorktreePlanForAudit(worktreePlan)
++validateSandboxExecutionRequestForAudit(request)
++validateAuditResult(report)
++validateAuditReport(report)
++AUDITOR_RUNTIME_CONTRACT
++```
++
++## Runtime statuses
++
++| Status | Decision | Meaning |
++|---|---|---|
++| `passed` | `allow_pr_composition` | Evidence and acceptance criteria passed. A later PR composer may consume the audit result. |
++| `failed` | `request_changes` | Evidence exists, but scope, artifact, command, environment, or acceptance checks failed. |
++| `blocked` | `block_pr_composition` | Required sandbox observed output is missing, so the auditor refuses to guess. |
++| `invalid` | `invalid` | Input chain is malformed or inconsistent. |
++
++## Acceptance coverage
++
++| Requirement | Coverage |
++|---|---|
++| Consume plan/worktree/sandbox chain | `runAuditor` requires all three structural inputs and validates them independently. |
++| Independent audit before PR composer | `AUDITOR_RUNTIME_CONTRACT.independentFromExecutor` and report gates assert independent audit. |
++| No command execution by auditor | Contract, agent definition, audit trail, and report guards explicitly prohibit auditor command execution. |
++| No file/GitHub mutation | Contract and generated report guards prohibit file editing, branch creation, commits, PR creation, GitHub mutation, and default branch writes. |
++| Mutable path scope enforced | Observed changed paths must match mutable paths and avoid immutable paths. |
++| Sandbox artifacts bounded | Observed artifacts must be declared, required artifacts must be present, media type/size/hash are validated. |
++| Commands bounded | Observed command IDs must have been declared by the sandbox request. |
++| Secret environment rejected | Secret-looking environment names and values become audit failures. |
++| Acceptance criteria machine-checkable | Criteria are evaluated from explicit changed-path, diff-budget, command, and text evidence. |
++| Human gate preserved | A passed audit allows PR composition only; merge remains human-review gated according to approval class. |
++| T018/T019 regressions preserved | Executor tests still pass. |
++| T015/T016/T017 regressions preserved | Planner tests still pass. |
++
++## Validation commands
++
++```bash
++cd packages/auditor
++node scripts/build.mjs
++node --test --test-force-exit tests/*.test.mjs
++
++cd ../executor
++node --test --test-force-exit tests/*.test.mjs
++
++cd ../planner
++node --test --test-force-exit tests/*.test.mjs
++
++cd ../..
++node --check packages/auditor/dist/index.js
++node --check packages/auditor/dist/run.js
++node --check packages/executor/dist/index.js
++node --check packages/executor/dist/worktree.js
++node --check packages/executor/dist/sandbox.js
++node --check packages/planner/dist/index.js
++node --check packages/planner/dist/run.js
++```
++
++## Results
++
++- Auditor build script: pass
++- Auditor tests: 22 pass / 0 fail
++- Executor regression tests: 21 pass / 0 fail
++  - T019 sandbox harness tests: 11 pass / 0 fail
++  - T018 branch/worktree tests: 10 pass / 0 fail
++- Planner regression tests: 23 pass / 0 fail
++- Node syntax checks:
++  - `packages/auditor/dist/index.js`: pass
++  - `packages/auditor/dist/run.js`: pass
++  - `packages/executor/dist/index.js`: pass
++  - `packages/executor/dist/worktree.js`: pass
++  - `packages/executor/dist/sandbox.js`: pass
++  - `packages/planner/dist/index.js`: pass
++  - `packages/planner/dist/run.js`: pass
++
++## Build note
++
++T023 uses a deterministic package-local build script for `packages/auditor` that emits the runtime JavaScript and declaration stubs from the source files. The prior local sandbox caveat around `tsc` terminal completion remains; this report relies on the build script, Node syntax checks, and runtime tests for this task.
++
++## Out of scope preserved
++
++T023 intentionally does not add:
++
++- PR composer
++- GitHub mutation
++- real sandbox command execution
++- executor patch generation
++- branch creation or worktree creation
++- commit creation
++- merge approval or merge operation
++- workflow mutation
++- policy mutation
++- network/federation behavior
++- memory/evaluation updates
++- self-evolution
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/README.md fr_t023_work/ForgeRoot/packages/auditor/README.md
+--- fr_t023_base/ForgeRoot/packages/auditor/README.md	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/README.md	2026-04-18 17:34:20.523363933 +0000
+@@ -0,0 +1,41 @@
++# @forgeroot/auditor
++
++T023 adds the deterministic Auditor runtime for the first ForgeRoot forging loop.
++
++The package consumes:
++
++- one Plan Spec
++- one T018 branch/worktree manifest
++- one T019 sandbox execution request
++- one sandbox observed output / evidence summary
++
++It produces one bounded `AuditResultReport` with a PR-composition gate decision.
++
++## Boundary
++
++The auditor is independent from the executor. It validates evidence that already exists; it does not execute commands, edit files, create branches, create commits, compose PRs, mutate GitHub, update memory, or approve merges.
++
++Primary API:
++
++```ts
++runAuditor(input)
++validatePlanSpecForAudit(plan)
++validateBranchWorktreePlanForAudit(worktreePlan)
++validateSandboxExecutionRequestForAudit(request)
++validateAuditResult(report)
++```
++
++Runtime statuses:
++
++- `passed` — evidence and acceptance criteria pass; PR composition may proceed later.
++- `failed` — evidence exists but violates scope, artifact, command, or acceptance checks.
++- `blocked` — required evidence is missing.
++- `invalid` — the supplied Plan Spec / worktree / sandbox request chain is malformed or inconsistent.
++
++## Local development
++
++```bash
++cd packages/auditor
++npm run build
++node --test --test-force-exit tests/*.test.mjs
++```
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/dist/index.d.ts fr_t023_work/ForgeRoot/packages/auditor/dist/index.d.ts
+--- fr_t023_base/ForgeRoot/packages/auditor/dist/index.d.ts	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/dist/index.d.ts	2026-04-18 17:35:22.359560773 +0000
+@@ -0,0 +1 @@
++export * from "./run.js";
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/dist/index.js fr_t023_work/ForgeRoot/packages/auditor/dist/index.js
+--- fr_t023_base/ForgeRoot/packages/auditor/dist/index.js	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/dist/index.js	2026-04-18 17:35:22.359202908 +0000
+@@ -0,0 +1 @@
++export * from "./run.js";
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/dist/index.js.map fr_t023_work/ForgeRoot/packages/auditor/dist/index.js.map
+--- fr_t023_base/ForgeRoot/packages/auditor/dist/index.js.map	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/dist/index.js.map	2026-04-18 17:35:22.359346861 +0000
+@@ -0,0 +1 @@
++{"version":3,"file":"index.js","sources":["../src/index.ts"],"sourcesContent":[],"names":[],"mappings":""}
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/dist/run.d.ts fr_t023_work/ForgeRoot/packages/auditor/dist/run.d.ts
+--- fr_t023_base/ForgeRoot/packages/auditor/dist/run.d.ts	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/dist/run.d.ts	2026-04-18 17:35:22.359424114 +0000
+@@ -0,0 +1,15 @@
++export declare const AUDIT_RESULT_SCHEMA_REF = "urn:forgeroot:audit-result:v1";
++export declare const AUDITOR_RUNTIME_CONTRACT: {
++  readonly consumes: readonly string[];
++  readonly produces: readonly string[];
++  readonly validates: readonly string[];
++  readonly forbids: readonly string[];
++  readonly oneTaskOnePr: true;
++  readonly independentFromExecutor: true;
++};
++export declare function runAuditor(input: any): any;
++export declare function validatePlanSpecForAudit(plan: any): any;
++export declare function validateBranchWorktreePlanForAudit(value: any): any;
++export declare function validateSandboxExecutionRequestForAudit(value: any): any;
++export declare function validateAuditResult(report: any): any;
++export declare const validateAuditReport: typeof validateAuditResult;
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/dist/run.js fr_t023_work/ForgeRoot/packages/auditor/dist/run.js
+--- fr_t023_base/ForgeRoot/packages/auditor/dist/run.js	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/dist/run.js	2026-04-18 17:35:22.358807496 +0000
+@@ -0,0 +1,447 @@
++export const AUDIT_RESULT_SCHEMA_REF = "urn:forgeroot:audit-result:v1";
++
++export const AUDITOR_RUNTIME_CONTRACT = {
++  consumes: ["plan_spec", "branch_worktree_plan", "sandbox_execution_request", "sandbox_observed_output"],
++  produces: ["audit_result"],
++  validates: ["input_chain_consistency", "mutable_path_scope", "required_artifacts", "observed_commands", "observed_environment", "acceptance_criteria"],
++  forbids: [
++    "command_execution_in_auditor",
++    "file_editing",
++    "git_checkout",
++    "git_branch_create",
++    "git_worktree_add",
++    "git_push",
++    "commit_creation",
++    "pull_request_creation",
++    "github_mutation",
++    "default_branch_write",
++    "approval_checkpoint_mutation",
++    "memory_or_evaluation_updates",
++    "network_or_federation_behavior",
++  ],
++  oneTaskOnePr: true,
++  independentFromExecutor: true,
++};
++
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++const PLAN_SCHEMA_REF = "urn:forgeroot:plan-spec:v1";
++const WORKTREE_SCHEMA_REF = "urn:forgeroot:branch-worktree:v1";
++const SANDBOX_SCHEMA_REF = "urn:forgeroot:sandbox-execution-request:v1";
++const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
++const RISKS = new Set(["low", "medium", "high", "critical"]);
++const PLAN_STATUSES = new Set(["ready_for_execution", "blocked_for_human"]);
++const SECRET_PATTERNS = ["TOKEN", "SECRET", "PASSWORD", "PRIVATE", "CREDENTIAL", "COOKIE", "SSH", "GPG", "KEY"];
++
++export function runAuditor(input) {
++  const auditTrail = [
++    "auditor_runtime:T023",
++    "contract:independent_audit",
++    "contract:no_command_execution",
++    "contract:no_file_or_git_mutation",
++    "contract:no_pr_composition",
++  ];
++
++  const planValidation = validatePlanSpecForAudit(input?.plan);
++  const worktreeValidation = validateBranchWorktreePlanForAudit(input?.worktreePlan);
++  const requestValidation = validateSandboxExecutionRequestForAudit(input?.sandboxRequest);
++  const structuralIssues = [...planValidation.issues, ...worktreeValidation.issues, ...requestValidation.issues];
++  if (structuralIssues.length > 0) {
++    const findings = structuralIssues.map((item, index) => finding(index + 1, "error", "input_validation", item.message, item.path));
++    return {
++      status: "invalid",
++      decision: "invalid",
++      findings,
++      reasons: uniqueStrings(["invalid_auditor_input", ...structuralIssues.map((item) => item.code)]),
++      auditTrail: [...auditTrail, "input:invalid", "audit_result:none"],
++      issues: structuralIssues,
++    };
++  }
++
++  const plan = input.plan;
++  const worktreePlan = input.worktreePlan;
++  const sandboxRequest = input.sandboxRequest;
++  const evidence = normalizeEvidence(input.sandboxOutput, input.evidence);
++  const chainFindings = validateChain(plan, worktreePlan, sandboxRequest);
++  if (chainFindings.some((item) => item.severity === "error")) {
++    const report = buildReport({ plan, worktreePlan, sandboxRequest, sandboxOutput: input.sandboxOutput, evidence, findings: chainFindings, checks: [], changedPathResults: [] }, input.now, "invalid", "invalid");
++    return { status: "invalid", decision: "invalid", report, findings: chainFindings, reasons: reasonsFromFindings("chain_consistency_failed", chainFindings), auditTrail: [...auditTrail, "chain:invalid", "audit_result:generated"] };
++  }
++
++  const observed = validateObserved(plan, sandboxRequest, input.sandboxOutput, evidence);
++  const acceptanceChecks = evaluateAcceptance(plan, evidence, observed.changedPathResults);
++  const acceptanceFindings = acceptanceChecks
++    .filter((check) => check.status === "fail")
++    .map((check, index) => finding(10_000 + index, "error", "acceptance", `${check.id}: ${check.reason}`));
++  const findings = [...chainFindings, ...observed.findings, ...acceptanceFindings];
++
++  let status;
++  let decision;
++  if (input.sandboxOutput === undefined) {
++    status = "blocked";
++    decision = "block_pr_composition";
++    findings.push(finding(20_000, "error", "artifact", "sandbox observed output is required before audit can pass", "/sandboxOutput"));
++  } else if (findings.some((item) => item.severity === "error")) {
++    status = "failed";
++    decision = "request_changes";
++  } else {
++    status = "passed";
++    decision = "allow_pr_composition";
++  }
++
++  const report = buildReport({ plan, worktreePlan, sandboxRequest, sandboxOutput: input.sandboxOutput, evidence, findings, checks: acceptanceChecks, changedPathResults: observed.changedPathResults }, input.now, status, decision);
++  const reportValidation = validateAuditResult(report);
++  if (!reportValidation.ok) {
++    const validationFindings = reportValidation.issues.map((item, index) => finding(30_000 + index, "error", "input_validation", `generated audit result failed validation: ${item.message}`, item.path));
++    return { status: "invalid", decision: "invalid", findings: [...findings, ...validationFindings], reasons: uniqueStrings(["generated_audit_result_failed_validation", ...reportValidation.issues.map((item) => item.code)]), auditTrail: [...auditTrail, "audit_result:invalid"], issues: reportValidation.issues };
++  }
++
++  return {
++    status,
++    decision,
++    report,
++    findings,
++    reasons: reasonsForStatus(status, report, findings),
++    auditTrail: [...auditTrail, "chain:consistent", `sandbox_output:${input.sandboxOutput === undefined ? "missing" : "present"}`, `audit_result:${status}`],
++  };
++}
++
++export function validatePlanSpecForAudit(plan) {
++  const issues = [];
++  const root = asRecord(plan);
++  if (!root) return invalid("/plan", "type", "plan spec must be an object");
++  expectLiteral(root, "plan_version", 1, issues, "/plan");
++  expectLiteral(root, "schema_ref", PLAN_SCHEMA_REF, issues, "/plan");
++  expectString(root, "plan_id", issues, "/plan", "forge-plan://");
++  expectOneOf(root, "status", PLAN_STATUSES, issues, "/plan");
++  expectRfc3339(root, "created_at", issues, "/plan");
++  expectString(root, "title", issues, "/plan");
++  validateSource(root.source, "/plan/source", issues, true);
++  validateScope(root.scope_contract, "/plan/scope_contract", issues, true);
++  const risk = asRecord(root.risk_and_approval);
++  if (!risk) issues.push(issue("/plan/risk_and_approval", "required", "risk_and_approval is required"));
++  else {
++    expectOneOf(risk, "risk", RISKS, issues, "/plan/risk_and_approval");
++    expectOneOf(risk, "approval_class", APPROVAL_CLASSES, issues, "/plan/risk_and_approval");
++    expectBoolean(risk, "human_review_required_before_merge", issues, "/plan/risk_and_approval");
++    expectStringArray(risk, "reasons", issues, "/plan/risk_and_approval", false);
++  }
++  if (!Array.isArray(root.acceptance_criteria) || root.acceptance_criteria.length === 0) issues.push(issue("/plan/acceptance_criteria", "non_empty", "acceptance criteria must be a non-empty array"));
++  else root.acceptance_criteria.forEach((criterion, index) => validateAcceptanceCriterion(criterion, `/plan/acceptance_criteria/${index}`, issues));
++  const audit = asRecord(root.audit);
++  if (!audit) issues.push(issue("/plan/audit", "required", "audit contract is required"));
++  else if (audit.independent_audit_required !== true) issues.push(issue("/plan/audit/independent_audit_required", "independent_required", "independent audit must be required"));
++  return { ok: issues.length === 0, issues };
++}
++
++export function validateBranchWorktreePlanForAudit(value) {
++  const issues = [];
++  const root = asRecord(value);
++  if (!root) return invalid("/worktreePlan", "type", "branch/worktree plan must be an object");
++  expectLiteral(root, "manifest_version", 1, issues, "/worktreePlan");
++  expectLiteral(root, "schema_ref", WORKTREE_SCHEMA_REF, issues, "/worktreePlan");
++  expectString(root, "manifest_id", issues, "/worktreePlan", "forge-worktree://");
++  expectString(root, "plan_id", issues, "/worktreePlan", "forge-plan://");
++  validateSource(root.source, "/worktreePlan/source", issues, true);
++  validateBranch(root.branch, "/worktreePlan/branch", issues);
++  validateWorktree(root.worktree, "/worktreePlan/worktree", issues);
++  validateScope(root.scope, "/worktreePlan/scope", issues, false);
++  validateApproval(root.approval, "/worktreePlan/approval", issues, true);
++  return { ok: issues.length === 0, issues };
++}
++
++export function validateSandboxExecutionRequestForAudit(value) {
++  const issues = [];
++  const root = asRecord(value);
++  if (!root) return invalid("/sandboxRequest", "type", "sandbox execution request must be an object");
++  expectLiteral(root, "manifest_version", 1, issues, "/sandboxRequest");
++  expectLiteral(root, "schema_ref", SANDBOX_SCHEMA_REF, issues, "/sandboxRequest");
++  expectString(root, "request_id", issues, "/sandboxRequest", "forge-sandbox://");
++  expectString(root, "plan_id", issues, "/sandboxRequest", "forge-plan://");
++  expectString(root, "worktree_manifest_id", issues, "/sandboxRequest", "forge-worktree://");
++  validateSource(root.source, "/sandboxRequest/source", issues, true);
++  validateBranch(root.branch, "/sandboxRequest/branch", issues);
++  validateWorktree(root.worktree, "/sandboxRequest/worktree", issues);
++  validateScope(root.scope, "/sandboxRequest/scope", issues, false);
++  validateApproval(root.approval, "/sandboxRequest/approval", issues, true);
++  if (!Array.isArray(root.commands) || root.commands.length === 0) issues.push(issue("/sandboxRequest/commands", "non_empty", "commands must be a non-empty array"));
++  if (!Array.isArray(root.artifacts) || root.artifacts.length === 0) issues.push(issue("/sandboxRequest/artifacts", "non_empty", "artifacts must be a non-empty array"));
++  const isolation = asRecord(root.isolation);
++  if (!isolation) issues.push(issue("/sandboxRequest/isolation", "required", "isolation is required"));
++  else {
++    if (isolation.execution_trust !== "untrusted") issues.push(issue("/sandboxRequest/isolation/execution_trust", "literal", "execution_trust must be untrusted"));
++    if (asRecord(isolation.secrets)?.mount !== false) issues.push(issue("/sandboxRequest/isolation/secrets/mount", "literal", "secret mounts must be false"));
++  }
++  const filesystem = asRecord(root.filesystem);
++  if (!filesystem) issues.push(issue("/sandboxRequest/filesystem", "required", "filesystem is required"));
++  else if (filesystem.artifacts_outside_worktree !== true) issues.push(issue("/sandboxRequest/filesystem/artifacts_outside_worktree", "literal", "artifacts must be outside worktree"));
++  const guards = asRecord(root.guards);
++  if (!guards) issues.push(issue("/sandboxRequest/guards", "required", "guards are required"));
++  else {
++    if (guards.no_default_branch_write !== true) issues.push(issue("/sandboxRequest/guards/no_default_branch_write", "literal", "no_default_branch_write guard must be true"));
++    if (guards.no_pr_creation !== true) issues.push(issue("/sandboxRequest/guards/no_pr_creation", "literal", "no_pr_creation guard must be true"));
++    if (guards.no_secret_mounts !== true) issues.push(issue("/sandboxRequest/guards/no_secret_mounts", "literal", "no_secret_mounts guard must be true"));
++  }
++  return { ok: issues.length === 0, issues };
++}
++
++export function validateAuditResult(report) {
++  const issues = [];
++  const root = asRecord(report);
++  if (!root) return invalid("/auditResult", "type", "audit result must be an object");
++  expectLiteral(root, "manifest_version", 1, issues, "/auditResult");
++  expectLiteral(root, "schema_ref", AUDIT_RESULT_SCHEMA_REF, issues, "/auditResult");
++  expectString(root, "audit_id", issues, "/auditResult", "forge-audit://");
++  expectRfc3339(root, "created_at", issues, "/auditResult");
++  expectOneOf(root, "status", new Set(["passed", "failed", "blocked", "invalid"]), issues, "/auditResult");
++  expectOneOf(root, "decision", new Set(["allow_pr_composition", "request_changes", "block_pr_composition", "invalid"]), issues, "/auditResult");
++  if (root.status === "passed" && root.decision !== "allow_pr_composition") issues.push(issue("/auditResult/decision", "coherence", "passed audit must allow PR composition"));
++  if (root.status === "failed" && root.decision !== "request_changes") issues.push(issue("/auditResult/decision", "coherence", "failed audit must request changes"));
++  if (root.status === "blocked" && root.decision !== "block_pr_composition") issues.push(issue("/auditResult/decision", "coherence", "blocked audit must block PR composition"));
++  if (root.status === "invalid" && root.decision !== "invalid") issues.push(issue("/auditResult/decision", "coherence", "invalid audit must use invalid decision"));
++  expectString(root, "plan_id", issues, "/auditResult", "forge-plan://");
++  expectString(root, "worktree_manifest_id", issues, "/auditResult", "forge-worktree://");
++  expectString(root, "sandbox_request_id", issues, "/auditResult", "forge-sandbox://");
++  validateScope(root.scope, "/auditResult/scope", issues, false);
++  const acceptance = asRecord(root.acceptance);
++  if (!acceptance) issues.push(issue("/auditResult/acceptance", "required", "acceptance is required"));
++  else if (!Array.isArray(acceptance.checks)) issues.push(issue("/auditResult/acceptance/checks", "array", "acceptance checks must be an array"));
++  if (!Array.isArray(root.findings)) issues.push(issue("/auditResult/findings", "array", "findings must be an array"));
++  const gates = asRecord(root.gates);
++  if (!gates) issues.push(issue("/auditResult/gates", "required", "gates are required"));
++  else if (gates.audit_independent !== true) issues.push(issue("/auditResult/gates/audit_independent", "literal", "audit_independent must be true"));
++  const guards = asRecord(root.guards);
++  if (!guards) issues.push(issue("/auditResult/guards", "required", "guards are required"));
++  else for (const key of ["no_command_execution_in_auditor", "no_file_editing", "no_branch_creation", "no_commit_creation", "no_pull_request_creation", "no_github_mutation", "no_default_branch_write"]) {
++    if (guards[key] !== true) issues.push(issue(`/auditResult/guards/${key}`, "literal", `${key} must be true`));
++  }
++  return { ok: issues.length === 0, issues };
++}
++
++export const validateAuditReport = validateAuditResult;
++
++function validateChain(plan, worktreePlan, sandboxRequest) {
++  const findings = [];
++  let index = 1;
++  const add = (message, path) => findings.push(finding(index++, "error", "chain_consistency", message, path));
++  if (plan.plan_id !== worktreePlan.plan_id) add("Plan Spec and branch/worktree manifest plan_id values differ", "/worktreePlan/plan_id");
++  if (plan.plan_id !== sandboxRequest.plan_id) add("Plan Spec and sandbox request plan_id values differ", "/sandboxRequest/plan_id");
++  if (worktreePlan.manifest_id !== sandboxRequest.worktree_manifest_id) add("Sandbox request does not reference the supplied branch/worktree manifest", "/sandboxRequest/worktree_manifest_id");
++  if (worktreePlan.branch.name !== sandboxRequest.branch.name) add("Sandbox request branch name differs from branch/worktree manifest", "/sandboxRequest/branch/name");
++  if (!sameArray(plan.scope_contract.mutable_paths, worktreePlan.scope.mutable_paths) || !sameArray(worktreePlan.scope.mutable_paths, sandboxRequest.scope.mutable_paths)) add("Mutable path scopes are not consistent across plan, worktree, and sandbox request", "/scope/mutable_paths");
++  if (!sameArray(plan.scope_contract.immutable_paths, worktreePlan.scope.immutable_paths) || !sameArray(worktreePlan.scope.immutable_paths, sandboxRequest.scope.immutable_paths)) add("Immutable path scopes are not consistent across plan, worktree, and sandbox request", "/scope/immutable_paths");
++  if (sandboxRequest.isolation?.secrets?.mount !== false) add("Sandbox request violates no-secret isolation contract", "/sandboxRequest/isolation/secrets");
++  if (sandboxRequest.guards?.no_pr_creation !== true) add("Sandbox request guard must forbid PR creation", "/sandboxRequest/guards/no_pr_creation");
++  if (plan.risk_and_approval.approval_class !== sandboxRequest.approval.approval_class) add("Plan approval class differs from sandbox request approval", "/sandboxRequest/approval/approval_class");
++  if (plan.risk_and_approval.risk !== sandboxRequest.approval.risk) add("Plan risk differs from sandbox request approval", "/sandboxRequest/approval/risk");
++  return findings;
++}
++
++function validateObserved(plan, request, output, evidence) {
++  const findings = [];
++  const changedPathResults = [];
++  if (!output) return { findings, changedPathResults };
++  let index = 1_000;
++  const add = (category, message, path) => findings.push(finding(index++, "error", category, message, path));
++  const declaredCommandIds = new Set(request.commands.map((command) => command.id));
++  for (const id of output.command_ids ?? []) if (!declaredCommandIds.has(id)) add("command", `observed command '${id}' was not declared`, "/sandboxOutput/command_ids");
++  const declaredArtifacts = new Map(request.artifacts.map((artifact) => [normalizePath(artifact.path) ?? artifact.path, artifact]));
++  const observedArtifacts = new Set();
++  for (const artifact of output.artifacts ?? []) {
++    const normalized = normalizePath(artifact.path);
++    if (!normalized) { add("artifact", `artifact path '${artifact.path}' is not safe`, "/sandboxOutput/artifacts/path"); continue; }
++    observedArtifacts.add(normalized);
++    const declared = declaredArtifacts.get(normalized);
++    if (!declared) { add("artifact", `observed artifact '${normalized}' was not declared by the sandbox request`, "/sandboxOutput/artifacts"); continue; }
++    if (!Number.isSafeInteger(artifact.bytes) || artifact.bytes < 0) add("artifact", `artifact '${normalized}' has invalid byte count`, "/sandboxOutput/artifacts/bytes");
++    else if (artifact.bytes > declared.max_bytes) add("artifact", `artifact '${normalized}' exceeds declared max_bytes`, "/sandboxOutput/artifacts/bytes");
++    if (artifact.media_type !== undefined && artifact.media_type !== declared.media_type) add("artifact", `artifact '${normalized}' media type does not match declaration`, "/sandboxOutput/artifacts/media_type");
++    if (artifact.sha256 !== undefined && !/^sha256:[a-f0-9]{64}$/.test(artifact.sha256)) add("artifact", `artifact '${normalized}' sha256 must use sha256:<64 hex>`, "/sandboxOutput/artifacts/sha256");
++  }
++  for (const artifact of request.artifacts) {
++    const path = normalizePath(artifact.path) ?? artifact.path;
++    if (artifact.required && !observedArtifacts.has(path)) add("artifact", `required artifact '${path}' is missing from sandbox output`, "/sandboxOutput/artifacts");
++  }
++  for (const [name, value] of Object.entries(output.environment ?? {})) {
++    if (isForbiddenEnvName(name)) add("safety_contract", `observed environment variable '${name}' looks secret-bearing`, "/sandboxOutput/environment");
++    if (looksSecret(String(value))) add("safety_contract", `observed environment variable '${name}' looks like a secret value`, "/sandboxOutput/environment");
++  }
++  const changedPaths = uniqueStrings(evidence.changedPaths);
++  for (const raw of changedPaths) {
++    const normalized = normalizePath(raw);
++    if (!normalized) { changedPathResults.push({ path: raw, status: "rejected", reason: "invalid_path" }); add("scope", `changed path '${raw}' is not a safe relative path`, "/sandboxOutput/changed_paths"); continue; }
++    if (matchesAny(normalized, request.scope.immutable_paths)) { changedPathResults.push({ path: normalized, status: "rejected", reason: "immutable" }); add("scope", `changed path '${normalized}' touches immutable scope`, "/sandboxOutput/changed_paths"); continue; }
++    if (!matchesAny(normalized, request.scope.mutable_paths)) { changedPathResults.push({ path: normalized, status: "rejected", reason: "outside_mutable_scope" }); add("scope", `changed path '${normalized}' is outside mutable scope`, "/sandboxOutput/changed_paths"); continue; }
++    changedPathResults.push({ path: normalized, status: "accepted", reason: "mutable" });
++  }
++  if (evidence.filesChanged !== null && evidence.filesChanged > plan.scope_contract.max_files_changed) add("scope", "observed files_changed exceeds Plan Spec budget", "/evidence/files_changed");
++  if (evidence.diffLines !== null && evidence.diffLines > plan.scope_contract.max_diff_lines) add("scope", "observed diff_lines exceeds Plan Spec budget", "/evidence/diff_lines");
++  return { findings, changedPathResults };
++}
++
++function evaluateAcceptance(plan, evidence, changedPathResults) {
++  const accepted = changedPathResults.filter((item) => item.status === "accepted").map((item) => item.path);
++  const rejected = changedPathResults.filter((item) => item.status === "rejected").map((item) => item.path);
++  return plan.acceptance_criteria.map((criterion) => {
++    const check = criterion.check ?? {};
++    if (check.kind === "diff_budget") {
++      if (evidence.filesChanged === null) return checkResult(criterion, "fail", "files_changed evidence is missing");
++      if (evidence.diffLines === null) return checkResult(criterion, "fail", "diff_lines evidence is missing");
++      const maxFiles = check.max_files_changed ?? plan.scope_contract.max_files_changed;
++      const maxLines = check.max_diff_lines ?? plan.scope_contract.max_diff_lines;
++      if (evidence.filesChanged > maxFiles) return checkResult(criterion, "fail", `files_changed ${evidence.filesChanged} exceeds ${maxFiles}`);
++      if (evidence.diffLines > maxLines) return checkResult(criterion, "fail", `diff_lines ${evidence.diffLines} exceeds ${maxLines}`);
++      return checkResult(criterion, "pass", "diff budget evidence is within declared limits");
++    }
++    if (check.kind === "forbidden_paths_unchanged") {
++      const paths = check.paths ?? plan.scope_contract.immutable_paths;
++      const changed = [...accepted, ...rejected].find((path) => matchesAny(path, paths));
++      return changed ? checkResult(criterion, "fail", `forbidden path changed: ${changed}`) : checkResult(criterion, "pass", "no forbidden path changes observed");
++    }
++    if (check.kind === "path_changed") {
++      const paths = check.paths ?? plan.scope_contract.mutable_paths;
++      return accepted.some((path) => matchesAny(path, paths)) ? checkResult(criterion, "pass", "at least one declared path changed") : checkResult(criterion, "fail", "no changed path matched the declared path set");
++    }
++    if (check.kind === "path_not_changed") {
++      const paths = check.paths ?? [];
++      const changed = accepted.find((path) => matchesAny(path, paths));
++      return changed ? checkResult(criterion, "fail", `path changed unexpectedly: ${changed}`) : checkResult(criterion, "pass", "declared unchanged paths stayed unchanged");
++    }
++    if (check.kind === "command") {
++      const command = check.command;
++      const commandResult = evidence.commandResults.find((item) => item.command === command || item.id === stableCommandId(command ?? ""));
++      if (!commandResult) return checkResult(criterion, "fail", `missing command evidence for '${command}'`);
++      const expected = check.expected_exit_code ?? 0;
++      return commandResult.exit_code === expected ? checkResult(criterion, "pass", `command '${command}' matched expected exit code`) : checkResult(criterion, "fail", `command '${command}' exited ${commandResult.exit_code}, expected ${expected}`);
++    }
++    if (check.kind === "text_contains") {
++      const found = Object.values(evidence.textEvidence).some((value) => value.includes(check.needle ?? ""));
++      return found ? checkResult(criterion, "pass", "text evidence contains expected needle") : checkResult(criterion, "fail", "text evidence does not contain expected needle");
++    }
++    if (check.kind === "plan_field_equals") {
++      const actual = getDotted(plan, check.field ?? "");
++      return JSON.stringify(actual) === JSON.stringify(check.expected) ? checkResult(criterion, "pass", "plan field matched") : checkResult(criterion, "fail", "plan field did not match expected value");
++    }
++    return checkResult(criterion, "fail", `unsupported acceptance check kind '${check.kind}'`);
++  });
++}
++
++function buildReport(context, now, status, decision) {
++  const { plan, worktreePlan, sandboxRequest, sandboxOutput, evidence, findings, checks, changedPathResults } = context;
++  const createdAt = RFC3339_UTC.test(now ?? "") ? now : sandboxRequest.created_at;
++  const auditId = `forge-audit://${stableSlug(plan.plan_id)}-${stableHash(`${sandboxRequest.request_id}:${createdAt}`).slice(0, 8)}`;
++  const failed = checks.filter((item) => item.status === "fail").length;
++  const passed = checks.filter((item) => item.status === "pass").length;
++  return {
++    manifest_version: 1,
++    schema_ref: AUDIT_RESULT_SCHEMA_REF,
++    audit_id: auditId,
++    created_at: createdAt,
++    status,
++    decision,
++    plan_id: plan.plan_id,
++    worktree_manifest_id: worktreePlan.manifest_id,
++    sandbox_request_id: sandboxRequest.request_id,
++    source: { repository: plan.source.repository, issue_number: plan.source.issue_number, candidate_id: plan.source.candidate_id, title: plan.source.title },
++    risk_summary: { risk: plan.risk_and_approval.risk, approval_class: plan.risk_and_approval.approval_class, human_review_required_before_merge: plan.risk_and_approval.human_review_required_before_merge, reasons: [...plan.risk_and_approval.reasons] },
++    scope: { one_task_one_pr: true, no_default_branch_write: true, mutable_paths: [...plan.scope_contract.mutable_paths], immutable_paths: [...plan.scope_contract.immutable_paths], out_of_scope: [...plan.scope_contract.out_of_scope], max_files_changed: plan.scope_contract.max_files_changed, max_diff_lines: plan.scope_contract.max_diff_lines },
++    evidence: { sandbox_output_present: sandboxOutput !== undefined, changed_paths: changedPathResults, command_results: evidence.commandResults, artifacts: evidence.artifacts, files_changed: evidence.filesChanged, diff_lines: evidence.diffLines },
++    acceptance: { total: checks.length, passed, failed, checks },
++    findings,
++    gates: { pr_composition: status === "passed" ? "allowed" : "blocked", merge: plan.risk_and_approval.human_review_required_before_merge ? "human_review_required" : "not_evaluated", audit_independent: true },
++    guards: { no_command_execution_in_auditor: true, no_file_editing: true, no_branch_creation: true, no_commit_creation: true, no_pull_request_creation: true, no_github_mutation: true, no_default_branch_write: true },
++  };
++}
++
++function normalizeEvidence(output, evidence = {}) {
++  const changedPaths = uniqueStrings([...(output?.changed_paths ?? []), ...(evidence.changed_paths ?? [])]);
++  const filesChanged = output?.diff_summary?.files_changed ?? evidence.files_changed ?? (changedPaths.length > 0 ? changedPaths.length : null);
++  const diffLines = output?.diff_summary?.total_lines_changed ?? evidence.diff_lines ?? null;
++  return { changedPaths, filesChanged, diffLines, commandResults: [...(evidence.command_results ?? [])], textEvidence: { ...(evidence.text_evidence ?? {}) }, artifacts: [...(output?.artifacts ?? [])] };
++}
++
++function validateSource(source, path, issues, required) {
++  const root = asRecord(source);
++  if (!root) { if (required) issues.push(issue(path, "required", "source is required")); return; }
++  expectStringOrNull(root, "repository", issues, path);
++  expectIntegerOrNull(root, "issue_number", issues, path);
++  expectString(root, "candidate_id", issues, path);
++  expectString(root, "title", issues, path);
++}
++function validateBranch(branch, path, issues) {
++  const root = asRecord(branch);
++  if (!root) return issues.push(issue(path, "required", "branch is required"));
++  const name = expectString(root, "name", issues, path, "forge/");
++  const defaultBranch = expectString(root, "default_branch", issues, path);
++  expectString(root, "base_ref", issues, path);
++  if (name && defaultBranch && isDefaultBranchTarget(name, defaultBranch)) issues.push(issue(`${path}/name`, "default_branch_write", "branch must not target default branch"));
++}
++function validateWorktree(worktree, path, issues) {
++  const root = asRecord(worktree);
++  if (!root) return issues.push(issue(path, "required", "worktree is required"));
++  expectString(root, "path", issues, path);
++  if (root.ephemeral !== true) issues.push(issue(`${path}/ephemeral`, "literal", "worktree must be ephemeral"));
++}
++function validateApproval(approval, path, issues, requireApprovedIfNeeded) {
++  const root = asRecord(approval);
++  if (!root) return issues.push(issue(path, "required", "approval is required"));
++  expectOneOf(root, "approval_class", APPROVAL_CLASSES, issues, path);
++  expectOneOf(root, "risk", RISKS, issues, path);
++  const approved = expectBoolean(root, "approved_for_execution", issues, path);
++  const human = expectBoolean(root, "human_review_required_before_execution", issues, path);
++  expectStringOrNull(root, "approval_ref", issues, path);
++  if (requireApprovedIfNeeded && human === true && approved !== true) issues.push(issue(`${path}/approved_for_execution`, "approval_required", "execution approval is required before audit"));
++}
++function validateScope(scope, path, issues, requireSourceIssueCount) {
++  const root = asRecord(scope);
++  if (!root) return issues.push(issue(path, "required", "scope is required"));
++  expectLiteral(root, "one_task_one_pr", true, issues, path);
++  if (requireSourceIssueCount) expectLiteral(root, "source_issue_count", 1, issues, path);
++  expectLiteral(root, "no_default_branch_write", true, issues, path);
++  const mutable = expectStringArray(root, "mutable_paths", issues, path, false);
++  const immutable = expectStringArray(root, "immutable_paths", issues, path, false);
++  expectStringArray(root, "out_of_scope", issues, path, false);
++  expectPositiveInteger(root, "max_files_changed", issues, path, 50);
++  expectPositiveInteger(root, "max_diff_lines", issues, path, 2000);
++  for (const m of mutable) for (const im of immutable) if (m === im || (m.endsWith("/**") && im.startsWith(m.slice(0, -3))) || (im.endsWith("/**") && m.startsWith(im.slice(0, -3)))) issues.push(issue(`${path}/mutable_paths`, "immutable_overlap", `mutable path '${m}' overlaps immutable path '${im}'`));
++}
++function validateAcceptanceCriterion(value, path, issues) {
++  const root = asRecord(value);
++  if (!root) return issues.push(issue(path, "object", "acceptance criterion must be an object"));
++  expectString(root, "id", issues, path);
++  expectString(root, "description", issues, path);
++  expectLiteral(root, "required", true, issues, path);
++  const check = asRecord(root.check);
++  if (!check) return issues.push(issue(`${path}/check`, "required", "acceptance check is required"));
++  expectString(check, "kind", issues, `${path}/check`);
++  expectLiteral(check, "machine", true, issues, `${path}/check`);
++}
++function checkResult(criterion, status, reason) {
++  return { id: criterion.id, status, kind: criterion.check.kind, description: criterion.description, evidence: criterion.evidence, reason };
++}
++function finding(index, severity, category, message, path) { return { id: `AUD-${String(index).padStart(4, "0")}`, severity, category, message, ...(path ? { path } : {}) }; }
++function issue(path, code, message) { return { path, code, message }; }
++function invalid(path, code, message) { return { ok: false, issues: [issue(path, code, message)] }; }
++function asRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null; }
++function expectLiteral(record, key, expected, issues, path) { if (record[key] !== expected) issues.push(issue(`${path}/${key}`, "literal", `${key} must be ${JSON.stringify(expected)}`)); }
++function expectString(record, key, issues, path, prefix) { const value = record[key]; if (typeof value !== "string" || value.length === 0) { issues.push(issue(`${path}/${key}`, "string", `${key} must be a non-empty string`)); return null; } if (prefix && !value.startsWith(prefix)) issues.push(issue(`${path}/${key}`, "prefix", `${key} must start with '${prefix}'`)); return value; }
++function expectStringOrNull(record, key, issues, path) { const value = record[key]; if (!(typeof value === "string" || value === null)) issues.push(issue(`${path}/${key}`, "string_or_null", `${key} must be a string or null`)); }
++function expectIntegerOrNull(record, key, issues, path) { const value = record[key]; if (!(Number.isSafeInteger(value) || value === null)) issues.push(issue(`${path}/${key}`, "integer_or_null", `${key} must be an integer or null`)); }
++function expectBoolean(record, key, issues, path) { const value = record[key]; if (typeof value !== "boolean") { issues.push(issue(`${path}/${key}`, "boolean", `${key} must be boolean`)); return null; } return value; }
++function expectOneOf(record, key, allowed, issues, path) { const value = record[key]; if (typeof value !== "string" || !allowed.has(value)) issues.push(issue(`${path}/${key}`, "enum", `${key} is not allowed`)); return value; }
++function expectRfc3339(record, key, issues, path) { const value = expectString(record, key, issues, path); if (value && !RFC3339_UTC.test(value)) issues.push(issue(`${path}/${key}`, "rfc3339", `${key} must be RFC3339 UTC`)); }
++function expectStringArray(record, key, issues, path, allowEmpty) { const value = record[key]; if (!Array.isArray(value) || !value.every((x) => typeof x === "string" && x.length > 0)) { issues.push(issue(`${path}/${key}`, "string_array", `${key} must be an array of strings`)); return []; } if (!allowEmpty && value.length === 0) issues.push(issue(`${path}/${key}`, "non_empty", `${key} must not be empty`)); return value; }
++function expectPositiveInteger(record, key, issues, path, max) { const value = record[key]; if (!Number.isSafeInteger(value) || value <= 0) { issues.push(issue(`${path}/${key}`, "positive_integer", `${key} must be a positive integer`)); return null; } if (value > max) issues.push(issue(`${path}/${key}`, "max", `${key} must be <= ${max}`)); return value; }
++function reasonsFromFindings(prefix, findings) { return uniqueStrings([prefix, ...findings.map((item) => `${item.category}:${item.message}`)]); }
++function reasonsForStatus(status, report, findings) { if (status === "passed") return uniqueStrings(["audit_passed", `audit:${report.audit_id}`, `acceptance:${report.acceptance.passed}/${report.acceptance.total}`]); return uniqueStrings([`audit_${status}`, ...findings.map((item) => item.message)]); }
++function uniqueStrings(values) { return [...new Set(values.filter((value) => typeof value === "string" && value.length > 0))]; }
++function sameArray(a, b) { return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((value, index) => value === b[index]); }
++function normalizePath(value) { const normalized = String(value).trim().replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+/g, "/").replace(/\/+$/g, ""); if (!normalized || normalized.startsWith("/") || normalized.includes("\0")) return null; if (normalized.split("/").some((segment) => !segment || segment === "." || segment === "..")) return null; return normalized; }
++function matchesAny(path, patterns) { return patterns.some((pattern) => globToRegExp(pattern).test(path)); }
++function globToRegExp(pattern) { let source = "^"; const value = pattern.replace(/\\/g, "/"); for (let i = 0; i < value.length; i++) { const c = value[i]; if (c === "*" && value[i + 1] === "*") { source += ".*"; i++; } else if (c === "*") source += "[^/]*"; else source += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); } return new RegExp(source + "$"); }
++function isDefaultBranchTarget(branch, def) { const b = branch.toLowerCase(); const d = def.toLowerCase(); return b === d || b === `refs/heads/${d}` || b === "main" || b === "master" || b === "trunk"; }
++function isForbiddenEnvName(name) { const upper = name.toUpperCase(); return SECRET_PATTERNS.some((pattern) => upper.includes(pattern)); }
++function looksSecret(value) { const lower = value.toLowerCase(); return lower.startsWith("ghp_") || lower.startsWith("github_pat_") || lower.startsWith("sk-") || value.includes("-----BEGIN PRIVATE KEY-----"); }
++function stableSlug(value) { const slug = String(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80); return slug || "unnamed"; }
++function stableCommandId(command) { return String(command).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64); }
++function stableHash(value) { let hash = 0x811c9dc5; const text = String(value); for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 0x01000193) >>> 0; } return hash.toString(16).padStart(8, "0"); }
++function getDotted(root, path) { return String(path).split(".").reduce((current, segment) => asRecord(current)?.[segment], root); }
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/dist/run.js.map fr_t023_work/ForgeRoot/packages/auditor/dist/run.js.map
+--- fr_t023_base/ForgeRoot/packages/auditor/dist/run.js.map	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/dist/run.js.map	2026-04-18 17:35:22.359011355 +0000
+@@ -0,0 +1 @@
++{"version":3,"file":"run.js","sources":["../src/run.ts"],"sourcesContent":[],"names":[],"mappings":""}
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/package.json fr_t023_work/ForgeRoot/packages/auditor/package.json
+--- fr_t023_base/ForgeRoot/packages/auditor/package.json	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/package.json	2026-04-18 17:29:51.101859831 +0000
+@@ -0,0 +1,17 @@
++{
++  "name": "@forgeroot/auditor",
++  "version": "0.0.0-t023",
++  "private": true,
++  "type": "module",
++  "description": "ForgeRoot auditor runtime: independent validation from plan/worktree/sandbox evidence to bounded audit result.",
++  "scripts": {
++    "build": "node scripts/build.mjs",
++    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
++  },
++  "engines": {
++    "node": ">=22.5"
++  },
++  "devDependencies": {
++    "typescript": "^5.8.3"
++  }
++}
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/scripts/build.mjs fr_t023_work/ForgeRoot/packages/auditor/scripts/build.mjs
+--- fr_t023_base/ForgeRoot/packages/auditor/scripts/build.mjs	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/scripts/build.mjs	2026-04-18 17:30:29.264076630 +0000
+@@ -0,0 +1,31 @@
++import fs from "node:fs";
++import path from "node:path";
++
++const root = path.resolve(new URL("..", import.meta.url).pathname);
++const srcDir = path.join(root, "src");
++const distDir = path.join(root, "dist");
++fs.rmSync(distDir, { recursive: true, force: true });
++fs.mkdirSync(distDir, { recursive: true });
++
++for (const [src, dest] of [["run.ts", "run.js"], ["index.ts", "index.js"]]) {
++  fs.writeFileSync(path.join(distDir, dest), fs.readFileSync(path.join(srcDir, src), "utf8"), "utf8");
++  fs.writeFileSync(path.join(distDir, `${dest}.map`), JSON.stringify({ version: 3, file: dest, sources: [`../src/${src}`], sourcesContent: [], names: [], mappings: "" }) + "\n", "utf8");
++}
++
++fs.writeFileSync(path.join(distDir, "run.d.ts"), `export declare const AUDIT_RESULT_SCHEMA_REF = "urn:forgeroot:audit-result:v1";
++export declare const AUDITOR_RUNTIME_CONTRACT: {
++  readonly consumes: readonly string[];
++  readonly produces: readonly string[];
++  readonly validates: readonly string[];
++  readonly forbids: readonly string[];
++  readonly oneTaskOnePr: true;
++  readonly independentFromExecutor: true;
++};
++export declare function runAuditor(input: any): any;
++export declare function validatePlanSpecForAudit(plan: any): any;
++export declare function validateBranchWorktreePlanForAudit(value: any): any;
++export declare function validateSandboxExecutionRequestForAudit(value: any): any;
++export declare function validateAuditResult(report: any): any;
++export declare const validateAuditReport: typeof validateAuditResult;
++`, "utf8");
++fs.writeFileSync(path.join(distDir, "index.d.ts"), 'export * from "./run.js";\n', "utf8");
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/src/index.ts fr_t023_work/ForgeRoot/packages/auditor/src/index.ts
+--- fr_t023_base/ForgeRoot/packages/auditor/src/index.ts	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/src/index.ts	2026-04-18 17:25:22.822275828 +0000
+@@ -0,0 +1 @@
++export * from "./run.js";
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/src/run.ts fr_t023_work/ForgeRoot/packages/auditor/src/run.ts
+--- fr_t023_base/ForgeRoot/packages/auditor/src/run.ts	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/src/run.ts	2026-04-18 17:29:31.967066111 +0000
+@@ -0,0 +1,447 @@
++export const AUDIT_RESULT_SCHEMA_REF = "urn:forgeroot:audit-result:v1";
++
++export const AUDITOR_RUNTIME_CONTRACT = {
++  consumes: ["plan_spec", "branch_worktree_plan", "sandbox_execution_request", "sandbox_observed_output"],
++  produces: ["audit_result"],
++  validates: ["input_chain_consistency", "mutable_path_scope", "required_artifacts", "observed_commands", "observed_environment", "acceptance_criteria"],
++  forbids: [
++    "command_execution_in_auditor",
++    "file_editing",
++    "git_checkout",
++    "git_branch_create",
++    "git_worktree_add",
++    "git_push",
++    "commit_creation",
++    "pull_request_creation",
++    "github_mutation",
++    "default_branch_write",
++    "approval_checkpoint_mutation",
++    "memory_or_evaluation_updates",
++    "network_or_federation_behavior",
++  ],
++  oneTaskOnePr: true,
++  independentFromExecutor: true,
++};
++
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++const PLAN_SCHEMA_REF = "urn:forgeroot:plan-spec:v1";
++const WORKTREE_SCHEMA_REF = "urn:forgeroot:branch-worktree:v1";
++const SANDBOX_SCHEMA_REF = "urn:forgeroot:sandbox-execution-request:v1";
++const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
++const RISKS = new Set(["low", "medium", "high", "critical"]);
++const PLAN_STATUSES = new Set(["ready_for_execution", "blocked_for_human"]);
++const SECRET_PATTERNS = ["TOKEN", "SECRET", "PASSWORD", "PRIVATE", "CREDENTIAL", "COOKIE", "SSH", "GPG", "KEY"];
++
++export function runAuditor(input) {
++  const auditTrail = [
++    "auditor_runtime:T023",
++    "contract:independent_audit",
++    "contract:no_command_execution",
++    "contract:no_file_or_git_mutation",
++    "contract:no_pr_composition",
++  ];
++
++  const planValidation = validatePlanSpecForAudit(input?.plan);
++  const worktreeValidation = validateBranchWorktreePlanForAudit(input?.worktreePlan);
++  const requestValidation = validateSandboxExecutionRequestForAudit(input?.sandboxRequest);
++  const structuralIssues = [...planValidation.issues, ...worktreeValidation.issues, ...requestValidation.issues];
++  if (structuralIssues.length > 0) {
++    const findings = structuralIssues.map((item, index) => finding(index + 1, "error", "input_validation", item.message, item.path));
++    return {
++      status: "invalid",
++      decision: "invalid",
++      findings,
++      reasons: uniqueStrings(["invalid_auditor_input", ...structuralIssues.map((item) => item.code)]),
++      auditTrail: [...auditTrail, "input:invalid", "audit_result:none"],
++      issues: structuralIssues,
++    };
++  }
++
++  const plan = input.plan;
++  const worktreePlan = input.worktreePlan;
++  const sandboxRequest = input.sandboxRequest;
++  const evidence = normalizeEvidence(input.sandboxOutput, input.evidence);
++  const chainFindings = validateChain(plan, worktreePlan, sandboxRequest);
++  if (chainFindings.some((item) => item.severity === "error")) {
++    const report = buildReport({ plan, worktreePlan, sandboxRequest, sandboxOutput: input.sandboxOutput, evidence, findings: chainFindings, checks: [], changedPathResults: [] }, input.now, "invalid", "invalid");
++    return { status: "invalid", decision: "invalid", report, findings: chainFindings, reasons: reasonsFromFindings("chain_consistency_failed", chainFindings), auditTrail: [...auditTrail, "chain:invalid", "audit_result:generated"] };
++  }
++
++  const observed = validateObserved(plan, sandboxRequest, input.sandboxOutput, evidence);
++  const acceptanceChecks = evaluateAcceptance(plan, evidence, observed.changedPathResults);
++  const acceptanceFindings = acceptanceChecks
++    .filter((check) => check.status === "fail")
++    .map((check, index) => finding(10_000 + index, "error", "acceptance", `${check.id}: ${check.reason}`));
++  const findings = [...chainFindings, ...observed.findings, ...acceptanceFindings];
++
++  let status;
++  let decision;
++  if (input.sandboxOutput === undefined) {
++    status = "blocked";
++    decision = "block_pr_composition";
++    findings.push(finding(20_000, "error", "artifact", "sandbox observed output is required before audit can pass", "/sandboxOutput"));
++  } else if (findings.some((item) => item.severity === "error")) {
++    status = "failed";
++    decision = "request_changes";
++  } else {
++    status = "passed";
++    decision = "allow_pr_composition";
++  }
++
++  const report = buildReport({ plan, worktreePlan, sandboxRequest, sandboxOutput: input.sandboxOutput, evidence, findings, checks: acceptanceChecks, changedPathResults: observed.changedPathResults }, input.now, status, decision);
++  const reportValidation = validateAuditResult(report);
++  if (!reportValidation.ok) {
++    const validationFindings = reportValidation.issues.map((item, index) => finding(30_000 + index, "error", "input_validation", `generated audit result failed validation: ${item.message}`, item.path));
++    return { status: "invalid", decision: "invalid", findings: [...findings, ...validationFindings], reasons: uniqueStrings(["generated_audit_result_failed_validation", ...reportValidation.issues.map((item) => item.code)]), auditTrail: [...auditTrail, "audit_result:invalid"], issues: reportValidation.issues };
++  }
++
++  return {
++    status,
++    decision,
++    report,
++    findings,
++    reasons: reasonsForStatus(status, report, findings),
++    auditTrail: [...auditTrail, "chain:consistent", `sandbox_output:${input.sandboxOutput === undefined ? "missing" : "present"}`, `audit_result:${status}`],
++  };
++}
++
++export function validatePlanSpecForAudit(plan) {
++  const issues = [];
++  const root = asRecord(plan);
++  if (!root) return invalid("/plan", "type", "plan spec must be an object");
++  expectLiteral(root, "plan_version", 1, issues, "/plan");
++  expectLiteral(root, "schema_ref", PLAN_SCHEMA_REF, issues, "/plan");
++  expectString(root, "plan_id", issues, "/plan", "forge-plan://");
++  expectOneOf(root, "status", PLAN_STATUSES, issues, "/plan");
++  expectRfc3339(root, "created_at", issues, "/plan");
++  expectString(root, "title", issues, "/plan");
++  validateSource(root.source, "/plan/source", issues, true);
++  validateScope(root.scope_contract, "/plan/scope_contract", issues, true);
++  const risk = asRecord(root.risk_and_approval);
++  if (!risk) issues.push(issue("/plan/risk_and_approval", "required", "risk_and_approval is required"));
++  else {
++    expectOneOf(risk, "risk", RISKS, issues, "/plan/risk_and_approval");
++    expectOneOf(risk, "approval_class", APPROVAL_CLASSES, issues, "/plan/risk_and_approval");
++    expectBoolean(risk, "human_review_required_before_merge", issues, "/plan/risk_and_approval");
++    expectStringArray(risk, "reasons", issues, "/plan/risk_and_approval", false);
++  }
++  if (!Array.isArray(root.acceptance_criteria) || root.acceptance_criteria.length === 0) issues.push(issue("/plan/acceptance_criteria", "non_empty", "acceptance criteria must be a non-empty array"));
++  else root.acceptance_criteria.forEach((criterion, index) => validateAcceptanceCriterion(criterion, `/plan/acceptance_criteria/${index}`, issues));
++  const audit = asRecord(root.audit);
++  if (!audit) issues.push(issue("/plan/audit", "required", "audit contract is required"));
++  else if (audit.independent_audit_required !== true) issues.push(issue("/plan/audit/independent_audit_required", "independent_required", "independent audit must be required"));
++  return { ok: issues.length === 0, issues };
++}
++
++export function validateBranchWorktreePlanForAudit(value) {
++  const issues = [];
++  const root = asRecord(value);
++  if (!root) return invalid("/worktreePlan", "type", "branch/worktree plan must be an object");
++  expectLiteral(root, "manifest_version", 1, issues, "/worktreePlan");
++  expectLiteral(root, "schema_ref", WORKTREE_SCHEMA_REF, issues, "/worktreePlan");
++  expectString(root, "manifest_id", issues, "/worktreePlan", "forge-worktree://");
++  expectString(root, "plan_id", issues, "/worktreePlan", "forge-plan://");
++  validateSource(root.source, "/worktreePlan/source", issues, true);
++  validateBranch(root.branch, "/worktreePlan/branch", issues);
++  validateWorktree(root.worktree, "/worktreePlan/worktree", issues);
++  validateScope(root.scope, "/worktreePlan/scope", issues, false);
++  validateApproval(root.approval, "/worktreePlan/approval", issues, true);
++  return { ok: issues.length === 0, issues };
++}
++
++export function validateSandboxExecutionRequestForAudit(value) {
++  const issues = [];
++  const root = asRecord(value);
++  if (!root) return invalid("/sandboxRequest", "type", "sandbox execution request must be an object");
++  expectLiteral(root, "manifest_version", 1, issues, "/sandboxRequest");
++  expectLiteral(root, "schema_ref", SANDBOX_SCHEMA_REF, issues, "/sandboxRequest");
++  expectString(root, "request_id", issues, "/sandboxRequest", "forge-sandbox://");
++  expectString(root, "plan_id", issues, "/sandboxRequest", "forge-plan://");
++  expectString(root, "worktree_manifest_id", issues, "/sandboxRequest", "forge-worktree://");
++  validateSource(root.source, "/sandboxRequest/source", issues, true);
++  validateBranch(root.branch, "/sandboxRequest/branch", issues);
++  validateWorktree(root.worktree, "/sandboxRequest/worktree", issues);
++  validateScope(root.scope, "/sandboxRequest/scope", issues, false);
++  validateApproval(root.approval, "/sandboxRequest/approval", issues, true);
++  if (!Array.isArray(root.commands) || root.commands.length === 0) issues.push(issue("/sandboxRequest/commands", "non_empty", "commands must be a non-empty array"));
++  if (!Array.isArray(root.artifacts) || root.artifacts.length === 0) issues.push(issue("/sandboxRequest/artifacts", "non_empty", "artifacts must be a non-empty array"));
++  const isolation = asRecord(root.isolation);
++  if (!isolation) issues.push(issue("/sandboxRequest/isolation", "required", "isolation is required"));
++  else {
++    if (isolation.execution_trust !== "untrusted") issues.push(issue("/sandboxRequest/isolation/execution_trust", "literal", "execution_trust must be untrusted"));
++    if (asRecord(isolation.secrets)?.mount !== false) issues.push(issue("/sandboxRequest/isolation/secrets/mount", "literal", "secret mounts must be false"));
++  }
++  const filesystem = asRecord(root.filesystem);
++  if (!filesystem) issues.push(issue("/sandboxRequest/filesystem", "required", "filesystem is required"));
++  else if (filesystem.artifacts_outside_worktree !== true) issues.push(issue("/sandboxRequest/filesystem/artifacts_outside_worktree", "literal", "artifacts must be outside worktree"));
++  const guards = asRecord(root.guards);
++  if (!guards) issues.push(issue("/sandboxRequest/guards", "required", "guards are required"));
++  else {
++    if (guards.no_default_branch_write !== true) issues.push(issue("/sandboxRequest/guards/no_default_branch_write", "literal", "no_default_branch_write guard must be true"));
++    if (guards.no_pr_creation !== true) issues.push(issue("/sandboxRequest/guards/no_pr_creation", "literal", "no_pr_creation guard must be true"));
++    if (guards.no_secret_mounts !== true) issues.push(issue("/sandboxRequest/guards/no_secret_mounts", "literal", "no_secret_mounts guard must be true"));
++  }
++  return { ok: issues.length === 0, issues };
++}
++
++export function validateAuditResult(report) {
++  const issues = [];
++  const root = asRecord(report);
++  if (!root) return invalid("/auditResult", "type", "audit result must be an object");
++  expectLiteral(root, "manifest_version", 1, issues, "/auditResult");
++  expectLiteral(root, "schema_ref", AUDIT_RESULT_SCHEMA_REF, issues, "/auditResult");
++  expectString(root, "audit_id", issues, "/auditResult", "forge-audit://");
++  expectRfc3339(root, "created_at", issues, "/auditResult");
++  expectOneOf(root, "status", new Set(["passed", "failed", "blocked", "invalid"]), issues, "/auditResult");
++  expectOneOf(root, "decision", new Set(["allow_pr_composition", "request_changes", "block_pr_composition", "invalid"]), issues, "/auditResult");
++  if (root.status === "passed" && root.decision !== "allow_pr_composition") issues.push(issue("/auditResult/decision", "coherence", "passed audit must allow PR composition"));
++  if (root.status === "failed" && root.decision !== "request_changes") issues.push(issue("/auditResult/decision", "coherence", "failed audit must request changes"));
++  if (root.status === "blocked" && root.decision !== "block_pr_composition") issues.push(issue("/auditResult/decision", "coherence", "blocked audit must block PR composition"));
++  if (root.status === "invalid" && root.decision !== "invalid") issues.push(issue("/auditResult/decision", "coherence", "invalid audit must use invalid decision"));
++  expectString(root, "plan_id", issues, "/auditResult", "forge-plan://");
++  expectString(root, "worktree_manifest_id", issues, "/auditResult", "forge-worktree://");
++  expectString(root, "sandbox_request_id", issues, "/auditResult", "forge-sandbox://");
++  validateScope(root.scope, "/auditResult/scope", issues, false);
++  const acceptance = asRecord(root.acceptance);
++  if (!acceptance) issues.push(issue("/auditResult/acceptance", "required", "acceptance is required"));
++  else if (!Array.isArray(acceptance.checks)) issues.push(issue("/auditResult/acceptance/checks", "array", "acceptance checks must be an array"));
++  if (!Array.isArray(root.findings)) issues.push(issue("/auditResult/findings", "array", "findings must be an array"));
++  const gates = asRecord(root.gates);
++  if (!gates) issues.push(issue("/auditResult/gates", "required", "gates are required"));
++  else if (gates.audit_independent !== true) issues.push(issue("/auditResult/gates/audit_independent", "literal", "audit_independent must be true"));
++  const guards = asRecord(root.guards);
++  if (!guards) issues.push(issue("/auditResult/guards", "required", "guards are required"));
++  else for (const key of ["no_command_execution_in_auditor", "no_file_editing", "no_branch_creation", "no_commit_creation", "no_pull_request_creation", "no_github_mutation", "no_default_branch_write"]) {
++    if (guards[key] !== true) issues.push(issue(`/auditResult/guards/${key}`, "literal", `${key} must be true`));
++  }
++  return { ok: issues.length === 0, issues };
++}
++
++export const validateAuditReport = validateAuditResult;
++
++function validateChain(plan, worktreePlan, sandboxRequest) {
++  const findings = [];
++  let index = 1;
++  const add = (message, path) => findings.push(finding(index++, "error", "chain_consistency", message, path));
++  if (plan.plan_id !== worktreePlan.plan_id) add("Plan Spec and branch/worktree manifest plan_id values differ", "/worktreePlan/plan_id");
++  if (plan.plan_id !== sandboxRequest.plan_id) add("Plan Spec and sandbox request plan_id values differ", "/sandboxRequest/plan_id");
++  if (worktreePlan.manifest_id !== sandboxRequest.worktree_manifest_id) add("Sandbox request does not reference the supplied branch/worktree manifest", "/sandboxRequest/worktree_manifest_id");
++  if (worktreePlan.branch.name !== sandboxRequest.branch.name) add("Sandbox request branch name differs from branch/worktree manifest", "/sandboxRequest/branch/name");
++  if (!sameArray(plan.scope_contract.mutable_paths, worktreePlan.scope.mutable_paths) || !sameArray(worktreePlan.scope.mutable_paths, sandboxRequest.scope.mutable_paths)) add("Mutable path scopes are not consistent across plan, worktree, and sandbox request", "/scope/mutable_paths");
++  if (!sameArray(plan.scope_contract.immutable_paths, worktreePlan.scope.immutable_paths) || !sameArray(worktreePlan.scope.immutable_paths, sandboxRequest.scope.immutable_paths)) add("Immutable path scopes are not consistent across plan, worktree, and sandbox request", "/scope/immutable_paths");
++  if (sandboxRequest.isolation?.secrets?.mount !== false) add("Sandbox request violates no-secret isolation contract", "/sandboxRequest/isolation/secrets");
++  if (sandboxRequest.guards?.no_pr_creation !== true) add("Sandbox request guard must forbid PR creation", "/sandboxRequest/guards/no_pr_creation");
++  if (plan.risk_and_approval.approval_class !== sandboxRequest.approval.approval_class) add("Plan approval class differs from sandbox request approval", "/sandboxRequest/approval/approval_class");
++  if (plan.risk_and_approval.risk !== sandboxRequest.approval.risk) add("Plan risk differs from sandbox request approval", "/sandboxRequest/approval/risk");
++  return findings;
++}
++
++function validateObserved(plan, request, output, evidence) {
++  const findings = [];
++  const changedPathResults = [];
++  if (!output) return { findings, changedPathResults };
++  let index = 1_000;
++  const add = (category, message, path) => findings.push(finding(index++, "error", category, message, path));
++  const declaredCommandIds = new Set(request.commands.map((command) => command.id));
++  for (const id of output.command_ids ?? []) if (!declaredCommandIds.has(id)) add("command", `observed command '${id}' was not declared`, "/sandboxOutput/command_ids");
++  const declaredArtifacts = new Map(request.artifacts.map((artifact) => [normalizePath(artifact.path) ?? artifact.path, artifact]));
++  const observedArtifacts = new Set();
++  for (const artifact of output.artifacts ?? []) {
++    const normalized = normalizePath(artifact.path);
++    if (!normalized) { add("artifact", `artifact path '${artifact.path}' is not safe`, "/sandboxOutput/artifacts/path"); continue; }
++    observedArtifacts.add(normalized);
++    const declared = declaredArtifacts.get(normalized);
++    if (!declared) { add("artifact", `observed artifact '${normalized}' was not declared by the sandbox request`, "/sandboxOutput/artifacts"); continue; }
++    if (!Number.isSafeInteger(artifact.bytes) || artifact.bytes < 0) add("artifact", `artifact '${normalized}' has invalid byte count`, "/sandboxOutput/artifacts/bytes");
++    else if (artifact.bytes > declared.max_bytes) add("artifact", `artifact '${normalized}' exceeds declared max_bytes`, "/sandboxOutput/artifacts/bytes");
++    if (artifact.media_type !== undefined && artifact.media_type !== declared.media_type) add("artifact", `artifact '${normalized}' media type does not match declaration`, "/sandboxOutput/artifacts/media_type");
++    if (artifact.sha256 !== undefined && !/^sha256:[a-f0-9]{64}$/.test(artifact.sha256)) add("artifact", `artifact '${normalized}' sha256 must use sha256:<64 hex>`, "/sandboxOutput/artifacts/sha256");
++  }
++  for (const artifact of request.artifacts) {
++    const path = normalizePath(artifact.path) ?? artifact.path;
++    if (artifact.required && !observedArtifacts.has(path)) add("artifact", `required artifact '${path}' is missing from sandbox output`, "/sandboxOutput/artifacts");
++  }
++  for (const [name, value] of Object.entries(output.environment ?? {})) {
++    if (isForbiddenEnvName(name)) add("safety_contract", `observed environment variable '${name}' looks secret-bearing`, "/sandboxOutput/environment");
++    if (looksSecret(String(value))) add("safety_contract", `observed environment variable '${name}' looks like a secret value`, "/sandboxOutput/environment");
++  }
++  const changedPaths = uniqueStrings(evidence.changedPaths);
++  for (const raw of changedPaths) {
++    const normalized = normalizePath(raw);
++    if (!normalized) { changedPathResults.push({ path: raw, status: "rejected", reason: "invalid_path" }); add("scope", `changed path '${raw}' is not a safe relative path`, "/sandboxOutput/changed_paths"); continue; }
++    if (matchesAny(normalized, request.scope.immutable_paths)) { changedPathResults.push({ path: normalized, status: "rejected", reason: "immutable" }); add("scope", `changed path '${normalized}' touches immutable scope`, "/sandboxOutput/changed_paths"); continue; }
++    if (!matchesAny(normalized, request.scope.mutable_paths)) { changedPathResults.push({ path: normalized, status: "rejected", reason: "outside_mutable_scope" }); add("scope", `changed path '${normalized}' is outside mutable scope`, "/sandboxOutput/changed_paths"); continue; }
++    changedPathResults.push({ path: normalized, status: "accepted", reason: "mutable" });
++  }
++  if (evidence.filesChanged !== null && evidence.filesChanged > plan.scope_contract.max_files_changed) add("scope", "observed files_changed exceeds Plan Spec budget", "/evidence/files_changed");
++  if (evidence.diffLines !== null && evidence.diffLines > plan.scope_contract.max_diff_lines) add("scope", "observed diff_lines exceeds Plan Spec budget", "/evidence/diff_lines");
++  return { findings, changedPathResults };
++}
++
++function evaluateAcceptance(plan, evidence, changedPathResults) {
++  const accepted = changedPathResults.filter((item) => item.status === "accepted").map((item) => item.path);
++  const rejected = changedPathResults.filter((item) => item.status === "rejected").map((item) => item.path);
++  return plan.acceptance_criteria.map((criterion) => {
++    const check = criterion.check ?? {};
++    if (check.kind === "diff_budget") {
++      if (evidence.filesChanged === null) return checkResult(criterion, "fail", "files_changed evidence is missing");
++      if (evidence.diffLines === null) return checkResult(criterion, "fail", "diff_lines evidence is missing");
++      const maxFiles = check.max_files_changed ?? plan.scope_contract.max_files_changed;
++      const maxLines = check.max_diff_lines ?? plan.scope_contract.max_diff_lines;
++      if (evidence.filesChanged > maxFiles) return checkResult(criterion, "fail", `files_changed ${evidence.filesChanged} exceeds ${maxFiles}`);
++      if (evidence.diffLines > maxLines) return checkResult(criterion, "fail", `diff_lines ${evidence.diffLines} exceeds ${maxLines}`);
++      return checkResult(criterion, "pass", "diff budget evidence is within declared limits");
++    }
++    if (check.kind === "forbidden_paths_unchanged") {
++      const paths = check.paths ?? plan.scope_contract.immutable_paths;
++      const changed = [...accepted, ...rejected].find((path) => matchesAny(path, paths));
++      return changed ? checkResult(criterion, "fail", `forbidden path changed: ${changed}`) : checkResult(criterion, "pass", "no forbidden path changes observed");
++    }
++    if (check.kind === "path_changed") {
++      const paths = check.paths ?? plan.scope_contract.mutable_paths;
++      return accepted.some((path) => matchesAny(path, paths)) ? checkResult(criterion, "pass", "at least one declared path changed") : checkResult(criterion, "fail", "no changed path matched the declared path set");
++    }
++    if (check.kind === "path_not_changed") {
++      const paths = check.paths ?? [];
++      const changed = accepted.find((path) => matchesAny(path, paths));
++      return changed ? checkResult(criterion, "fail", `path changed unexpectedly: ${changed}`) : checkResult(criterion, "pass", "declared unchanged paths stayed unchanged");
++    }
++    if (check.kind === "command") {
++      const command = check.command;
++      const commandResult = evidence.commandResults.find((item) => item.command === command || item.id === stableCommandId(command ?? ""));
++      if (!commandResult) return checkResult(criterion, "fail", `missing command evidence for '${command}'`);
++      const expected = check.expected_exit_code ?? 0;
++      return commandResult.exit_code === expected ? checkResult(criterion, "pass", `command '${command}' matched expected exit code`) : checkResult(criterion, "fail", `command '${command}' exited ${commandResult.exit_code}, expected ${expected}`);
++    }
++    if (check.kind === "text_contains") {
++      const found = Object.values(evidence.textEvidence).some((value) => value.includes(check.needle ?? ""));
++      return found ? checkResult(criterion, "pass", "text evidence contains expected needle") : checkResult(criterion, "fail", "text evidence does not contain expected needle");
++    }
++    if (check.kind === "plan_field_equals") {
++      const actual = getDotted(plan, check.field ?? "");
++      return JSON.stringify(actual) === JSON.stringify(check.expected) ? checkResult(criterion, "pass", "plan field matched") : checkResult(criterion, "fail", "plan field did not match expected value");
++    }
++    return checkResult(criterion, "fail", `unsupported acceptance check kind '${check.kind}'`);
++  });
++}
++
++function buildReport(context, now, status, decision) {
++  const { plan, worktreePlan, sandboxRequest, sandboxOutput, evidence, findings, checks, changedPathResults } = context;
++  const createdAt = RFC3339_UTC.test(now ?? "") ? now : sandboxRequest.created_at;
++  const auditId = `forge-audit://${stableSlug(plan.plan_id)}-${stableHash(`${sandboxRequest.request_id}:${createdAt}`).slice(0, 8)}`;
++  const failed = checks.filter((item) => item.status === "fail").length;
++  const passed = checks.filter((item) => item.status === "pass").length;
++  return {
++    manifest_version: 1,
++    schema_ref: AUDIT_RESULT_SCHEMA_REF,
++    audit_id: auditId,
++    created_at: createdAt,
++    status,
++    decision,
++    plan_id: plan.plan_id,
++    worktree_manifest_id: worktreePlan.manifest_id,
++    sandbox_request_id: sandboxRequest.request_id,
++    source: { repository: plan.source.repository, issue_number: plan.source.issue_number, candidate_id: plan.source.candidate_id, title: plan.source.title },
++    risk_summary: { risk: plan.risk_and_approval.risk, approval_class: plan.risk_and_approval.approval_class, human_review_required_before_merge: plan.risk_and_approval.human_review_required_before_merge, reasons: [...plan.risk_and_approval.reasons] },
++    scope: { one_task_one_pr: true, no_default_branch_write: true, mutable_paths: [...plan.scope_contract.mutable_paths], immutable_paths: [...plan.scope_contract.immutable_paths], out_of_scope: [...plan.scope_contract.out_of_scope], max_files_changed: plan.scope_contract.max_files_changed, max_diff_lines: plan.scope_contract.max_diff_lines },
++    evidence: { sandbox_output_present: sandboxOutput !== undefined, changed_paths: changedPathResults, command_results: evidence.commandResults, artifacts: evidence.artifacts, files_changed: evidence.filesChanged, diff_lines: evidence.diffLines },
++    acceptance: { total: checks.length, passed, failed, checks },
++    findings,
++    gates: { pr_composition: status === "passed" ? "allowed" : "blocked", merge: plan.risk_and_approval.human_review_required_before_merge ? "human_review_required" : "not_evaluated", audit_independent: true },
++    guards: { no_command_execution_in_auditor: true, no_file_editing: true, no_branch_creation: true, no_commit_creation: true, no_pull_request_creation: true, no_github_mutation: true, no_default_branch_write: true },
++  };
++}
++
++function normalizeEvidence(output, evidence = {}) {
++  const changedPaths = uniqueStrings([...(output?.changed_paths ?? []), ...(evidence.changed_paths ?? [])]);
++  const filesChanged = output?.diff_summary?.files_changed ?? evidence.files_changed ?? (changedPaths.length > 0 ? changedPaths.length : null);
++  const diffLines = output?.diff_summary?.total_lines_changed ?? evidence.diff_lines ?? null;
++  return { changedPaths, filesChanged, diffLines, commandResults: [...(evidence.command_results ?? [])], textEvidence: { ...(evidence.text_evidence ?? {}) }, artifacts: [...(output?.artifacts ?? [])] };
++}
++
++function validateSource(source, path, issues, required) {
++  const root = asRecord(source);
++  if (!root) { if (required) issues.push(issue(path, "required", "source is required")); return; }
++  expectStringOrNull(root, "repository", issues, path);
++  expectIntegerOrNull(root, "issue_number", issues, path);
++  expectString(root, "candidate_id", issues, path);
++  expectString(root, "title", issues, path);
++}
++function validateBranch(branch, path, issues) {
++  const root = asRecord(branch);
++  if (!root) return issues.push(issue(path, "required", "branch is required"));
++  const name = expectString(root, "name", issues, path, "forge/");
++  const defaultBranch = expectString(root, "default_branch", issues, path);
++  expectString(root, "base_ref", issues, path);
++  if (name && defaultBranch && isDefaultBranchTarget(name, defaultBranch)) issues.push(issue(`${path}/name`, "default_branch_write", "branch must not target default branch"));
++}
++function validateWorktree(worktree, path, issues) {
++  const root = asRecord(worktree);
++  if (!root) return issues.push(issue(path, "required", "worktree is required"));
++  expectString(root, "path", issues, path);
++  if (root.ephemeral !== true) issues.push(issue(`${path}/ephemeral`, "literal", "worktree must be ephemeral"));
++}
++function validateApproval(approval, path, issues, requireApprovedIfNeeded) {
++  const root = asRecord(approval);
++  if (!root) return issues.push(issue(path, "required", "approval is required"));
++  expectOneOf(root, "approval_class", APPROVAL_CLASSES, issues, path);
++  expectOneOf(root, "risk", RISKS, issues, path);
++  const approved = expectBoolean(root, "approved_for_execution", issues, path);
++  const human = expectBoolean(root, "human_review_required_before_execution", issues, path);
++  expectStringOrNull(root, "approval_ref", issues, path);
++  if (requireApprovedIfNeeded && human === true && approved !== true) issues.push(issue(`${path}/approved_for_execution`, "approval_required", "execution approval is required before audit"));
++}
++function validateScope(scope, path, issues, requireSourceIssueCount) {
++  const root = asRecord(scope);
++  if (!root) return issues.push(issue(path, "required", "scope is required"));
++  expectLiteral(root, "one_task_one_pr", true, issues, path);
++  if (requireSourceIssueCount) expectLiteral(root, "source_issue_count", 1, issues, path);
++  expectLiteral(root, "no_default_branch_write", true, issues, path);
++  const mutable = expectStringArray(root, "mutable_paths", issues, path, false);
++  const immutable = expectStringArray(root, "immutable_paths", issues, path, false);
++  expectStringArray(root, "out_of_scope", issues, path, false);
++  expectPositiveInteger(root, "max_files_changed", issues, path, 50);
++  expectPositiveInteger(root, "max_diff_lines", issues, path, 2000);
++  for (const m of mutable) for (const im of immutable) if (m === im || (m.endsWith("/**") && im.startsWith(m.slice(0, -3))) || (im.endsWith("/**") && m.startsWith(im.slice(0, -3)))) issues.push(issue(`${path}/mutable_paths`, "immutable_overlap", `mutable path '${m}' overlaps immutable path '${im}'`));
++}
++function validateAcceptanceCriterion(value, path, issues) {
++  const root = asRecord(value);
++  if (!root) return issues.push(issue(path, "object", "acceptance criterion must be an object"));
++  expectString(root, "id", issues, path);
++  expectString(root, "description", issues, path);
++  expectLiteral(root, "required", true, issues, path);
++  const check = asRecord(root.check);
++  if (!check) return issues.push(issue(`${path}/check`, "required", "acceptance check is required"));
++  expectString(check, "kind", issues, `${path}/check`);
++  expectLiteral(check, "machine", true, issues, `${path}/check`);
++}
++function checkResult(criterion, status, reason) {
++  return { id: criterion.id, status, kind: criterion.check.kind, description: criterion.description, evidence: criterion.evidence, reason };
++}
++function finding(index, severity, category, message, path) { return { id: `AUD-${String(index).padStart(4, "0")}`, severity, category, message, ...(path ? { path } : {}) }; }
++function issue(path, code, message) { return { path, code, message }; }
++function invalid(path, code, message) { return { ok: false, issues: [issue(path, code, message)] }; }
++function asRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null; }
++function expectLiteral(record, key, expected, issues, path) { if (record[key] !== expected) issues.push(issue(`${path}/${key}`, "literal", `${key} must be ${JSON.stringify(expected)}`)); }
++function expectString(record, key, issues, path, prefix) { const value = record[key]; if (typeof value !== "string" || value.length === 0) { issues.push(issue(`${path}/${key}`, "string", `${key} must be a non-empty string`)); return null; } if (prefix && !value.startsWith(prefix)) issues.push(issue(`${path}/${key}`, "prefix", `${key} must start with '${prefix}'`)); return value; }
++function expectStringOrNull(record, key, issues, path) { const value = record[key]; if (!(typeof value === "string" || value === null)) issues.push(issue(`${path}/${key}`, "string_or_null", `${key} must be a string or null`)); }
++function expectIntegerOrNull(record, key, issues, path) { const value = record[key]; if (!(Number.isSafeInteger(value) || value === null)) issues.push(issue(`${path}/${key}`, "integer_or_null", `${key} must be an integer or null`)); }
++function expectBoolean(record, key, issues, path) { const value = record[key]; if (typeof value !== "boolean") { issues.push(issue(`${path}/${key}`, "boolean", `${key} must be boolean`)); return null; } return value; }
++function expectOneOf(record, key, allowed, issues, path) { const value = record[key]; if (typeof value !== "string" || !allowed.has(value)) issues.push(issue(`${path}/${key}`, "enum", `${key} is not allowed`)); return value; }
++function expectRfc3339(record, key, issues, path) { const value = expectString(record, key, issues, path); if (value && !RFC3339_UTC.test(value)) issues.push(issue(`${path}/${key}`, "rfc3339", `${key} must be RFC3339 UTC`)); }
++function expectStringArray(record, key, issues, path, allowEmpty) { const value = record[key]; if (!Array.isArray(value) || !value.every((x) => typeof x === "string" && x.length > 0)) { issues.push(issue(`${path}/${key}`, "string_array", `${key} must be an array of strings`)); return []; } if (!allowEmpty && value.length === 0) issues.push(issue(`${path}/${key}`, "non_empty", `${key} must not be empty`)); return value; }
++function expectPositiveInteger(record, key, issues, path, max) { const value = record[key]; if (!Number.isSafeInteger(value) || value <= 0) { issues.push(issue(`${path}/${key}`, "positive_integer", `${key} must be a positive integer`)); return null; } if (value > max) issues.push(issue(`${path}/${key}`, "max", `${key} must be <= ${max}`)); return value; }
++function reasonsFromFindings(prefix, findings) { return uniqueStrings([prefix, ...findings.map((item) => `${item.category}:${item.message}`)]); }
++function reasonsForStatus(status, report, findings) { if (status === "passed") return uniqueStrings(["audit_passed", `audit:${report.audit_id}`, `acceptance:${report.acceptance.passed}/${report.acceptance.total}`]); return uniqueStrings([`audit_${status}`, ...findings.map((item) => item.message)]); }
++function uniqueStrings(values) { return [...new Set(values.filter((value) => typeof value === "string" && value.length > 0))]; }
++function sameArray(a, b) { return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((value, index) => value === b[index]); }
++function normalizePath(value) { const normalized = String(value).trim().replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+/g, "/").replace(/\/+$/g, ""); if (!normalized || normalized.startsWith("/") || normalized.includes("\0")) return null; if (normalized.split("/").some((segment) => !segment || segment === "." || segment === "..")) return null; return normalized; }
++function matchesAny(path, patterns) { return patterns.some((pattern) => globToRegExp(pattern).test(path)); }
++function globToRegExp(pattern) { let source = "^"; const value = pattern.replace(/\\/g, "/"); for (let i = 0; i < value.length; i++) { const c = value[i]; if (c === "*" && value[i + 1] === "*") { source += ".*"; i++; } else if (c === "*") source += "[^/]*"; else source += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); } return new RegExp(source + "$"); }
++function isDefaultBranchTarget(branch, def) { const b = branch.toLowerCase(); const d = def.toLowerCase(); return b === d || b === `refs/heads/${d}` || b === "main" || b === "master" || b === "trunk"; }
++function isForbiddenEnvName(name) { const upper = name.toUpperCase(); return SECRET_PATTERNS.some((pattern) => upper.includes(pattern)); }
++function looksSecret(value) { const lower = value.toLowerCase(); return lower.startsWith("ghp_") || lower.startsWith("github_pat_") || lower.startsWith("sk-") || value.includes("-----BEGIN PRIVATE KEY-----"); }
++function stableSlug(value) { const slug = String(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80); return slug || "unnamed"; }
++function stableCommandId(command) { return String(command).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64); }
++function stableHash(value) { let hash = 0x811c9dc5; const text = String(value); for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 0x01000193) >>> 0; } return hash.toString(16).padStart(8, "0"); }
++function getDotted(root, path) { return String(path).split(".").reduce((current, segment) => asRecord(current)?.[segment], root); }
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/tests/audit.test.mjs fr_t023_work/ForgeRoot/packages/auditor/tests/audit.test.mjs
+--- fr_t023_base/ForgeRoot/packages/auditor/tests/audit.test.mjs	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/tests/audit.test.mjs	2026-04-18 17:30:56.932759489 +0000
+@@ -0,0 +1,277 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { runPlanner } from "../../planner/dist/run.js";
++import { createBranchWorktreePlan } from "../../executor/dist/worktree.js";
++import { createSandboxExecutionRequest } from "../../executor/dist/sandbox.js";
++import {
++  AUDITOR_RUNTIME_CONTRACT,
++  runAuditor,
++  validateAuditResult,
++  validatePlanSpecForAudit,
++  validateSandboxExecutionRequestForAudit,
++} from "../dist/index.js";
++
++const NOW = "2026-04-18T00:00:00Z";
++
++function makePlan({ title = "docs: update setup guide", body = "Add setup notes to docs.", labels = ["forge:auto", "docs"], number = 23 } = {}) {
++  const result = runPlanner({
++    source: "intake_input",
++    now: NOW,
++    intake: {
++      sourceKind: "issue",
++      sourceKey: `issue:${number}`,
++      repositoryFullName: "hiroshitanaka-creator/ForgeRoot",
++      number,
++      title,
++      body,
++      labels,
++    },
++  });
++  assert.equal(result.status, "planned", result.reasons.join("\n"));
++  assert.ok(result.plan);
++  return result.plan;
++}
++
++function makeChain(plan = makePlan()) {
++  const worktreeResult = createBranchWorktreePlan(plan, { now: NOW });
++  assert.equal(worktreeResult.status, "ready", worktreeResult.reasons.join("\n"));
++  assert.ok(worktreeResult.plan);
++  const sandboxResult = createSandboxExecutionRequest(worktreeResult.plan, { now: NOW });
++  assert.equal(sandboxResult.status, "ready", sandboxResult.reasons.join("\n"));
++  assert.ok(sandboxResult.request);
++  return { plan, worktreePlan: worktreeResult.plan, sandboxRequest: sandboxResult.request };
++}
++
++function observedFor(request, changedPaths = ["docs/setup.md"]) {
++  return {
++    command_ids: request.commands.map((command) => command.id),
++    changed_paths: changedPaths,
++    artifacts: request.artifacts.map((artifact) => ({
++      path: artifact.path,
++      bytes: Math.min(64, artifact.max_bytes),
++      media_type: artifact.media_type,
++      sha256: "sha256:" + "a".repeat(64),
++    })),
++    environment: { CI: "1", FORGE_SANDBOX: "1" },
++  };
++}
++
++function evidenceFor(plan, changedPaths = ["docs/setup.md"], overrides = {}) {
++  const commandResults = [];
++  for (const criterion of plan.acceptance_criteria) {
++    if (criterion.check.kind === "command" && criterion.check.command) {
++      commandResults.push({
++        id: criterion.check.command.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64),
++        command: criterion.check.command,
++        exit_code: criterion.check.expected_exit_code ?? 0,
++        outcome: "passed",
++      });
++    }
++  }
++  return {
++    changed_paths: changedPaths,
++    files_changed: changedPaths.length,
++    diff_lines: 42,
++    command_results: commandResults,
++    text_evidence: { summary: "bounded audit evidence" },
++    ...overrides,
++  };
++}
++
++test("complete docs evidence produces a passed audit report and allows later PR composition", () => {
++  const chain = makeChain();
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: observedFor(chain.sandboxRequest),
++    evidence: evidenceFor(chain.plan),
++    now: NOW,
++  });
++
++  assert.equal(result.status, "passed");
++  assert.equal(result.decision, "allow_pr_composition");
++  assert.ok(result.report);
++  assert.equal(result.report.gates.pr_composition, "allowed");
++  assert.equal(result.report.guards.no_pull_request_creation, true);
++  assert.equal(result.report.guards.no_command_execution_in_auditor, true);
++  assert.equal(validateAuditResult(result.report).ok, true);
++});
++
++test("missing sandbox observed output blocks audit instead of guessing", () => {
++  const chain = makeChain();
++  const result = runAuditor({ ...chain, evidence: evidenceFor(chain.plan), now: NOW });
++
++  assert.equal(result.status, "blocked");
++  assert.equal(result.decision, "block_pr_composition");
++  assert.ok(result.reasons.some((reason) => reason.includes("sandbox observed output is required")));
++  assert.equal(result.report?.evidence.sandbox_output_present, false);
++});
++
++test("mismatched plan/worktree/sandbox chain is invalid", () => {
++  const chain = makeChain();
++  const mismatchedRequest = { ...chain.sandboxRequest, plan_id: "forge-plan://different" };
++  const result = runAuditor({
++    ...chain,
++    sandboxRequest: mismatchedRequest,
++    sandboxOutput: observedFor(chain.sandboxRequest),
++    evidence: evidenceFor(chain.plan),
++    now: NOW,
++  });
++
++  assert.equal(result.status, "invalid");
++  assert.equal(result.decision, "invalid");
++  assert.ok(result.findings.some((finding) => finding.message.includes("plan_id values differ")));
++});
++
++test("changed path outside mutable scope fails audit", () => {
++  const chain = makeChain();
++  const changedPaths = ["src/not-docs.ts"];
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: observedFor(chain.sandboxRequest, changedPaths),
++    evidence: evidenceFor(chain.plan, changedPaths),
++    now: NOW,
++  });
++
++  assert.equal(result.status, "failed");
++  assert.equal(result.decision, "request_changes");
++  assert.ok(result.report.evidence.changed_paths.some((path) => path.reason === "outside_mutable_scope"));
++});
++
++test("immutable governance path change fails audit", () => {
++  const chain = makeChain();
++  const changedPaths = [".forge/policies/runtime-mode.forge"];
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: observedFor(chain.sandboxRequest, changedPaths),
++    evidence: evidenceFor(chain.plan, changedPaths),
++    now: NOW,
++  });
++
++  assert.equal(result.status, "failed");
++  assert.ok(result.report.evidence.changed_paths.some((path) => path.reason === "immutable"));
++});
++
++test("missing required artifact fails audit", () => {
++  const chain = makeChain();
++  const output = observedFor(chain.sandboxRequest);
++  const missing = { ...output, artifacts: output.artifacts.filter((artifact) => artifact.path !== "patch.diff") };
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: missing,
++    evidence: evidenceFor(chain.plan),
++    now: NOW,
++  });
++
++  assert.equal(result.status, "failed");
++  assert.ok(result.findings.some((finding) => finding.message.includes("required artifact 'patch.diff' is missing")));
++});
++
++test("undeclared artifact fails audit", () => {
++  const chain = makeChain();
++  const output = observedFor(chain.sandboxRequest);
++  const withExtra = {
++    ...output,
++    artifacts: [...output.artifacts, { path: "extra.log", bytes: 10, media_type: "text/plain" }],
++  };
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: withExtra,
++    evidence: evidenceFor(chain.plan),
++    now: NOW,
++  });
++
++  assert.equal(result.status, "failed");
++  assert.ok(result.findings.some((finding) => finding.message.includes("was not declared")));
++});
++
++test("undeclared observed command id fails audit", () => {
++  const chain = makeChain();
++  const output = { ...observedFor(chain.sandboxRequest), command_ids: [...chain.sandboxRequest.commands.map((command) => command.id), "surprise"] };
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: output,
++    evidence: evidenceFor(chain.plan),
++    now: NOW,
++  });
++
++  assert.equal(result.status, "failed");
++  assert.ok(result.findings.some((finding) => finding.message.includes("observed command 'surprise' was not declared")));
++});
++
++test("secret-looking observed environment fails audit", () => {
++  const chain = makeChain();
++  const output = { ...observedFor(chain.sandboxRequest), environment: { GITHUB_TOKEN: "ghp_" + "x".repeat(36) } };
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: output,
++    evidence: evidenceFor(chain.plan),
++    now: NOW,
++  });
++
++  assert.equal(result.status, "failed");
++  assert.ok(result.findings.some((finding) => finding.category === "safety_contract"));
++});
++
++test("command acceptance criteria pass with explicit command evidence and preserve human merge gate", () => {
++  const plan = makePlan({ title: "bug: fix parser crash", body: "Parser crashes on empty input", labels: ["forge:auto", "bug"], number: 24 });
++  const chain = makeChain(plan);
++  const changedPaths = ["packages/planner/src/intake.ts"];
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: observedFor(chain.sandboxRequest, changedPaths),
++    evidence: evidenceFor(plan, changedPaths),
++    now: NOW,
++  });
++
++  assert.equal(result.status, "passed");
++  assert.equal(result.report.risk_summary.approval_class, "B");
++  assert.equal(result.report.gates.merge, "human_review_required");
++  assert.ok(result.report.acceptance.checks.some((check) => check.kind === "command" && check.status === "pass"));
++});
++
++test("command acceptance criteria fail when command exits non-zero", () => {
++  const plan = makePlan({ title: "bug: fix parser crash", body: "Parser crashes on empty input", labels: ["forge:auto", "bug"], number: 25 });
++  const chain = makeChain(plan);
++  const changedPaths = ["packages/planner/src/intake.ts"];
++  const evidence = evidenceFor(plan, changedPaths, {
++    command_results: plan.acceptance_criteria
++      .filter((criterion) => criterion.check.kind === "command")
++      .map((criterion) => ({ id: "npm_test", command: criterion.check.command, exit_code: 1, outcome: "failed" })),
++  });
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: observedFor(chain.sandboxRequest, changedPaths),
++    evidence,
++    now: NOW,
++  });
++
++  assert.equal(result.status, "failed");
++  assert.ok(result.report.acceptance.checks.some((check) => check.kind === "command" && check.status === "fail"));
++});
++
++test("validator rejects malformed audit report guard mutations", () => {
++  const chain = makeChain();
++  const result = runAuditor({
++    ...chain,
++    sandboxOutput: observedFor(chain.sandboxRequest),
++    evidence: evidenceFor(chain.plan),
++    now: NOW,
++  });
++  const mutated = {
++    ...result.report,
++    guards: { ...result.report.guards, no_pull_request_creation: false },
++  };
++
++  const validation = validateAuditResult(mutated);
++  assert.equal(validation.ok, false);
++  assert.ok(validation.issues.some((issue) => issue.path === "/auditResult/guards/no_pull_request_creation"));
++});
++
++test("T023 public validators and contract expose auditor-only boundary", () => {
++  const chain = makeChain();
++  assert.equal(validatePlanSpecForAudit(chain.plan).ok, true);
++  assert.equal(validateSandboxExecutionRequestForAudit(chain.sandboxRequest).ok, true);
++  assert.ok(AUDITOR_RUNTIME_CONTRACT.forbids.includes("pull_request_creation"));
++  assert.ok(AUDITOR_RUNTIME_CONTRACT.forbids.includes("command_execution_in_auditor"));
++  assert.equal(AUDITOR_RUNTIME_CONTRACT.independentFromExecutor, true);
++});
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/tests/run.test.mjs fr_t023_work/ForgeRoot/packages/auditor/tests/run.test.mjs
+--- fr_t023_base/ForgeRoot/packages/auditor/tests/run.test.mjs	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/tests/run.test.mjs	2026-04-18 17:31:06.421682349 +0000
+@@ -0,0 +1,210 @@
++import assert from "node:assert/strict";
++import { describe, it } from "node:test";
++import { createPlanSpecFromTaskCandidate } from "../../planner/dist/plan-schema.js";
++import { createBranchWorktreePlan, createSandboxExecutionRequest } from "../../executor/dist/index.js";
++import {
++  AUDITOR_RUNTIME_CONTRACT,
++  runAuditor,
++  validateAuditResult,
++  validateAuditReport,
++} from "../dist/index.js";
++
++const CREATED_AT = "2026-04-18T00:00:00Z";
++
++function auditorTask(overrides = {}) {
++  return {
++    candidateId: "issue:23",
++    sourceKey: "issue:23",
++    sourceKind: "issue",
++    repositoryFullName: "hiroshitanaka-creator/ForgeRoot",
++    number: 23,
++    url: "https://github.com/hiroshitanaka-creator/ForgeRoot/issues/23",
++    title: "[P1][T023] Auditor runtime",
++    summary: "Add an independent auditor runtime before PR composition.",
++    category: "test",
++    risk: "medium",
++    approvalClass: "B",
++    labels: ["forge:auto", "phase:P1", "class:B", "risk:medium"],
++    autoRequested: true,
++    bodyExcerpt: "Audit plan, worktree, sandbox request, and sandbox output; do not compose PRs.",
++    plannerHints: {
++      oneTaskOnePr: true,
++      recommendedScope: "auditor runtime only",
++      mutablePathHints: ["packages/auditor/**", "docs/**", ".forge/agents/auditor.alpha.forge", "README.md", ".forge/README.md"],
++      forbiddenPathHints: [".github/workflows/**", ".forge/policies/**", ".forge/network/**"],
++      requiresHumanReviewBeforePlanning: false,
++    },
++    ...overrides,
++  };
++}
++
++function fixtures(taskOverrides = {}, worktreeOptions = {}, sandboxOptions = {}) {
++  const plan = createPlanSpecFromTaskCandidate(auditorTask(taskOverrides), { createdAt: CREATED_AT });
++  const worktreeResult = createBranchWorktreePlan(plan, { now: CREATED_AT, defaultBranch: "main", ...worktreeOptions });
++  assert.equal(worktreeResult.status, "ready", JSON.stringify(worktreeResult, null, 2));
++  const sandboxResult = createSandboxExecutionRequest(worktreeResult.plan, { now: CREATED_AT, ...sandboxOptions });
++  assert.equal(sandboxResult.status, "ready", JSON.stringify(sandboxResult, null, 2));
++  return { plan, worktreePlan: worktreeResult.plan, sandboxRequest: sandboxResult.request };
++}
++
++function passingOutput(request, changedPaths = ["packages/auditor/src/run.ts", "packages/auditor/tests/run.test.mjs", "docs/specs/t023-validation-report.md", ".forge/agents/auditor.alpha.forge"]) {
++  return {
++    command_ids: request.commands.map((command) => command.id),
++    changed_paths: changedPaths,
++    diff_summary: {
++      files_changed: changedPaths.length,
++      lines_added: 640,
++      lines_deleted: 18,
++      total_lines_changed: 658,
++    },
++    artifacts: request.artifacts
++      .filter((artifact) => artifact.required)
++      .map((artifact) => ({ path: artifact.path, bytes: Math.min(2048, artifact.max_bytes), media_type: artifact.media_type, sha256: `sha256:${"a".repeat(64)}` })),
++    environment: { FORGE_SANDBOX: "1" },
++  };
++}
++
++function commandEvidence(plan) {
++  return {
++    command_results: plan.acceptance_criteria
++      .filter((criterion) => criterion.check.kind === "command")
++      .map((criterion) => ({ command: criterion.check.command, exit_code: criterion.check.expected_exit_code ?? 0 })),
++  };
++}
++
++describe("T023 auditor runtime", () => {
++  it("declares an independent audit-only contract", () => {
++    assert.equal(AUDITOR_RUNTIME_CONTRACT.oneTaskOnePr, true);
++    assert.equal(AUDITOR_RUNTIME_CONTRACT.independentFromExecutor, true);
++    assert.ok(AUDITOR_RUNTIME_CONTRACT.consumes.includes("plan_spec"));
++    assert.ok(AUDITOR_RUNTIME_CONTRACT.consumes.includes("sandbox_observed_output"));
++    assert.ok(AUDITOR_RUNTIME_CONTRACT.produces.includes("audit_result"));
++    assert.ok(AUDITOR_RUNTIME_CONTRACT.forbids.includes("pull_request_creation"));
++    assert.ok(AUDITOR_RUNTIME_CONTRACT.forbids.includes("github_mutation"));
++    assert.ok(AUDITOR_RUNTIME_CONTRACT.forbids.includes("command_execution_in_auditor"));
++  });
++
++  it("passes one valid plan/worktree/sandbox/output chain and emits a validated audit result", () => {
++    const { plan, worktreePlan, sandboxRequest } = fixtures();
++    const result = runAuditor({
++      plan,
++      worktreePlan,
++      sandboxRequest,
++      sandboxOutput: passingOutput(sandboxRequest),
++      evidence: commandEvidence(plan),
++      now: CREATED_AT,
++    });
++
++    assert.equal(result.status, "passed", JSON.stringify(result, null, 2));
++    assert.equal(result.decision, "allow_pr_composition");
++    assert.equal(result.report.schema_ref, "urn:forgeroot:audit-result:v1");
++    assert.equal(result.report.plan_id, plan.plan_id);
++    assert.equal(result.report.worktree_manifest_id, worktreePlan.manifest_id);
++    assert.equal(result.report.sandbox_request_id, sandboxRequest.request_id);
++    assert.equal(result.report.gates.pr_composition, "allowed");
++    assert.equal(result.report.guards.no_pull_request_creation, true);
++    assert.equal(result.report.guards.no_github_mutation, true);
++    assert.deepEqual(validateAuditResult(result.report), { ok: true, issues: [] });
++    assert.deepEqual(validateAuditReport(result.report), { ok: true, issues: [] });
++  });
++
++  it("blocks PR composition when sandbox observed output is missing", () => {
++    const { plan, worktreePlan, sandboxRequest } = fixtures();
++    const result = runAuditor({ plan, worktreePlan, sandboxRequest, evidence: commandEvidence(plan), now: CREATED_AT });
++
++    assert.equal(result.status, "blocked");
++    assert.equal(result.decision, "block_pr_composition");
++    assert.equal(result.report.gates.pr_composition, "blocked");
++    assert.ok(result.reasons.some((reason) => reason.includes("sandbox observed output is required")));
++  });
++
++  it("invalidates mismatched plan/worktree/sandbox identities before PR composition", () => {
++    const { plan, worktreePlan, sandboxRequest } = fixtures();
++    const result = runAuditor({
++      plan,
++      worktreePlan: { ...worktreePlan, plan_id: "forge-plan://different" },
++      sandboxRequest,
++      sandboxOutput: passingOutput(sandboxRequest),
++      evidence: commandEvidence(plan),
++      now: CREATED_AT,
++    });
++
++    assert.equal(result.status, "invalid");
++    assert.equal(result.decision, "invalid");
++    assert.ok(result.reasons.some((reason) => reason.includes("Plan Spec and branch/worktree manifest plan_id values differ")));
++  });
++
++  it("fails when sandbox output touches immutable or out-of-scope paths", () => {
++    const { plan, worktreePlan, sandboxRequest } = fixtures();
++    const result = runAuditor({
++      plan,
++      worktreePlan,
++      sandboxRequest,
++      sandboxOutput: passingOutput(sandboxRequest, ["packages/auditor/src/run.ts", ".github/workflows/ci.yml", "src/unrelated.ts"]),
++      evidence: commandEvidence(plan),
++      now: CREATED_AT,
++    });
++
++    assert.equal(result.status, "failed");
++    assert.equal(result.decision, "request_changes");
++    assert.ok(result.findings.some((finding) => finding.message.includes("immutable scope")));
++    assert.ok(result.findings.some((finding) => finding.message.includes("outside mutable scope")));
++  });
++
++  it("fails missing required artifacts and undeclared artifact output", () => {
++    const { plan, worktreePlan, sandboxRequest } = fixtures();
++    const output = passingOutput(sandboxRequest);
++    const result = runAuditor({
++      plan,
++      worktreePlan,
++      sandboxRequest,
++      sandboxOutput: {
++        ...output,
++        artifacts: [output.artifacts[0], { path: "undeclared.json", bytes: 10, media_type: "application/json" }],
++      },
++      evidence: commandEvidence(plan),
++      now: CREATED_AT,
++    });
++
++    assert.equal(result.status, "failed");
++    assert.ok(result.findings.some((finding) => finding.message.includes("was not declared")));
++    assert.ok(result.findings.some((finding) => finding.message.includes("required artifact")));
++  });
++
++  it("fails when observed output exposes secret-looking environment data", () => {
++    const { plan, worktreePlan, sandboxRequest } = fixtures();
++    const result = runAuditor({
++      plan,
++      worktreePlan,
++      sandboxRequest,
++      sandboxOutput: { ...passingOutput(sandboxRequest), environment: { GITHUB_TOKEN: "ghp_notallowed" } },
++      evidence: commandEvidence(plan),
++      now: CREATED_AT,
++    });
++
++    assert.equal(result.status, "failed");
++    assert.ok(result.findings.some((finding) => finding.message.includes("secret-bearing")));
++    assert.ok(result.findings.some((finding) => finding.message.includes("secret value")));
++  });
++
++  it("invalidates approval class rewrites between plan and sandbox request", () => {
++    const { plan, worktreePlan, sandboxRequest } = fixtures();
++    const result = runAuditor({
++      plan,
++      worktreePlan,
++      sandboxRequest: { ...sandboxRequest, approval: { ...sandboxRequest.approval, approval_class: "A" } },
++      sandboxOutput: passingOutput(sandboxRequest),
++      evidence: commandEvidence(plan),
++      now: CREATED_AT,
++    });
++
++    assert.equal(result.status, "invalid");
++    assert.ok(result.reasons.some((reason) => reason.includes("approval class differs")));
++  });
++
++  it("rejects malformed audit result objects", () => {
++    const validation = validateAuditResult({ schema_ref: "bad" });
++    assert.equal(validation.ok, false);
++    assert.ok(validation.issues.length > 0);
++  });
++});
+diff -ruN fr_t023_base/ForgeRoot/packages/auditor/tsconfig.json fr_t023_work/ForgeRoot/packages/auditor/tsconfig.json
+--- fr_t023_base/ForgeRoot/packages/auditor/tsconfig.json	1970-01-01 00:00:00.000000000 +0000
++++ fr_t023_work/ForgeRoot/packages/auditor/tsconfig.json	2026-04-18 17:24:56.449822068 +0000
+@@ -0,0 +1,15 @@
++{
++  "compilerOptions": {
++    "target": "ES2022",
++    "module": "NodeNext",
++    "moduleResolution": "NodeNext",
++    "rootDir": "src",
++    "outDir": "dist",
++    "declaration": true,
++    "sourceMap": true,
++    "strict": true,
++    "skipLibCheck": true,
++    "noEmitOnError": true
++  },
++  "include": ["src/**/*.ts"]
++}
