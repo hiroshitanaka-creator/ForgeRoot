@@ -1,0 +1,234 @@
+# ForgeRoot T018 validation output
+$ node --test --test-force-exit packages/planner/tests/*.test.mjs
+TAP version 13
+# Subtest: normalizes labels deterministically
+ok 1 - normalizes labels deterministically
+  ---
+  duration_ms: 57.929562
+  type: 'test'
+  ...
+# Subtest: forge:auto docs issue becomes an automatic normalized task candidate
+ok 2 - forge:auto docs issue becomes an automatic normalized task candidate
+  ---
+  duration_ms: 2.109409
+  type: 'test'
+  ...
+# Subtest: issue without forge:auto is classified but ignored for automation
+ok 3 - issue without forge:auto is classified but ignored for automation
+  ---
+  duration_ms: 0.428084
+  type: 'test'
+  ...
+# Subtest: classifies at least four stable intake categories
+ok 4 - classifies at least four stable intake categories
+  ---
+  duration_ms: 0.892091
+  type: 'test'
+  ...
+# Subtest: security issue with forge:auto escalates instead of becoming an auto target
+ok 5 - security issue with forge:auto escalates instead of becoming an auto target
+  ---
+  duration_ms: 0.379735
+  type: 'test'
+  ...
+# Subtest: workflow and permission issues escalate as elevated governance work
+ok 6 - workflow and permission issues escalate as elevated governance work
+  ---
+  duration_ms: 0.4877
+  type: 'test'
+  ...
+# Subtest: explicit block labels and bypass requests block intake
+ok 7 - explicit block labels and bypass requests block intake
+  ---
+  duration_ms: 0.475914
+  type: 'test'
+  ...
+# Subtest: issue comments can classify when the parent issue has forge:auto
+ok 8 - issue comments can classify when the parent issue has forge:auto
+  ---
+  duration_ms: 0.369452
+  type: 'test'
+  ...
+# Subtest: failed CI alert is classified but not an automatic target without forge:auto
+ok 9 - failed CI alert is classified but not an automatic target without forge:auto
+  ---
+  duration_ms: 0.550559
+  type: 'test'
+  ...
+# Subtest: successful CI alert is ignored before planning
+ok 10 - successful CI alert is ignored before planning
+  ---
+  duration_ms: 0.913934
+  type: 'test'
+  ...
+# Subtest: broad forge:auto requests are blocked to preserve one-task-one-PR
+ok 11 - broad forge:auto requests are blocked to preserve one-task-one-PR
+  ---
+  duration_ms: 0.405728
+  type: 'test'
+  ...
+# Subtest: creates one deterministic Plan Spec from one accepted issue candidate
+ok 12 - creates one deterministic Plan Spec from one accepted issue candidate
+  ---
+  duration_ms: 18.301919
+  type: 'test'
+  ...
+# Subtest: acceptance criteria are required and machine-checkable
+ok 13 - acceptance criteria are required and machine-checkable
+  ---
+  duration_ms: 1.652132
+  type: 'test'
+  ...
+# Subtest: scope contract requires mutable paths and explicit out-of-scope boundaries
+ok 14 - scope contract requires mutable paths and explicit out-of-scope boundaries
+  ---
+  duration_ms: 2.278129
+  type: 'test'
+  ...
+# Subtest: mutable paths cannot overlap immutable governance paths
+ok 15 - mutable paths cannot overlap immutable governance paths
+  ---
+  duration_ms: 0.796816
+  type: 'test'
+  ...
+# Subtest: approval link blocks elevated class plans before execution
+ok 16 - approval link blocks elevated class plans before execution
+  ---
+  duration_ms: 0.923282
+  type: 'test'
+  ...
+# Subtest: planner runtime turns one forge:auto docs issue into one validated Plan Spec
+ok 17 - planner runtime turns one forge:auto docs issue into one validated Plan Spec
+  ---
+  duration_ms: 17.955123
+  type: 'test'
+  ...
+# Subtest: planner runtime ignores issues without the forge:auto label
+ok 18 - planner runtime ignores issues without the forge:auto label
+  ---
+  duration_ms: 0.591826
+  type: 'test'
+  ...
+# Subtest: planner runtime escalates security, workflow, and policy issues before plan creation
+ok 19 - planner runtime escalates security, workflow, and policy issues before plan creation
+  ---
+  duration_ms: 1.03248
+  type: 'test'
+  ...
+# Subtest: planner runtime blocks broad forge:auto requests
+ok 20 - planner runtime blocks broad forge:auto requests
+  ---
+  duration_ms: 0.408359
+  type: 'test'
+  ...
+# Subtest: planner runtime accepts a direct normalized task candidate deterministically
+ok 21 - planner runtime accepts a direct normalized task candidate deterministically
+  ---
+  duration_ms: 3.903356
+  type: 'test'
+  ...
+# Subtest: planner runtime rejects invalid payloads without creating a plan
+ok 22 - planner runtime rejects invalid payloads without creating a plan
+  ---
+  duration_ms: 0.247752
+  type: 'test'
+  ...
+# Subtest: planner runtime exposes bounded context and output contracts
+ok 23 - planner runtime exposes bounded context and output contracts
+  ---
+  duration_ms: 0.221624
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 307.99717
+$ node --test --test-force-exit packages/executor/tests/*.test.mjs
+TAP version 13
+# Subtest: T018 branch/worktree manager
+    # Subtest: declares a manifest-only contract with no git side effects
+    ok 1 - declares a manifest-only contract with no git side effects
+      ---
+      duration_ms: 1.421442
+      type: 'test'
+      ...
+    # Subtest: creates one deterministic branch/worktree plan from one ready Plan Spec
+    ok 2 - creates one deterministic branch/worktree plan from one ready Plan Spec
+      ---
+      duration_ms: 5.204376
+      type: 'test'
+      ...
+    # Subtest: is deterministic for identical Plan Spec and options
+    ok 3 - is deterministic for identical Plan Spec and options
+      ---
+      duration_ms: 1.258675
+      type: 'test'
+      ...
+    # Subtest: blocks elevated plans before branch preparation unless execution approval is attached
+    ok 4 - blocks elevated plans before branch preparation unless execution approval is attached
+      ---
+      duration_ms: 0.81816
+      type: 'test'
+      ...
+    # Subtest: requires an approval reference when elevated execution approval is asserted
+    ok 5 - requires an approval reference when elevated execution approval is asserted
+      ---
+      duration_ms: 0.360478
+      type: 'test'
+      ...
+    # Subtest: rejects default-branch or unsafe branch targets
+    ok 6 - rejects default-branch or unsafe branch targets
+      ---
+      duration_ms: 1.984966
+      type: 'test'
+      ...
+    # Subtest: rejects unsafe worktree roots
+    ok 7 - rejects unsafe worktree roots
+      ---
+      duration_ms: 0.443573
+      type: 'test'
+      ...
+    # Subtest: guards changed paths against immutable and out-of-scope paths
+    ok 8 - guards changed paths against immutable and out-of-scope paths
+      ---
+      duration_ms: 1.61036
+      type: 'test'
+      ...
+    # Subtest: does not prepare branches for draft or superseded plans
+    ok 9 - does not prepare branches for draft or superseded plans
+      ---
+      duration_ms: 0.490516
+      type: 'test'
+      ...
+    # Subtest: rejects malformed plan-like inputs before branch derivation
+    ok 10 - rejects malformed plan-like inputs before branch derivation
+      ---
+      duration_ms: 0.936704
+      type: 'test'
+      ...
+    1..10
+ok 1 - T018 branch/worktree manager
+  ---
+  duration_ms: 16.595835
+  type: 'suite'
+  ...
+1..1
+# tests 10
+# suites 1
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 148.534463
+$ node --check packages/executor/dist/worktree.js
+ok - executor dist syntax
+$ node --check packages/executor/dist/index.js
+ok - executor index syntax
+$ node --check packages/planner/dist/run.js
+ok - planner dist syntax

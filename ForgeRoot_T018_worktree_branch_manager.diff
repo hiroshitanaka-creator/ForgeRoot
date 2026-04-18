@@ -1,0 +1,2030 @@
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/.forge/README.md /mnt/data/forgeroot_t018_work/ForgeRoot/.forge/README.md
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/.forge/README.md	2026-04-18 16:35:45.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/.forge/README.md	2026-04-18 16:52:33.143530861 +0000
+@@ -8,6 +8,7 @@
+ - `policies/constitution.forge` fixes the first non-negotiables and approval classes.
+ - `policies/runtime-mode.forge` defines conservative runtime modes and kill-switch behavior.
+ - `agents/planner.alpha.forge` defines the T017 Planner Alpha identity, context recipe, and bounded output contract.
++- `packages/executor/src/worktree.ts` defines the T018 branch/worktree manifest boundary.
+ - `docs/specs/t003-validation-fixture.yaml` records the minimum assertions that later schema and parser work should validate.
+ 
+ Current safety boundary:
+@@ -16,10 +17,12 @@
+ - PR remains the only evolution transport path.
+ - Planner Alpha may produce at most one Plan Spec from one accepted task candidate.
+ - Planner Alpha must not edit files, create branches, create PRs, or generate audit reports.
++- T018 may prepare a branch/worktree manifest only; it must not run git, create branches, add worktrees, edit files, commit, compose PRs, or invoke a sandbox.
+ 
+ Still intentionally deferred:
+ 
+ - executor file editing
++- sandbox command execution
+ - audit report generation
+ - PR composer
+ - self-evolution
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/README.md /mnt/data/forgeroot_t018_work/ForgeRoot/README.md
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/README.md	2026-04-18 16:35:45.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/README.md	2026-04-18 16:52:33.131608471 +0000
+@@ -15,7 +15,7 @@
+ 
+ ## Current implementation status
+ 
+-The repository has moved through the Phase 0 kernel and the first Phase 1 planning primitives.
++The repository has moved through the Phase 0 kernel and the first Phase 1 planning and pre-execution primitives.
+ 
+ Implemented so far:
+ 
+@@ -30,6 +30,7 @@
+ - T015 — deterministic issue intake classifier
+ - T016 — one-task-one-PR Plan Spec DSL
+ - T017 — deterministic planner runtime bridge
++- T018 — deterministic branch/worktree manager manifest
+ 
+ ## Repo layout
+ 
+@@ -52,6 +53,7 @@
+   forge-kernel/
+ packages/
+   planner/
++  executor/
+ labs/
+ docs/
+   specs/
+@@ -60,16 +62,16 @@
+ schemas/
+ ```
+ 
+-## Planner path
++## Pre-execution path
+ 
+-The first forging loop now has two pre-execution contracts:
++The first forging loop now has pre-execution contracts that narrow one issue into one bounded execution lane:
+ 
+ 1. `packages/planner/src/intake.ts` classifies issue/comment/alert-like inputs and only accepts normalized `forge:auto` candidates.
+ 2. `packages/planner/src/plan-schema.ts` turns one accepted candidate into one `forge.plan` with explicit mutable paths, forbidden paths, out-of-scope boundaries, risk/approval linkage, and machine-checkable acceptance criteria.
+-
+ 3. `packages/planner/src/run.ts` is the deterministic runtime bridge that accepts a webhook-like event, normalized intake input, or pre-accepted task candidate and returns at most one valid Plan Spec.
++4. `packages/executor/src/worktree.ts` consumes one ready Plan Spec-like object and returns at most one branch/worktree manifest with default-branch write protection, an ephemeral runtime worktree path, and mutable/immutable path guards.
+ 
+-The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports.
++The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox.
+ 
+ ## Safety defaults
+ 
+@@ -79,4 +81,4 @@
+ - Workflow, policy, permission, and network changes are elevated.
+ - Kill switch can close the mutating lane in one operation.
+ - Event Inbox dedupes GitHub delivery IDs before downstream processing.
+-- One task becomes one plan and, later, one PR.
++- One task becomes one plan, one branch/worktree manifest, and later one PR.
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/docs/README.md /mnt/data/forgeroot_t018_work/ForgeRoot/docs/README.md
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/docs/README.md	2026-04-18 16:23:46.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/docs/README.md	2026-04-18 16:52:33.157555245 +0000
+@@ -11,6 +11,7 @@
+ Current specs and reports:
+ 
+ - `ops/thread-handoff-after-t016.md` — handoff summary for starting a clean T017 planner-runtime thread
++- `ops/thread-handoff-after-t018.md` — handoff summary for starting T019 executor sandbox harness
+ - `specs/forge-v1.md` — T004 `.forge` v1 specification seed
+ - `specs/issue-intake.md` — T015 deterministic issue intake classifier
+ - `specs/plan-spec.md` — T016 one-task-one-PR Plan Spec DSL
+@@ -23,3 +24,5 @@
+ - `specs/t014-validation-report.md` — T014 runtime mode / kill switch report
+ - `specs/t015-validation-report.md` — T015 intake classifier report
+ - `specs/t016-validation-report.md` — T016 Plan Spec DSL report
++- `specs/t017-validation-report.md` — T017 planner runtime report
++- `specs/t018-validation-report.md` — T018 branch/worktree manager report
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/docs/ops/thread-handoff-after-t018.md /mnt/data/forgeroot_t018_work/ForgeRoot/docs/ops/thread-handoff-after-t018.md
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/docs/ops/thread-handoff-after-t018.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/docs/ops/thread-handoff-after-t018.md	2026-04-18 16:51:30.868838309 +0000
+@@ -0,0 +1,56 @@
++# ForgeRoot Thread Handoff: after T018
++
++Date: 2026-04-18 JST
++
++Recommended next target: **T019 Executor sandbox harness**
++
++## Current state
++
++ForgeRoot has completed the deterministic intake, planning, and pre-execution branch/worktree manifest boundary:
++
++- T015 issue intake classifier
++- T016 Plan Spec DSL
++- T017 planner runtime
++- T018 branch/worktree manager
++
++T018 introduced `packages/executor` as the executor-side package seed. It is intentionally manifest-only and does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox.
++
++## Key files from T018
++
++- `packages/executor/src/worktree.ts`
++- `packages/executor/src/index.ts`
++- `packages/executor/tests/worktree.test.mjs`
++- `packages/executor/README.md`
++- `docs/specs/t018-validation-report.md`
++
++## T018 API surface
++
++```ts
++createBranchWorktreePlan(plan, options)
++validateBranchWorktreePlan(plan)
++validateChangedPaths(plan, changedPaths)
++BRANCH_WORKTREE_MANAGER_CONTRACT
++```
++
++## Invariants preserved
++
++- Git remains the source of truth.
++- PR remains the only evolution transport path.
++- One accepted task becomes one Plan Spec.
++- One ready Plan Spec becomes at most one branch/worktree manifest.
++- Default branch writes remain forbidden.
++- Workflow, policy, and network paths remain immutable unless a separate elevated task approves them.
++
++## Recommended T019 boundary
++
++T019 should add an executor sandbox harness around the T018 manifest without performing real production mutation. It should prepare a bounded execution request/manifest for a sandbox runner and validate that commands, environment, path scope, and output artifacts stay within the Plan Spec and T018 branch/worktree contract.
++
++Suggested out of scope for T019:
++
++- PR composer
++- audit report generation
++- real GitHub mutation
++- workflow mutation
++- policy mutation
++- network/federation behavior
++- self-evolution
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/docs/specs/t018-validation-report.md /mnt/data/forgeroot_t018_work/ForgeRoot/docs/specs/t018-validation-report.md
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/docs/specs/t018-validation-report.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/docs/specs/t018-validation-report.md	2026-04-18 16:54:15.485223158 +0000
+@@ -0,0 +1,72 @@
++# T018 validation report — worktree / branch manager
++
++Date: 2026-04-18 JST
++
++## Scope
++
++T018 adds the deterministic pre-execution boundary that converts one ready Plan Spec into one branch/worktree manifest.
++
++Implemented paths:
++
++- `packages/executor/src/worktree.ts`
++- `packages/executor/src/index.ts`
++- `packages/executor/tests/worktree.test.mjs`
++- `packages/executor/README.md`
++- `docs/specs/t018-validation-report.md`
++
++Updated paths:
++
++- `README.md`
++- `.forge/README.md`
++
++## Contract
++
++The branch/worktree manager is manifest-only. It does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox.
++
++The generated manifest records:
++
++- `forge/<phase>/<task-id>-<slug>` branch naming
++- default branch write protection
++- ephemeral runtime-owned worktree path
++- one Plan Spec to at most one branch/worktree manifest
++- mutable and immutable path guards
++- execution approval state for elevated plans
++
++## Acceptance coverage
++
++| Requirement | Coverage |
++|---|---|
++| One Plan Spec becomes at most one branch/worktree manifest | `createBranchWorktreePlan` returns one `BranchWorktreePlan` or no manifest |
++| Default branch writes are forbidden | branch validation rejects unsafe/default targets and manifest guard sets `forbid_default_branch_write: true` |
++| Branch names follow ForgeRoot naming | derived names use `forge/<phase>/<task-id>-<slug>` and parse `[P?][T???]` task titles |
++| Worktrees are ephemeral runtime state | manifest records `ephemeral: true` and `cleanup: delete_after_pr_or_failure` |
++| Mutable/immutable path boundaries are enforced | `validateChangedPaths` rejects immutable and out-of-scope paths |
++| Elevated plans require human approval before branch prep | blocked manifests are returned until `approvedForExecution` and `approvalRef` are present |
++| No git/file side effects | exported contract and audit trail explicitly mark manifest-only behavior |
++
++## Validation commands
++
++```bash
++cd packages/planner
++node --test --test-force-exit tests/*.test.mjs
++
++cd ../executor
++node --test --test-force-exit tests/*.test.mjs
++
++cd ../..
++node --check packages/executor/dist/worktree.js
++node --check packages/executor/dist/index.js
++node --check packages/planner/dist/run.js
++```
++
++## Results
++
++- Planner regression tests: 23 pass / 0 fail
++- Executor T018 tests: 10 pass / 0 fail
++- `node --check packages/executor/dist/worktree.js`: pass
++- `node --check packages/executor/dist/index.js`: pass
++- `node --check packages/planner/dist/run.js`: pass
++
++## Sandbox note
++
++As in T017, this sandbox can emit TypeScript `dist/` files but the `tsc` process may remain open instead of returning cleanly. The committed `dist/` files were generated and then validated with Node syntax checks plus runtime tests.
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/README.md /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/README.md
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/README.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/README.md	2026-04-18 16:50:50.478060071 +0000
+@@ -0,0 +1,34 @@
++# @forgeroot/executor
++
++Executor-side primitives for ForgeRoot.
++
++## T018 branch/worktree manager
++
++T018 adds a deterministic branch/worktree preparation layer between Planner output and later sandbox execution.
++
++Main exports:
++
++- `createBranchWorktreePlan(plan, options)`
++- `validateBranchWorktreePlan(plan)`
++- `validateChangedPaths(plan, changedPaths)`
++- `BranchWorktreePlan` and related schema types
++- `BRANCH_WORKTREE_MANAGER_CONTRACT`
++
++The manager consumes a Plan Spec-like object and produces a manifest only. It does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, or run tests.
++
++The manifest enforces:
++
++- branch names under `forge/<phase>/<task-id>-<slug>`
++- no direct writes to the default branch
++- one Plan Spec becomes at most one branch/worktree manifest
++- ephemeral worktree paths under a runtime-owned root
++- explicit mutable and immutable path guards
++- human execution approval before elevated plans can prepare a branch/worktree manifest
++
++## Local development
++
++```bash
++cd packages/executor
++timeout 20 tsc -p tsconfig.json
++node --test --test-force-exit tests/*.test.mjs
++```
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/index.d.ts /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/index.d.ts
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/index.d.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/index.d.ts	2026-04-18 16:49:59.506108333 +0000
+@@ -0,0 +1 @@
++export * from "./worktree.js";
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/index.js /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/index.js
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/index.js	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/index.js	2026-04-18 16:54:49.265440702 +0000
+@@ -0,0 +1,2 @@
++export * from "./worktree.js";
++//# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/index.js.map /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/index.js.map
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/index.js.map	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/index.js.map	2026-04-18 16:54:49.265693085 +0000
+@@ -0,0 +1 @@
++{"version":3,"file":"index.js","sourceRoot":"","sources":["index.ts"],"names":[],"mappings":"AAAA,cAAc,eAAe,CAAC"}
+\ No newline at end of file
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/worktree.d.ts /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/worktree.d.ts
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/worktree.d.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/worktree.d.ts	2026-04-18 16:49:59.502047689 +0000
+@@ -0,0 +1,135 @@
++export type WorktreePrepareStatus = "ready" | "blocked" | "invalid";
++export type ApprovalClassLike = "A" | "B" | "C" | "D";
++export type RiskLike = "low" | "medium" | "high" | "critical";
++export interface PlanSpecLike {
++    readonly plan_id: string;
++    readonly status: string;
++    readonly created_at: string;
++    readonly title: string;
++    readonly source: {
++        readonly kind?: string;
++        readonly source_key?: string;
++        readonly candidate_id?: string;
++        readonly repository?: string | null;
++        readonly issue_number?: number | null;
++        readonly title?: string;
++        readonly labels?: readonly string[];
++    };
++    readonly scope_contract: {
++        readonly one_task_one_pr: true;
++        readonly source_issue_count: 1;
++        readonly no_default_branch_write: true;
++        readonly mutable_paths: readonly string[];
++        readonly immutable_paths: readonly string[];
++        readonly out_of_scope: readonly string[];
++        readonly max_files_changed: number;
++        readonly max_diff_lines: number;
++        readonly branch_naming_hint: string;
++    };
++    readonly risk_and_approval: {
++        readonly risk: RiskLike | string;
++        readonly approval_class: ApprovalClassLike | string;
++        readonly human_review_required_before_execution: boolean;
++        readonly human_review_required_before_merge?: boolean;
++        readonly escalation_required: boolean;
++        readonly reasons?: readonly string[];
++    };
++}
++export interface BranchWorktreeOptions {
++    readonly defaultBranch?: string;
++    readonly baseRef?: string;
++    readonly branchName?: string;
++    readonly worktreeRoot?: string;
++    readonly phase?: string;
++    readonly taskId?: string;
++    readonly approvedForExecution?: boolean;
++    readonly approvalRef?: string;
++    readonly now?: string;
++}
++export interface BranchWorktreePlan {
++    readonly manifest_version: 1;
++    readonly schema_ref: "urn:forgeroot:branch-worktree:v1";
++    readonly manifest_id: string;
++    readonly created_at: string;
++    readonly plan_id: string;
++    readonly source: {
++        readonly repository: string | null;
++        readonly issue_number: number | null;
++        readonly candidate_id: string;
++        readonly title: string;
++    };
++    readonly branch: {
++        readonly name: string;
++        readonly base_ref: string;
++        readonly default_branch: string;
++        readonly naming_rule: "forge/<phase>/<task-id>-<slug>";
++        readonly delete_after_pr: true;
++    };
++    readonly worktree: {
++        readonly root: string;
++        readonly path: string;
++        readonly ephemeral: true;
++        readonly cleanup: "delete_after_pr_or_failure";
++    };
++    readonly scope: {
++        readonly one_task_one_pr: true;
++        readonly no_default_branch_write: true;
++        readonly mutable_paths: readonly string[];
++        readonly immutable_paths: readonly string[];
++        readonly out_of_scope: readonly string[];
++        readonly max_files_changed: number;
++        readonly max_diff_lines: number;
++    };
++    readonly approval: {
++        readonly approval_class: string;
++        readonly risk: string;
++        readonly approved_for_execution: boolean;
++        readonly approval_ref: string | null;
++        readonly human_review_required_before_execution: boolean;
++    };
++    readonly guards: {
++        readonly enforce_clean_worktree: true;
++        readonly enforce_mutable_paths: true;
++        readonly forbid_default_branch_write: true;
++        readonly forbid_workflow_policy_network_paths: true;
++        readonly forbid_git_side_effects_in_manager: true;
++    };
++}
++export interface BranchWorktreeValidationIssue {
++    readonly path: string;
++    readonly code: string;
++    readonly message: string;
++}
++export interface BranchWorktreeValidationResult {
++    readonly ok: boolean;
++    readonly issues: readonly BranchWorktreeValidationIssue[];
++}
++export interface BranchWorktreeResult {
++    readonly status: WorktreePrepareStatus;
++    readonly plan?: BranchWorktreePlan;
++    readonly reasons: readonly string[];
++    readonly auditTrail: readonly string[];
++    readonly issues?: readonly BranchWorktreeValidationIssue[];
++}
++export interface ChangedPathResult {
++    readonly path: string;
++    readonly status: "accepted" | "rejected";
++    readonly reason: "mutable" | "immutable" | "outside_mutable_scope" | "invalid_path";
++}
++export interface ChangedPathsValidationResult {
++    readonly ok: boolean;
++    readonly acceptedPaths: readonly string[];
++    readonly rejectedPaths: readonly ChangedPathResult[];
++    readonly reasons: readonly string[];
++}
++export declare const BRANCH_WORKTREE_SCHEMA_REF: "urn:forgeroot:branch-worktree:v1";
++export declare const BRANCH_WORKTREE_MANAGER_CONTRACT: {
++    readonly produces: readonly ["branch_worktree_plan"];
++    readonly forbids: readonly ["git_checkout", "git_branch_create", "git_worktree_add", "file_editing", "commit_creation", "pull_request_creation", "default_branch_write"];
++    readonly branchPrefix: "forge/";
++    readonly defaultWorktreeRoot: ".forgeroot/worktrees";
++    readonly oneTaskOnePr: true;
++};
++export declare function createBranchWorktreePlan(plan: PlanSpecLike, options?: BranchWorktreeOptions): BranchWorktreeResult;
++export declare function validateBranchWorktreePlan(plan: unknown): BranchWorktreeValidationResult;
++export declare function validateChangedPaths(plan: BranchWorktreePlan, changedPaths: readonly string[]): ChangedPathsValidationResult;
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/worktree.js /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/worktree.js
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/worktree.js	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/worktree.js	2026-04-18 16:54:49.257771085 +0000
+@@ -0,0 +1,615 @@
++export const BRANCH_WORKTREE_SCHEMA_REF = "urn:forgeroot:branch-worktree:v1";
++export const BRANCH_WORKTREE_MANAGER_CONTRACT = {
++    produces: ["branch_worktree_plan"],
++    forbids: [
++        "git_checkout",
++        "git_branch_create",
++        "git_worktree_add",
++        "file_editing",
++        "commit_creation",
++        "pull_request_creation",
++        "default_branch_write",
++    ],
++    branchPrefix: "forge/",
++    defaultWorktreeRoot: ".forgeroot/worktrees",
++    oneTaskOnePr: true,
++};
++const MANIFEST_VERSION = 1;
++const DEFAULT_BRANCH = "main";
++const DEFAULT_WORKTREE_ROOT = ".forgeroot/worktrees";
++const MAX_BRANCH_LENGTH = 96;
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
++const RISKS = new Set(["low", "medium", "high", "critical"]);
++const RESERVED_BRANCH_TARGETS = new Set(["main", "master", "trunk", "default", "refs/heads/main", "refs/heads/master"]);
++const PLAN_STATUSES = new Set(["draft", "ready_for_execution", "blocked_for_human", "superseded"]);
++const GOVERNANCE_GLOBS = [".github/workflows/**", ".forge/policies/**", ".forge/network/**"];
++export function createBranchWorktreePlan(plan, options = {}) {
++    const auditTrail = [
++        "worktree_branch_manager:T018",
++        "contract:one_task_one_pr",
++        "contract:no_git_side_effects",
++        "contract:no_default_branch_write",
++    ];
++    const planIssues = validatePlanSpecLike(plan);
++    if (planIssues.length > 0) {
++        return invalidResult(["invalid_plan_spec_like", ...planIssues.map(formatIssue)], auditTrail, planIssues);
++    }
++    const normalizedPlan = plan;
++    if (normalizedPlan.status !== "ready_for_execution" && normalizedPlan.status !== "blocked_for_human") {
++        return {
++            status: "blocked",
++            reasons: uniqueStrings([`plan_status_not_ready_for_worktree:${normalizedPlan.status}`]),
++            auditTrail: [...auditTrail, "branch:none", "worktree:none", "reason:plan_not_ready"],
++        };
++    }
++    const approvalNeeded = normalizedPlan.status === "blocked_for_human" || normalizedPlan.risk_and_approval.human_review_required_before_execution || normalizedPlan.risk_and_approval.escalation_required;
++    const approvedForExecution = options.approvedForExecution === true;
++    const approvalRef = normalizeOptionalString(options.approvalRef);
++    if (approvalNeeded && !approvedForExecution) {
++        return {
++            status: "blocked",
++            reasons: uniqueStrings([
++                "human_review_required_before_branch_preparation",
++                `plan_status:${normalizedPlan.status}`,
++                `approval_class:${normalizedPlan.risk_and_approval.approval_class}`,
++                `risk:${normalizedPlan.risk_and_approval.risk}`,
++            ]),
++            auditTrail: [...auditTrail, "branch:none", "worktree:none", "reason:approval_required"],
++        };
++    }
++    if (approvedForExecution && approvalRef === null) {
++        return invalidResult(["approval_ref_required_when_approved_for_execution"], [...auditTrail, "approval:invalid"]);
++    }
++    const createdAtResult = resolveTimestamp(options.now ?? normalizedPlan.created_at);
++    if (!createdAtResult.ok)
++        return invalidResult([createdAtResult.reason], [...auditTrail, "timestamp:invalid"]);
++    const defaultBranchResult = normalizeBranchRef(options.defaultBranch ?? DEFAULT_BRANCH, "default_branch");
++    if (!defaultBranchResult.ok)
++        return invalidResult([defaultBranchResult.reason], [...auditTrail, "default_branch:invalid"]);
++    const baseRefResult = normalizeBranchRef(options.baseRef ?? defaultBranchResult.value, "base_ref");
++    if (!baseRefResult.ok)
++        return invalidResult([baseRefResult.reason], [...auditTrail, "base_ref:invalid"]);
++    const branchResult = resolveBranchName(normalizedPlan, options, defaultBranchResult.value);
++    if (!branchResult.ok)
++        return invalidResult([branchResult.reason], [...auditTrail, "branch:invalid"]);
++    const worktreeRootResult = normalizeWorktreeRoot(options.worktreeRoot ?? DEFAULT_WORKTREE_ROOT);
++    if (!worktreeRootResult.ok)
++        return invalidResult([worktreeRootResult.reason], [...auditTrail, "worktree_root:invalid"]);
++    const worktreePath = `${worktreeRootResult.value}/${branchNameToPathSegment(branchResult.value)}`;
++    const manifestId = `forge-worktree://${stableSlug(normalizedPlan.plan_id)}-${stableHash(branchResult.value).slice(0, 8)}`;
++    const source = normalizedPlan.source;
++    const manifest = {
++        manifest_version: MANIFEST_VERSION,
++        schema_ref: BRANCH_WORKTREE_SCHEMA_REF,
++        manifest_id: manifestId,
++        created_at: createdAtResult.value,
++        plan_id: normalizedPlan.plan_id,
++        source: {
++            repository: source.repository ?? null,
++            issue_number: source.issue_number ?? null,
++            candidate_id: source.candidate_id ?? normalizedPlan.plan_id,
++            title: source.title ?? normalizedPlan.title,
++        },
++        branch: {
++            name: branchResult.value,
++            base_ref: baseRefResult.value,
++            default_branch: defaultBranchResult.value,
++            naming_rule: "forge/<phase>/<task-id>-<slug>",
++            delete_after_pr: true,
++        },
++        worktree: {
++            root: worktreeRootResult.value,
++            path: worktreePath,
++            ephemeral: true,
++            cleanup: "delete_after_pr_or_failure",
++        },
++        scope: {
++            one_task_one_pr: true,
++            no_default_branch_write: true,
++            mutable_paths: [...normalizedPlan.scope_contract.mutable_paths],
++            immutable_paths: uniqueStrings([...GOVERNANCE_GLOBS, ...normalizedPlan.scope_contract.immutable_paths]),
++            out_of_scope: [...normalizedPlan.scope_contract.out_of_scope],
++            max_files_changed: normalizedPlan.scope_contract.max_files_changed,
++            max_diff_lines: normalizedPlan.scope_contract.max_diff_lines,
++        },
++        approval: {
++            approval_class: normalizedPlan.risk_and_approval.approval_class,
++            risk: normalizedPlan.risk_and_approval.risk,
++            approved_for_execution: approvedForExecution,
++            approval_ref: approvalRef,
++            human_review_required_before_execution: normalizedPlan.risk_and_approval.human_review_required_before_execution,
++        },
++        guards: {
++            enforce_clean_worktree: true,
++            enforce_mutable_paths: true,
++            forbid_default_branch_write: true,
++            forbid_workflow_policy_network_paths: true,
++            forbid_git_side_effects_in_manager: true,
++        },
++    };
++    const validation = validateBranchWorktreePlan(manifest);
++    if (!validation.ok) {
++        return invalidResult(["generated_branch_worktree_plan_failed_validation", ...validation.issues.map(formatIssue)], [...auditTrail, "manifest:invalid"], validation.issues);
++    }
++    return {
++        status: "ready",
++        plan: manifest,
++        reasons: uniqueStrings([
++            "branch_worktree_plan_ready",
++            `branch:${manifest.branch.name}`,
++            `worktree:${manifest.worktree.path}`,
++            `approval_class:${manifest.approval.approval_class}`,
++        ]),
++        auditTrail: [...auditTrail, "branch:prepared_manifest_only", "worktree:prepared_manifest_only", "git:side_effects_not_performed"],
++    };
++}
++export function validateBranchWorktreePlan(plan) {
++    const issues = [];
++    const root = asRecord(plan);
++    if (root === null)
++        return { ok: false, issues: [issue("", "type", "branch worktree plan must be an object")] };
++    expectLiteral(root, "manifest_version", MANIFEST_VERSION, issues);
++    expectLiteral(root, "schema_ref", BRANCH_WORKTREE_SCHEMA_REF, issues);
++    expectString(root, "manifest_id", issues, { prefix: "forge-worktree://" });
++    expectString(root, "plan_id", issues);
++    expectRfc3339(root, "created_at", issues);
++    const source = asRecord(root["source"]);
++    if (source === null) {
++        issues.push(issue("/source", "required", "source must be an object"));
++    }
++    else {
++        expectStringOrNull(source, "repository", issues, "/source");
++        expectIntegerOrNull(source, "issue_number", issues, "/source");
++        expectString(source, "candidate_id", issues, { pathPrefix: "/source" });
++        expectString(source, "title", issues, { pathPrefix: "/source" });
++    }
++    const branch = asRecord(root["branch"]);
++    if (branch === null) {
++        issues.push(issue("/branch", "required", "branch must be an object"));
++    }
++    else {
++        const name = expectString(branch, "name", issues, { pathPrefix: "/branch", prefix: "forge/" });
++        const baseRef = expectString(branch, "base_ref", issues, { pathPrefix: "/branch" });
++        const defaultBranch = expectString(branch, "default_branch", issues, { pathPrefix: "/branch" });
++        expectLiteral(branch, "naming_rule", "forge/<phase>/<task-id>-<slug>", issues, "/branch");
++        expectLiteral(branch, "delete_after_pr", true, issues, "/branch");
++        if (name !== null) {
++            if (name.length > MAX_BRANCH_LENGTH)
++                issues.push(issue("/branch/name", "max_length", `branch name must be <= ${MAX_BRANCH_LENGTH} characters`));
++            if (!isSafeBranchRef(name))
++                issues.push(issue("/branch/name", "safe_ref", "branch name contains unsafe ref syntax"));
++            if (isDefaultBranchTarget(name, defaultBranch))
++                issues.push(issue("/branch/name", "default_branch_write", "branch target must not be the default branch"));
++        }
++        if (baseRef !== null && !isSafeBranchRef(baseRef))
++            issues.push(issue("/branch/base_ref", "safe_ref", "base_ref contains unsafe ref syntax"));
++        if (defaultBranch !== null && !isSafeBranchRef(defaultBranch))
++            issues.push(issue("/branch/default_branch", "safe_ref", "default_branch contains unsafe ref syntax"));
++    }
++    const worktree = asRecord(root["worktree"]);
++    if (worktree === null) {
++        issues.push(issue("/worktree", "required", "worktree must be an object"));
++    }
++    else {
++        const rootPath = expectString(worktree, "root", issues, { pathPrefix: "/worktree" });
++        const path = expectString(worktree, "path", issues, { pathPrefix: "/worktree" });
++        expectLiteral(worktree, "ephemeral", true, issues, "/worktree");
++        expectLiteral(worktree, "cleanup", "delete_after_pr_or_failure", issues, "/worktree");
++        if (rootPath !== null && normalizeWorktreeRoot(rootPath).ok === false)
++            issues.push(issue("/worktree/root", "safe_path", "worktree root must be a safe runtime-owned relative path"));
++        if (path !== null && !isSafeRuntimePath(path))
++            issues.push(issue("/worktree/path", "safe_path", "worktree path must be a safe runtime-owned relative path"));
++        if (rootPath !== null && path !== null && !path.startsWith(`${rootPath.replace(/\/+$/, "")}/`))
++            issues.push(issue("/worktree/path", "root_prefix", "worktree path must be under worktree root"));
++    }
++    const scope = asRecord(root["scope"]);
++    if (scope === null) {
++        issues.push(issue("/scope", "required", "scope must be an object"));
++    }
++    else {
++        expectLiteral(scope, "one_task_one_pr", true, issues, "/scope");
++        expectLiteral(scope, "no_default_branch_write", true, issues, "/scope");
++        const mutable = expectStringArray(scope, "mutable_paths", issues, "/scope");
++        const immutable = expectStringArray(scope, "immutable_paths", issues, "/scope");
++        expectStringArray(scope, "out_of_scope", issues, "/scope");
++        expectPositiveInteger(scope, "max_files_changed", issues, "/scope", 50);
++        expectPositiveInteger(scope, "max_diff_lines", issues, "/scope", 2000);
++        for (const path of mutable) {
++            for (const forbidden of immutable) {
++                if (globIntersects(path, forbidden))
++                    issues.push(issue("/scope/mutable_paths", "immutable_overlap", `mutable path '${path}' overlaps immutable path '${forbidden}'`));
++            }
++        }
++    }
++    const approval = asRecord(root["approval"]);
++    if (approval === null) {
++        issues.push(issue("/approval", "required", "approval must be an object"));
++    }
++    else {
++        expectOneOf(approval, "approval_class", APPROVAL_CLASSES, issues, "/approval");
++        expectOneOf(approval, "risk", RISKS, issues, "/approval");
++        expectBoolean(approval, "approved_for_execution", issues, "/approval");
++        expectStringOrNull(approval, "approval_ref", issues, "/approval");
++        expectBoolean(approval, "human_review_required_before_execution", issues, "/approval");
++    }
++    const guards = asRecord(root["guards"]);
++    if (guards === null) {
++        issues.push(issue("/guards", "required", "guards must be an object"));
++    }
++    else {
++        expectLiteral(guards, "enforce_clean_worktree", true, issues, "/guards");
++        expectLiteral(guards, "enforce_mutable_paths", true, issues, "/guards");
++        expectLiteral(guards, "forbid_default_branch_write", true, issues, "/guards");
++        expectLiteral(guards, "forbid_workflow_policy_network_paths", true, issues, "/guards");
++        expectLiteral(guards, "forbid_git_side_effects_in_manager", true, issues, "/guards");
++    }
++    return { ok: issues.length === 0, issues };
++}
++export function validateChangedPaths(plan, changedPaths) {
++    const acceptedPaths = [];
++    const rejectedPaths = [];
++    const reasons = [];
++    const seen = new Set();
++    for (const rawPath of changedPaths) {
++        const normalized = normalizeRepoPath(rawPath);
++        if (normalized === null) {
++            rejectedPaths.push({ path: rawPath, status: "rejected", reason: "invalid_path" });
++            reasons.push("invalid_changed_path");
++            continue;
++        }
++        if (seen.has(normalized))
++            continue;
++        seen.add(normalized);
++        if (matchesAnyGlob(normalized, plan.scope.immutable_paths)) {
++            rejectedPaths.push({ path: normalized, status: "rejected", reason: "immutable" });
++            reasons.push("immutable_path_changed");
++            continue;
++        }
++        if (!matchesAnyGlob(normalized, plan.scope.mutable_paths)) {
++            rejectedPaths.push({ path: normalized, status: "rejected", reason: "outside_mutable_scope" });
++            reasons.push("path_outside_mutable_scope");
++            continue;
++        }
++        acceptedPaths.push(normalized);
++    }
++    if (acceptedPaths.length > plan.scope.max_files_changed)
++        reasons.push("max_files_changed_exceeded");
++    const ok = rejectedPaths.length === 0 && acceptedPaths.length <= plan.scope.max_files_changed;
++    return { ok, acceptedPaths, rejectedPaths, reasons: uniqueStrings(reasons) };
++}
++function validatePlanSpecLike(plan) {
++    const issues = [];
++    const root = asRecord(plan);
++    if (root === null)
++        return [issue("", "type", "plan spec must be an object")];
++    expectString(root, "plan_id", issues);
++    expectOneOf(root, "status", PLAN_STATUSES, issues);
++    expectString(root, "created_at", issues);
++    expectString(root, "title", issues);
++    const source = asRecord(root["source"]);
++    if (source === null) {
++        issues.push(issue("/source", "required", "plan source must be an object"));
++    }
++    else {
++        expectStringOrNull(source, "repository", issues, "/source");
++        expectIntegerOrNull(source, "issue_number", issues, "/source");
++    }
++    const scope = asRecord(root["scope_contract"]);
++    if (scope === null) {
++        issues.push(issue("/scope_contract", "required", "scope_contract must be an object"));
++    }
++    else {
++        expectLiteral(scope, "one_task_one_pr", true, issues, "/scope_contract");
++        expectLiteral(scope, "source_issue_count", 1, issues, "/scope_contract");
++        expectLiteral(scope, "no_default_branch_write", true, issues, "/scope_contract");
++        expectStringArray(scope, "mutable_paths", issues, "/scope_contract");
++        expectStringArray(scope, "immutable_paths", issues, "/scope_contract");
++        expectStringArray(scope, "out_of_scope", issues, "/scope_contract");
++        expectPositiveInteger(scope, "max_files_changed", issues, "/scope_contract", 50);
++        expectPositiveInteger(scope, "max_diff_lines", issues, "/scope_contract", 2000);
++        expectString(scope, "branch_naming_hint", issues, { pathPrefix: "/scope_contract", prefix: "forge/" });
++    }
++    const approval = asRecord(root["risk_and_approval"]);
++    if (approval === null) {
++        issues.push(issue("/risk_and_approval", "required", "risk_and_approval must be an object"));
++    }
++    else {
++        expectOneOf(approval, "approval_class", APPROVAL_CLASSES, issues, "/risk_and_approval");
++        expectOneOf(approval, "risk", RISKS, issues, "/risk_and_approval");
++        expectBoolean(approval, "human_review_required_before_execution", issues, "/risk_and_approval");
++        expectBoolean(approval, "escalation_required", issues, "/risk_and_approval");
++    }
++    return issues;
++}
++function resolveBranchName(plan, options, defaultBranch) {
++    const override = normalizeOptionalString(options.branchName);
++    const raw = override ?? derivedBranchName(plan, options);
++    const normalized = normalizeBranchName(raw);
++    if (normalized === null)
++        return { ok: false, reason: "branch_name_invalid" };
++    if (!normalized.startsWith("forge/"))
++        return { ok: false, reason: "branch_name_must_start_with_forge_prefix" };
++    if (normalized.length > MAX_BRANCH_LENGTH)
++        return { ok: false, reason: `branch_name_exceeds_${MAX_BRANCH_LENGTH}_chars` };
++    if (!isSafeBranchRef(normalized))
++        return { ok: false, reason: "branch_name_contains_unsafe_ref_syntax" };
++    if (isDefaultBranchTarget(normalized, defaultBranch))
++        return { ok: false, reason: "branch_name_targets_default_branch" };
++    return { ok: true, value: normalized };
++}
++function derivedBranchName(plan, options) {
++    const title = plan.source.title ?? plan.title;
++    const parsed = parseTaskTitle(title);
++    const phase = sanitizePhase(options.phase ?? parsed.phase ?? "p1");
++    const taskId = sanitizeTaskId(options.taskId ?? parsed.taskId ?? fallbackTaskId(plan));
++    const titleWithoutPrefix = stripTaskPrefix(title);
++    const hintSlug = plan.scope_contract.branch_naming_hint.split("/").filter(Boolean).pop() ?? "task";
++    const slug = slugify(titleWithoutPrefix.length > 0 ? titleWithoutPrefix : hintSlug);
++    const candidate = `forge/${phase}/${taskId}-${slug}`;
++    if (candidate.length <= MAX_BRANCH_LENGTH)
++        return candidate;
++    const suffix = stableHash(`${plan.plan_id}:${candidate}`).slice(0, 8);
++    const baseLength = MAX_BRANCH_LENGTH - suffix.length - 1;
++    return `${candidate.slice(0, baseLength).replace(/-+$/, "")}-${suffix}`;
++}
++function parseTaskTitle(title) {
++    const match = title.match(/\[P(\d+)\]\s*\[T(\d{3})\]/i);
++    if (match === null)
++        return { phase: null, taskId: null };
++    return { phase: `p${match[1]}`, taskId: `T${match[2]}` };
++}
++function stripTaskPrefix(title) {
++    return title.replace(/^\s*\[P\d+\]\s*\[T\d{3}\]\s*/i, "").trim();
++}
++function fallbackTaskId(plan) {
++    const issueNumber = plan.source.issue_number;
++    if (typeof issueNumber === "number" && Number.isSafeInteger(issueNumber) && issueNumber > 0)
++        return `issue-${issueNumber}`;
++    return `task-${stableHash(plan.plan_id).slice(0, 8)}`;
++}
++function sanitizePhase(value) {
++    const normalized = value.trim().toLowerCase();
++    const numberMatch = normalized.match(/^p?(\d+)$/);
++    if (numberMatch !== null)
++        return `p${numberMatch[1]}`;
++    const slug = slugify(normalized);
++    return slug.length > 0 ? slug : "p1";
++}
++function sanitizeTaskId(value) {
++    const normalized = value.trim();
++    const taskMatch = normalized.match(/^t?(\d{3})$/i);
++    if (taskMatch !== null)
++        return `T${taskMatch[1]}`;
++    const slug = slugify(normalized);
++    return slug.length > 0 ? slug : "task";
++}
++function normalizeBranchName(value) {
++    const trimmed = value.trim().replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\/+|\/+$/g, "");
++    if (trimmed.length === 0 || trimmed.includes("..") || trimmed.includes("@{") || trimmed.includes("~") || trimmed.includes("^") || trimmed.includes(":"))
++        return null;
++    if (/\s/.test(trimmed))
++        return null;
++    if (trimmed.endsWith(".") || trimmed.endsWith(".lock"))
++        return null;
++    return trimmed;
++}
++function normalizeBranchRef(value, label) {
++    const normalized = normalizeBranchName(value);
++    if (normalized === null)
++        return { ok: false, reason: `${label}_invalid` };
++    if (!isSafeBranchRef(normalized))
++        return { ok: false, reason: `${label}_contains_unsafe_ref_syntax` };
++    return { ok: true, value: normalized };
++}
++function isSafeBranchRef(value) {
++    if (value.length === 0 || value.startsWith("/") || value.endsWith("/") || value.includes("//"))
++        return false;
++    if (value.includes("..") || value.includes("@{") || value.includes("\\") || value.includes("~") || value.includes("^") || value.includes(":"))
++        return false;
++    if (/\s/.test(value))
++        return false;
++    if (value.split("/").some((segment) => segment.length === 0 || segment === "." || segment === ".." || segment.endsWith(".lock")))
++        return false;
++    return true;
++}
++function isDefaultBranchTarget(branchName, defaultBranch) {
++    const lowered = branchName.toLowerCase();
++    const defaultLowered = (defaultBranch ?? DEFAULT_BRANCH).toLowerCase();
++    return lowered === defaultLowered || lowered === `refs/heads/${defaultLowered}` || RESERVED_BRANCH_TARGETS.has(lowered);
++}
++function normalizeWorktreeRoot(value) {
++    const trimmed = value.trim().replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/+$/g, "");
++    if (trimmed.length === 0)
++        return { ok: false, reason: "worktree_root_empty" };
++    if (trimmed.startsWith("/") || trimmed.includes("\0"))
++        return { ok: false, reason: "worktree_root_must_be_relative" };
++    const segments = trimmed.split("/");
++    if (segments.some((segment) => segment === ".." || segment.length === 0))
++        return { ok: false, reason: "worktree_root_contains_unsafe_segment" };
++    return { ok: true, value: trimmed };
++}
++function isSafeRuntimePath(value) {
++    const normalized = value.trim().replace(/\\/g, "/");
++    if (normalized.length === 0 || normalized.startsWith("/") || normalized.includes("\0"))
++        return false;
++    return !normalized.split("/").some((segment) => segment === ".." || segment.length === 0);
++}
++function branchNameToPathSegment(branchName) {
++    return branchName.replace(/[^A-Za-z0-9._-]+/g, "__").replace(/^_+|_+$/g, "").slice(0, 120);
++}
++function normalizeRepoPath(value) {
++    const trimmed = value.trim().replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+/g, "/");
++    if (trimmed.length === 0 || trimmed.startsWith("/") || trimmed.includes("\0"))
++        return null;
++    const segments = trimmed.split("/");
++    if (segments.some((segment) => segment.length === 0 || segment === "." || segment === ".."))
++        return null;
++    return trimmed;
++}
++function matchesAnyGlob(path, patterns) {
++    return patterns.some((pattern) => matchesGlob(path, pattern));
++}
++function matchesGlob(path, pattern) {
++    const normalizedPattern = pattern.trim().replace(/\\/g, "/").replace(/^\.\/+/, "");
++    if (normalizedPattern.length === 0)
++        return false;
++    const target = normalizedPattern.includes("/") ? path : basename(path);
++    return globToRegExp(normalizedPattern).test(target);
++}
++function globToRegExp(pattern) {
++    let source = "^";
++    for (let index = 0; index < pattern.length; index += 1) {
++        const char = pattern[index];
++        const next = pattern[index + 1];
++        const afterNext = pattern[index + 2];
++        if (char === "*" && next === "*" && afterNext === "/") {
++            source += "(?:.*/)?";
++            index += 2;
++            continue;
++        }
++        if (char === "*" && next === "*") {
++            source += ".*";
++            index += 1;
++            continue;
++        }
++        if (char === "*") {
++            source += "[^/]*";
++            continue;
++        }
++        source += escapeRegExp(char);
++    }
++    source += "$";
++    return new RegExp(source);
++}
++function globIntersects(a, b) {
++    const pa = globLiteralPrefix(a);
++    const pb = globLiteralPrefix(b);
++    if (pa.length === 0 || pb.length === 0)
++        return false;
++    return pa.startsWith(pb) || pb.startsWith(pa);
++}
++function globLiteralPrefix(pattern) {
++    return pattern.replace(/\\/g, "/").split(/[?*]/, 1)[0].replace(/\/+$/, "").toLowerCase();
++}
++function basename(path) {
++    const parts = path.split("/");
++    return parts[parts.length - 1] ?? path;
++}
++function resolveTimestamp(value) {
++    const trimmed = value.trim();
++    if (!RFC3339_UTC.test(trimmed))
++        return { ok: false, reason: "timestamp_must_be_rfc3339_utc" };
++    return { ok: true, value: trimmed };
++}
++function normalizeOptionalString(value) {
++    if (value === undefined)
++        return null;
++    const trimmed = value.trim();
++    return trimmed.length > 0 ? trimmed : null;
++}
++function expectLiteral(record, key, expected, issues, pathPrefix = "") {
++    if (record[key] !== expected)
++        issues.push(issue(`${pathPrefix}/${key}`, "literal", `${key} must equal ${JSON.stringify(expected)}`));
++}
++function expectString(record, key, issues, options = {}) {
++    const value = record[key];
++    const path = `${options.pathPrefix ?? ""}/${key}`;
++    if (typeof value !== "string" || value.trim().length === 0) {
++        issues.push(issue(path, "string", `${key} must be a non-empty string`));
++        return null;
++    }
++    if (options.prefix !== undefined && !value.startsWith(options.prefix))
++        issues.push(issue(path, "prefix", `${key} must start with '${options.prefix}'`));
++    return value;
++}
++function expectStringOrNull(record, key, issues, pathPrefix = "") {
++    const value = record[key];
++    if (value === null || value === undefined)
++        return null;
++    return expectString(record, key, issues, { pathPrefix });
++}
++function expectIntegerOrNull(record, key, issues, pathPrefix = "") {
++    const value = record[key];
++    if (value === null || value === undefined)
++        return null;
++    if (typeof value !== "number" || !Number.isSafeInteger(value)) {
++        issues.push(issue(`${pathPrefix}/${key}`, "integer_or_null", `${key} must be an integer or null`));
++        return null;
++    }
++    return value;
++}
++function expectBoolean(record, key, issues, pathPrefix = "") {
++    const value = record[key];
++    if (typeof value !== "boolean") {
++        issues.push(issue(`${pathPrefix}/${key}`, "boolean", `${key} must be boolean`));
++        return null;
++    }
++    return value;
++}
++function expectOneOf(record, key, allowed, issues, pathPrefix = "") {
++    const value = record[key];
++    if (typeof value !== "string" || !allowed.has(value)) {
++        issues.push(issue(`${pathPrefix}/${key}`, "enum", `${key} must be one of ${[...allowed].join(", ")}`));
++        return null;
++    }
++    return value;
++}
++function expectStringArray(record, key, issues, pathPrefix = "") {
++    const value = record[key];
++    if (!Array.isArray(value)) {
++        issues.push(issue(`${pathPrefix}/${key}`, "array", `${key} must be an array of strings`));
++        return [];
++    }
++    const result = [];
++    value.forEach((item, index) => {
++        if (typeof item !== "string" || item.trim().length === 0)
++            issues.push(issue(`${pathPrefix}/${key}/${index}`, "string", `${key}[${index}] must be a non-empty string`));
++        else
++            result.push(item);
++    });
++    if (result.length === 0)
++        issues.push(issue(`${pathPrefix}/${key}`, "non_empty", `${key} must not be empty`));
++    return result;
++}
++function expectPositiveInteger(record, key, issues, pathPrefix = "", max) {
++    const value = record[key];
++    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) {
++        issues.push(issue(`${pathPrefix}/${key}`, "positive_integer", `${key} must be a positive integer`));
++        return null;
++    }
++    if (max !== undefined && value > max)
++        issues.push(issue(`${pathPrefix}/${key}`, "max", `${key} must be <= ${max}`));
++    return value;
++}
++function expectRfc3339(record, key, issues) {
++    const value = expectString(record, key, issues);
++    if (value !== null && !RFC3339_UTC.test(value))
++        issues.push(issue(`/${key}`, "rfc3339", `${key} must be an RFC3339 UTC timestamp`));
++    return value;
++}
++function invalidResult(reasons, auditTrail, issues) {
++    return { status: "invalid", reasons: uniqueStrings(reasons), auditTrail: [...auditTrail, "result:invalid"], ...(issues === undefined ? {} : { issues }) };
++}
++function issue(path, code, message) { return { path, code, message }; }
++function formatIssue(value) { return `${value.path}:${value.code}`; }
++function asRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null; }
++function escapeRegExp(value) { return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&"); }
++function uniqueStrings(values) { return [...new Set(values.filter((value) => value.trim().length > 0))]; }
++function slugify(value) {
++    const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
++    return slug.length > 0 ? slug : "task";
++}
++function stableSlug(value) {
++    const slug = value.replace(/^[A-Za-z0-9+.-]+:\/\//, "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
++    return slug.length > 0 ? slug.slice(0, 72) : "plan";
++}
++function stableHash(value) {
++    let hash = 2166136261;
++    for (let index = 0; index < value.length; index += 1) {
++        hash ^= value.charCodeAt(index);
++        hash = Math.imul(hash, 16777619);
++    }
++    return (hash >>> 0).toString(36).padStart(8, "0");
++}
++//# sourceMappingURL=worktree.js.map
+\ No newline at end of file
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/worktree.js.map /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/worktree.js.map
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/dist/worktree.js.map	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/dist/worktree.js.map	2026-04-18 16:54:49.258129950 +0000
+@@ -0,0 +1 @@
++{"version":3,"file":"worktree.js","sourceRoot":"","sources":["worktree.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/package.json /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/package.json
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/package.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/package.json	2026-04-18 16:49:27.343925396 +0000
+@@ -0,0 +1,17 @@
++{
++  "name": "@forgeroot/executor",
++  "version": "0.0.0-t018",
++  "private": true,
++  "type": "module",
++  "description": "ForgeRoot executor-side primitives: deterministic branch and worktree planning before sandbox execution.",
++  "scripts": {
++    "build": "tsc -p tsconfig.json",
++    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
++  },
++  "engines": {
++    "node": ">=22.5"
++  },
++  "devDependencies": {
++    "typescript": "^5.8.3"
++  }
++}
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/src/index.ts /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/src/index.ts
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/src/index.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/src/index.ts	2026-04-18 16:49:27.332013495 +0000
+@@ -0,0 +1 @@
++export * from "./worktree.js";
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/src/worktree.ts /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/src/worktree.ts
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/src/worktree.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/src/worktree.ts	2026-04-18 16:53:14.002574454 +0000
+@@ -0,0 +1,754 @@
++export type WorktreePrepareStatus = "ready" | "blocked" | "invalid";
++export type ApprovalClassLike = "A" | "B" | "C" | "D";
++export type RiskLike = "low" | "medium" | "high" | "critical";
++
++export interface PlanSpecLike {
++  readonly plan_id: string;
++  readonly status: string;
++  readonly created_at: string;
++  readonly title: string;
++  readonly source: {
++    readonly kind?: string;
++    readonly source_key?: string;
++    readonly candidate_id?: string;
++    readonly repository?: string | null;
++    readonly issue_number?: number | null;
++    readonly title?: string;
++    readonly labels?: readonly string[];
++  };
++  readonly scope_contract: {
++    readonly one_task_one_pr: true;
++    readonly source_issue_count: 1;
++    readonly no_default_branch_write: true;
++    readonly mutable_paths: readonly string[];
++    readonly immutable_paths: readonly string[];
++    readonly out_of_scope: readonly string[];
++    readonly max_files_changed: number;
++    readonly max_diff_lines: number;
++    readonly branch_naming_hint: string;
++  };
++  readonly risk_and_approval: {
++    readonly risk: RiskLike | string;
++    readonly approval_class: ApprovalClassLike | string;
++    readonly human_review_required_before_execution: boolean;
++    readonly human_review_required_before_merge?: boolean;
++    readonly escalation_required: boolean;
++    readonly reasons?: readonly string[];
++  };
++}
++
++export interface BranchWorktreeOptions {
++  readonly defaultBranch?: string;
++  readonly baseRef?: string;
++  readonly branchName?: string;
++  readonly worktreeRoot?: string;
++  readonly phase?: string;
++  readonly taskId?: string;
++  readonly approvedForExecution?: boolean;
++  readonly approvalRef?: string;
++  readonly now?: string;
++}
++
++export interface BranchWorktreePlan {
++  readonly manifest_version: 1;
++  readonly schema_ref: "urn:forgeroot:branch-worktree:v1";
++  readonly manifest_id: string;
++  readonly created_at: string;
++  readonly plan_id: string;
++  readonly source: {
++    readonly repository: string | null;
++    readonly issue_number: number | null;
++    readonly candidate_id: string;
++    readonly title: string;
++  };
++  readonly branch: {
++    readonly name: string;
++    readonly base_ref: string;
++    readonly default_branch: string;
++    readonly naming_rule: "forge/<phase>/<task-id>-<slug>";
++    readonly delete_after_pr: true;
++  };
++  readonly worktree: {
++    readonly root: string;
++    readonly path: string;
++    readonly ephemeral: true;
++    readonly cleanup: "delete_after_pr_or_failure";
++  };
++  readonly scope: {
++    readonly one_task_one_pr: true;
++    readonly no_default_branch_write: true;
++    readonly mutable_paths: readonly string[];
++    readonly immutable_paths: readonly string[];
++    readonly out_of_scope: readonly string[];
++    readonly max_files_changed: number;
++    readonly max_diff_lines: number;
++  };
++  readonly approval: {
++    readonly approval_class: string;
++    readonly risk: string;
++    readonly approved_for_execution: boolean;
++    readonly approval_ref: string | null;
++    readonly human_review_required_before_execution: boolean;
++  };
++  readonly guards: {
++    readonly enforce_clean_worktree: true;
++    readonly enforce_mutable_paths: true;
++    readonly forbid_default_branch_write: true;
++    readonly forbid_workflow_policy_network_paths: true;
++    readonly forbid_git_side_effects_in_manager: true;
++  };
++}
++
++export interface BranchWorktreeValidationIssue {
++  readonly path: string;
++  readonly code: string;
++  readonly message: string;
++}
++
++export interface BranchWorktreeValidationResult {
++  readonly ok: boolean;
++  readonly issues: readonly BranchWorktreeValidationIssue[];
++}
++
++export interface BranchWorktreeResult {
++  readonly status: WorktreePrepareStatus;
++  readonly plan?: BranchWorktreePlan;
++  readonly reasons: readonly string[];
++  readonly auditTrail: readonly string[];
++  readonly issues?: readonly BranchWorktreeValidationIssue[];
++}
++
++export interface ChangedPathResult {
++  readonly path: string;
++  readonly status: "accepted" | "rejected";
++  readonly reason: "mutable" | "immutable" | "outside_mutable_scope" | "invalid_path";
++}
++
++export interface ChangedPathsValidationResult {
++  readonly ok: boolean;
++  readonly acceptedPaths: readonly string[];
++  readonly rejectedPaths: readonly ChangedPathResult[];
++  readonly reasons: readonly string[];
++}
++
++export const BRANCH_WORKTREE_SCHEMA_REF = "urn:forgeroot:branch-worktree:v1" as const;
++
++export const BRANCH_WORKTREE_MANAGER_CONTRACT = {
++  produces: ["branch_worktree_plan"],
++  forbids: [
++    "git_checkout",
++    "git_branch_create",
++    "git_worktree_add",
++    "file_editing",
++    "commit_creation",
++    "pull_request_creation",
++    "default_branch_write",
++  ],
++  branchPrefix: "forge/",
++  defaultWorktreeRoot: ".forgeroot/worktrees",
++  oneTaskOnePr: true,
++} as const;
++
++const MANIFEST_VERSION = 1 as const;
++const DEFAULT_BRANCH = "main";
++const DEFAULT_WORKTREE_ROOT = ".forgeroot/worktrees";
++const MAX_BRANCH_LENGTH = 96;
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
++const RISKS = new Set(["low", "medium", "high", "critical"]);
++const RESERVED_BRANCH_TARGETS = new Set(["main", "master", "trunk", "default", "refs/heads/main", "refs/heads/master"]);
++const PLAN_STATUSES = new Set(["draft", "ready_for_execution", "blocked_for_human", "superseded"]);
++const GOVERNANCE_GLOBS = [".github/workflows/**", ".forge/policies/**", ".forge/network/**"] as const;
++
++export function createBranchWorktreePlan(plan: PlanSpecLike, options: BranchWorktreeOptions = {}): BranchWorktreeResult {
++  const auditTrail = [
++    "worktree_branch_manager:T018",
++    "contract:one_task_one_pr",
++    "contract:no_git_side_effects",
++    "contract:no_default_branch_write",
++  ];
++
++  const planIssues = validatePlanSpecLike(plan);
++  if (planIssues.length > 0) {
++    return invalidResult(["invalid_plan_spec_like", ...planIssues.map(formatIssue)], auditTrail, planIssues);
++  }
++
++  const normalizedPlan = plan as PlanSpecLike;
++  if (normalizedPlan.status !== "ready_for_execution" && normalizedPlan.status !== "blocked_for_human") {
++    return {
++      status: "blocked",
++      reasons: uniqueStrings([`plan_status_not_ready_for_worktree:${normalizedPlan.status}`]),
++      auditTrail: [...auditTrail, "branch:none", "worktree:none", "reason:plan_not_ready"],
++    };
++  }
++
++  const approvalNeeded = normalizedPlan.status === "blocked_for_human" || normalizedPlan.risk_and_approval.human_review_required_before_execution || normalizedPlan.risk_and_approval.escalation_required;
++  const approvedForExecution = options.approvedForExecution === true;
++  const approvalRef = normalizeOptionalString(options.approvalRef);
++
++  if (approvalNeeded && !approvedForExecution) {
++    return {
++      status: "blocked",
++      reasons: uniqueStrings([
++        "human_review_required_before_branch_preparation",
++        `plan_status:${normalizedPlan.status}`,
++        `approval_class:${normalizedPlan.risk_and_approval.approval_class}`,
++        `risk:${normalizedPlan.risk_and_approval.risk}`,
++      ]),
++      auditTrail: [...auditTrail, "branch:none", "worktree:none", "reason:approval_required"],
++    };
++  }
++
++  if (approvedForExecution && approvalRef === null) {
++    return invalidResult(["approval_ref_required_when_approved_for_execution"], [...auditTrail, "approval:invalid"]);
++  }
++
++  const createdAtResult = resolveTimestamp(options.now ?? normalizedPlan.created_at);
++  if (!createdAtResult.ok) return invalidResult([createdAtResult.reason], [...auditTrail, "timestamp:invalid"]);
++
++  const defaultBranchResult = normalizeBranchRef(options.defaultBranch ?? DEFAULT_BRANCH, "default_branch");
++  if (!defaultBranchResult.ok) return invalidResult([defaultBranchResult.reason], [...auditTrail, "default_branch:invalid"]);
++
++  const baseRefResult = normalizeBranchRef(options.baseRef ?? defaultBranchResult.value, "base_ref");
++  if (!baseRefResult.ok) return invalidResult([baseRefResult.reason], [...auditTrail, "base_ref:invalid"]);
++
++  const branchResult = resolveBranchName(normalizedPlan, options, defaultBranchResult.value);
++  if (!branchResult.ok) return invalidResult([branchResult.reason], [...auditTrail, "branch:invalid"]);
++
++  const worktreeRootResult = normalizeWorktreeRoot(options.worktreeRoot ?? DEFAULT_WORKTREE_ROOT);
++  if (!worktreeRootResult.ok) return invalidResult([worktreeRootResult.reason], [...auditTrail, "worktree_root:invalid"]);
++
++  const worktreePath = `${worktreeRootResult.value}/${branchNameToPathSegment(branchResult.value)}`;
++  const manifestId = `forge-worktree://${stableSlug(normalizedPlan.plan_id)}-${stableHash(branchResult.value).slice(0, 8)}`;
++  const source = normalizedPlan.source;
++
++  const manifest: BranchWorktreePlan = {
++    manifest_version: MANIFEST_VERSION,
++    schema_ref: BRANCH_WORKTREE_SCHEMA_REF,
++    manifest_id: manifestId,
++    created_at: createdAtResult.value,
++    plan_id: normalizedPlan.plan_id,
++    source: {
++      repository: source.repository ?? null,
++      issue_number: source.issue_number ?? null,
++      candidate_id: source.candidate_id ?? normalizedPlan.plan_id,
++      title: source.title ?? normalizedPlan.title,
++    },
++    branch: {
++      name: branchResult.value,
++      base_ref: baseRefResult.value,
++      default_branch: defaultBranchResult.value,
++      naming_rule: "forge/<phase>/<task-id>-<slug>",
++      delete_after_pr: true,
++    },
++    worktree: {
++      root: worktreeRootResult.value,
++      path: worktreePath,
++      ephemeral: true,
++      cleanup: "delete_after_pr_or_failure",
++    },
++    scope: {
++      one_task_one_pr: true,
++      no_default_branch_write: true,
++      mutable_paths: [...normalizedPlan.scope_contract.mutable_paths],
++      immutable_paths: uniqueStrings([...GOVERNANCE_GLOBS, ...normalizedPlan.scope_contract.immutable_paths]),
++      out_of_scope: [...normalizedPlan.scope_contract.out_of_scope],
++      max_files_changed: normalizedPlan.scope_contract.max_files_changed,
++      max_diff_lines: normalizedPlan.scope_contract.max_diff_lines,
++    },
++    approval: {
++      approval_class: normalizedPlan.risk_and_approval.approval_class,
++      risk: normalizedPlan.risk_and_approval.risk,
++      approved_for_execution: approvedForExecution,
++      approval_ref: approvalRef,
++      human_review_required_before_execution: normalizedPlan.risk_and_approval.human_review_required_before_execution,
++    },
++    guards: {
++      enforce_clean_worktree: true,
++      enforce_mutable_paths: true,
++      forbid_default_branch_write: true,
++      forbid_workflow_policy_network_paths: true,
++      forbid_git_side_effects_in_manager: true,
++    },
++  };
++
++  const validation = validateBranchWorktreePlan(manifest);
++  if (!validation.ok) {
++    return invalidResult(["generated_branch_worktree_plan_failed_validation", ...validation.issues.map(formatIssue)], [...auditTrail, "manifest:invalid"], validation.issues);
++  }
++
++  return {
++    status: "ready",
++    plan: manifest,
++    reasons: uniqueStrings([
++      "branch_worktree_plan_ready",
++      `branch:${manifest.branch.name}`,
++      `worktree:${manifest.worktree.path}`,
++      `approval_class:${manifest.approval.approval_class}`,
++    ]),
++    auditTrail: [...auditTrail, "branch:prepared_manifest_only", "worktree:prepared_manifest_only", "git:side_effects_not_performed"],
++  };
++}
++
++export function validateBranchWorktreePlan(plan: unknown): BranchWorktreeValidationResult {
++  const issues: BranchWorktreeValidationIssue[] = [];
++  const root = asRecord(plan);
++  if (root === null) return { ok: false, issues: [issue("", "type", "branch worktree plan must be an object")] };
++
++  expectLiteral(root, "manifest_version", MANIFEST_VERSION, issues);
++  expectLiteral(root, "schema_ref", BRANCH_WORKTREE_SCHEMA_REF, issues);
++  expectString(root, "manifest_id", issues, { prefix: "forge-worktree://" });
++  expectString(root, "plan_id", issues);
++  expectRfc3339(root, "created_at", issues);
++
++  const source = asRecord(root["source"]);
++  if (source === null) {
++    issues.push(issue("/source", "required", "source must be an object"));
++  } else {
++    expectStringOrNull(source, "repository", issues, "/source");
++    expectIntegerOrNull(source, "issue_number", issues, "/source");
++    expectString(source, "candidate_id", issues, { pathPrefix: "/source" });
++    expectString(source, "title", issues, { pathPrefix: "/source" });
++  }
++
++  const branch = asRecord(root["branch"]);
++  if (branch === null) {
++    issues.push(issue("/branch", "required", "branch must be an object"));
++  } else {
++    const name = expectString(branch, "name", issues, { pathPrefix: "/branch", prefix: "forge/" });
++    const baseRef = expectString(branch, "base_ref", issues, { pathPrefix: "/branch" });
++    const defaultBranch = expectString(branch, "default_branch", issues, { pathPrefix: "/branch" });
++    expectLiteral(branch, "naming_rule", "forge/<phase>/<task-id>-<slug>", issues, "/branch");
++    expectLiteral(branch, "delete_after_pr", true, issues, "/branch");
++    if (name !== null) {
++      if (name.length > MAX_BRANCH_LENGTH) issues.push(issue("/branch/name", "max_length", `branch name must be <= ${MAX_BRANCH_LENGTH} characters`));
++      if (!isSafeBranchRef(name)) issues.push(issue("/branch/name", "safe_ref", "branch name contains unsafe ref syntax"));
++      if (isDefaultBranchTarget(name, defaultBranch)) issues.push(issue("/branch/name", "default_branch_write", "branch target must not be the default branch"));
++    }
++    if (baseRef !== null && !isSafeBranchRef(baseRef)) issues.push(issue("/branch/base_ref", "safe_ref", "base_ref contains unsafe ref syntax"));
++    if (defaultBranch !== null && !isSafeBranchRef(defaultBranch)) issues.push(issue("/branch/default_branch", "safe_ref", "default_branch contains unsafe ref syntax"));
++  }
++
++  const worktree = asRecord(root["worktree"]);
++  if (worktree === null) {
++    issues.push(issue("/worktree", "required", "worktree must be an object"));
++  } else {
++    const rootPath = expectString(worktree, "root", issues, { pathPrefix: "/worktree" });
++    const path = expectString(worktree, "path", issues, { pathPrefix: "/worktree" });
++    expectLiteral(worktree, "ephemeral", true, issues, "/worktree");
++    expectLiteral(worktree, "cleanup", "delete_after_pr_or_failure", issues, "/worktree");
++    if (rootPath !== null && normalizeWorktreeRoot(rootPath).ok === false) issues.push(issue("/worktree/root", "safe_path", "worktree root must be a safe runtime-owned relative path"));
++    if (path !== null && !isSafeRuntimePath(path)) issues.push(issue("/worktree/path", "safe_path", "worktree path must be a safe runtime-owned relative path"));
++    if (rootPath !== null && path !== null && !path.startsWith(`${rootPath.replace(/\/+$/, "")}/`)) issues.push(issue("/worktree/path", "root_prefix", "worktree path must be under worktree root"));
++  }
++
++  const scope = asRecord(root["scope"]);
++  if (scope === null) {
++    issues.push(issue("/scope", "required", "scope must be an object"));
++  } else {
++    expectLiteral(scope, "one_task_one_pr", true, issues, "/scope");
++    expectLiteral(scope, "no_default_branch_write", true, issues, "/scope");
++    const mutable = expectStringArray(scope, "mutable_paths", issues, "/scope");
++    const immutable = expectStringArray(scope, "immutable_paths", issues, "/scope");
++    expectStringArray(scope, "out_of_scope", issues, "/scope");
++    expectPositiveInteger(scope, "max_files_changed", issues, "/scope", 50);
++    expectPositiveInteger(scope, "max_diff_lines", issues, "/scope", 2000);
++    for (const path of mutable) {
++      for (const forbidden of immutable) {
++        if (globIntersects(path, forbidden)) issues.push(issue("/scope/mutable_paths", "immutable_overlap", `mutable path '${path}' overlaps immutable path '${forbidden}'`));
++      }
++    }
++  }
++
++  const approval = asRecord(root["approval"]);
++  if (approval === null) {
++    issues.push(issue("/approval", "required", "approval must be an object"));
++  } else {
++    expectOneOf(approval, "approval_class", APPROVAL_CLASSES, issues, "/approval");
++    expectOneOf(approval, "risk", RISKS, issues, "/approval");
++    expectBoolean(approval, "approved_for_execution", issues, "/approval");
++    expectStringOrNull(approval, "approval_ref", issues, "/approval");
++    expectBoolean(approval, "human_review_required_before_execution", issues, "/approval");
++  }
++
++  const guards = asRecord(root["guards"]);
++  if (guards === null) {
++    issues.push(issue("/guards", "required", "guards must be an object"));
++  } else {
++    expectLiteral(guards, "enforce_clean_worktree", true, issues, "/guards");
++    expectLiteral(guards, "enforce_mutable_paths", true, issues, "/guards");
++    expectLiteral(guards, "forbid_default_branch_write", true, issues, "/guards");
++    expectLiteral(guards, "forbid_workflow_policy_network_paths", true, issues, "/guards");
++    expectLiteral(guards, "forbid_git_side_effects_in_manager", true, issues, "/guards");
++  }
++
++  return { ok: issues.length === 0, issues };
++}
++
++export function validateChangedPaths(plan: BranchWorktreePlan, changedPaths: readonly string[]): ChangedPathsValidationResult {
++  const acceptedPaths: string[] = [];
++  const rejectedPaths: ChangedPathResult[] = [];
++  const reasons: string[] = [];
++  const seen = new Set<string>();
++
++  for (const rawPath of changedPaths) {
++    const normalized = normalizeRepoPath(rawPath);
++    if (normalized === null) {
++      rejectedPaths.push({ path: rawPath, status: "rejected", reason: "invalid_path" });
++      reasons.push("invalid_changed_path");
++      continue;
++    }
++    if (seen.has(normalized)) continue;
++    seen.add(normalized);
++
++    if (matchesAnyGlob(normalized, plan.scope.immutable_paths)) {
++      rejectedPaths.push({ path: normalized, status: "rejected", reason: "immutable" });
++      reasons.push("immutable_path_changed");
++      continue;
++    }
++
++    if (!matchesAnyGlob(normalized, plan.scope.mutable_paths)) {
++      rejectedPaths.push({ path: normalized, status: "rejected", reason: "outside_mutable_scope" });
++      reasons.push("path_outside_mutable_scope");
++      continue;
++    }
++
++    acceptedPaths.push(normalized);
++  }
++
++  if (acceptedPaths.length > plan.scope.max_files_changed) reasons.push("max_files_changed_exceeded");
++  const ok = rejectedPaths.length === 0 && acceptedPaths.length <= plan.scope.max_files_changed;
++  return { ok, acceptedPaths, rejectedPaths, reasons: uniqueStrings(reasons) };
++}
++
++function validatePlanSpecLike(plan: unknown): BranchWorktreeValidationIssue[] {
++  const issues: BranchWorktreeValidationIssue[] = [];
++  const root = asRecord(plan);
++  if (root === null) return [issue("", "type", "plan spec must be an object")];
++  expectString(root, "plan_id", issues);
++  expectOneOf(root, "status", PLAN_STATUSES, issues);
++  expectString(root, "created_at", issues);
++  expectString(root, "title", issues);
++  const source = asRecord(root["source"]);
++  if (source === null) {
++    issues.push(issue("/source", "required", "plan source must be an object"));
++  } else {
++    expectStringOrNull(source, "repository", issues, "/source");
++    expectIntegerOrNull(source, "issue_number", issues, "/source");
++  }
++
++  const scope = asRecord(root["scope_contract"]);
++  if (scope === null) {
++    issues.push(issue("/scope_contract", "required", "scope_contract must be an object"));
++  } else {
++    expectLiteral(scope, "one_task_one_pr", true, issues, "/scope_contract");
++    expectLiteral(scope, "source_issue_count", 1, issues, "/scope_contract");
++    expectLiteral(scope, "no_default_branch_write", true, issues, "/scope_contract");
++    expectStringArray(scope, "mutable_paths", issues, "/scope_contract");
++    expectStringArray(scope, "immutable_paths", issues, "/scope_contract");
++    expectStringArray(scope, "out_of_scope", issues, "/scope_contract");
++    expectPositiveInteger(scope, "max_files_changed", issues, "/scope_contract", 50);
++    expectPositiveInteger(scope, "max_diff_lines", issues, "/scope_contract", 2000);
++    expectString(scope, "branch_naming_hint", issues, { pathPrefix: "/scope_contract", prefix: "forge/" });
++  }
++
++  const approval = asRecord(root["risk_and_approval"]);
++  if (approval === null) {
++    issues.push(issue("/risk_and_approval", "required", "risk_and_approval must be an object"));
++  } else {
++    expectOneOf(approval, "approval_class", APPROVAL_CLASSES, issues, "/risk_and_approval");
++    expectOneOf(approval, "risk", RISKS, issues, "/risk_and_approval");
++    expectBoolean(approval, "human_review_required_before_execution", issues, "/risk_and_approval");
++    expectBoolean(approval, "escalation_required", issues, "/risk_and_approval");
++  }
++  return issues;
++}
++
++function resolveBranchName(plan: PlanSpecLike, options: BranchWorktreeOptions, defaultBranch: string): { ok: true; value: string } | { ok: false; reason: string } {
++  const override = normalizeOptionalString(options.branchName);
++  const raw = override ?? derivedBranchName(plan, options);
++  const normalized = normalizeBranchName(raw);
++  if (normalized === null) return { ok: false, reason: "branch_name_invalid" };
++  if (!normalized.startsWith("forge/")) return { ok: false, reason: "branch_name_must_start_with_forge_prefix" };
++  if (normalized.length > MAX_BRANCH_LENGTH) return { ok: false, reason: `branch_name_exceeds_${MAX_BRANCH_LENGTH}_chars` };
++  if (!isSafeBranchRef(normalized)) return { ok: false, reason: "branch_name_contains_unsafe_ref_syntax" };
++  if (isDefaultBranchTarget(normalized, defaultBranch)) return { ok: false, reason: "branch_name_targets_default_branch" };
++  return { ok: true, value: normalized };
++}
++
++function derivedBranchName(plan: PlanSpecLike, options: BranchWorktreeOptions): string {
++  const title = plan.source.title ?? plan.title;
++  const parsed = parseTaskTitle(title);
++  const phase = sanitizePhase(options.phase ?? parsed.phase ?? "p1");
++  const taskId = sanitizeTaskId(options.taskId ?? parsed.taskId ?? fallbackTaskId(plan));
++  const titleWithoutPrefix = stripTaskPrefix(title);
++  const hintSlug = plan.scope_contract.branch_naming_hint.split("/").filter(Boolean).pop() ?? "task";
++  const slug = slugify(titleWithoutPrefix.length > 0 ? titleWithoutPrefix : hintSlug);
++  const candidate = `forge/${phase}/${taskId}-${slug}`;
++  if (candidate.length <= MAX_BRANCH_LENGTH) return candidate;
++  const suffix = stableHash(`${plan.plan_id}:${candidate}`).slice(0, 8);
++  const baseLength = MAX_BRANCH_LENGTH - suffix.length - 1;
++  return `${candidate.slice(0, baseLength).replace(/-+$/, "")}-${suffix}`;
++}
++
++function parseTaskTitle(title: string): { phase: string | null; taskId: string | null } {
++  const match = title.match(/\[P(\d+)\]\s*\[T(\d{3})\]/i);
++  if (match === null) return { phase: null, taskId: null };
++  return { phase: `p${match[1]}`, taskId: `T${match[2]}` };
++}
++
++function stripTaskPrefix(title: string): string {
++  return title.replace(/^\s*\[P\d+\]\s*\[T\d{3}\]\s*/i, "").trim();
++}
++
++function fallbackTaskId(plan: PlanSpecLike): string {
++  const issueNumber = plan.source.issue_number;
++  if (typeof issueNumber === "number" && Number.isSafeInteger(issueNumber) && issueNumber > 0) return `issue-${issueNumber}`;
++  return `task-${stableHash(plan.plan_id).slice(0, 8)}`;
++}
++
++function sanitizePhase(value: string): string {
++  const normalized = value.trim().toLowerCase();
++  const numberMatch = normalized.match(/^p?(\d+)$/);
++  if (numberMatch !== null) return `p${numberMatch[1]}`;
++  const slug = slugify(normalized);
++  return slug.length > 0 ? slug : "p1";
++}
++
++function sanitizeTaskId(value: string): string {
++  const normalized = value.trim();
++  const taskMatch = normalized.match(/^t?(\d{3})$/i);
++  if (taskMatch !== null) return `T${taskMatch[1]}`;
++  const slug = slugify(normalized);
++  return slug.length > 0 ? slug : "task";
++}
++
++function normalizeBranchName(value: string): string | null {
++  const trimmed = value.trim().replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\/+|\/+$/g, "");
++  if (trimmed.length === 0 || trimmed.includes("..") || trimmed.includes("@{") || trimmed.includes("~") || trimmed.includes("^") || trimmed.includes(":")) return null;
++  if (/\s/.test(trimmed)) return null;
++  if (trimmed.endsWith(".") || trimmed.endsWith(".lock")) return null;
++  return trimmed;
++}
++
++function normalizeBranchRef(value: string, label: string): { ok: true; value: string } | { ok: false; reason: string } {
++  const normalized = normalizeBranchName(value);
++  if (normalized === null) return { ok: false, reason: `${label}_invalid` };
++  if (!isSafeBranchRef(normalized)) return { ok: false, reason: `${label}_contains_unsafe_ref_syntax` };
++  return { ok: true, value: normalized };
++}
++
++function isSafeBranchRef(value: string): boolean {
++  if (value.length === 0 || value.startsWith("/") || value.endsWith("/") || value.includes("//")) return false;
++  if (value.includes("..") || value.includes("@{") || value.includes("\\") || value.includes("~") || value.includes("^") || value.includes(":")) return false;
++  if (/\s/.test(value)) return false;
++  if (value.split("/").some((segment) => segment.length === 0 || segment === "." || segment === ".." || segment.endsWith(".lock"))) return false;
++  return true;
++}
++
++function isDefaultBranchTarget(branchName: string, defaultBranch: string | null | undefined): boolean {
++  const lowered = branchName.toLowerCase();
++  const defaultLowered = (defaultBranch ?? DEFAULT_BRANCH).toLowerCase();
++  return lowered === defaultLowered || lowered === `refs/heads/${defaultLowered}` || RESERVED_BRANCH_TARGETS.has(lowered);
++}
++
++function normalizeWorktreeRoot(value: string): { ok: true; value: string } | { ok: false; reason: string } {
++  const trimmed = value.trim().replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/+$/g, "");
++  if (trimmed.length === 0) return { ok: false, reason: "worktree_root_empty" };
++  if (trimmed.startsWith("/") || trimmed.includes("\0")) return { ok: false, reason: "worktree_root_must_be_relative" };
++  const segments = trimmed.split("/");
++  if (segments.some((segment) => segment === ".." || segment.length === 0)) return { ok: false, reason: "worktree_root_contains_unsafe_segment" };
++  return { ok: true, value: trimmed };
++}
++
++function isSafeRuntimePath(value: string): boolean {
++  const normalized = value.trim().replace(/\\/g, "/");
++  if (normalized.length === 0 || normalized.startsWith("/") || normalized.includes("\0")) return false;
++  return !normalized.split("/").some((segment) => segment === ".." || segment.length === 0);
++}
++
++function branchNameToPathSegment(branchName: string): string {
++  return branchName.replace(/[^A-Za-z0-9._-]+/g, "__").replace(/^_+|_+$/g, "").slice(0, 120);
++}
++
++function normalizeRepoPath(value: string): string | null {
++  const trimmed = value.trim().replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+/g, "/");
++  if (trimmed.length === 0 || trimmed.startsWith("/") || trimmed.includes("\0")) return null;
++  const segments = trimmed.split("/");
++  if (segments.some((segment) => segment.length === 0 || segment === "." || segment === "..")) return null;
++  return trimmed;
++}
++
++function matchesAnyGlob(path: string, patterns: readonly string[]): boolean {
++  return patterns.some((pattern) => matchesGlob(path, pattern));
++}
++
++function matchesGlob(path: string, pattern: string): boolean {
++  const normalizedPattern = pattern.trim().replace(/\\/g, "/").replace(/^\.\/+/, "");
++  if (normalizedPattern.length === 0) return false;
++  const target = normalizedPattern.includes("/") ? path : basename(path);
++  return globToRegExp(normalizedPattern).test(target);
++}
++
++function globToRegExp(pattern: string): RegExp {
++  let source = "^";
++  for (let index = 0; index < pattern.length; index += 1) {
++    const char = pattern[index];
++    const next = pattern[index + 1];
++    const afterNext = pattern[index + 2];
++    if (char === "*" && next === "*" && afterNext === "/") {
++      source += "(?:.*/)?";
++      index += 2;
++      continue;
++    }
++    if (char === "*" && next === "*") {
++      source += ".*";
++      index += 1;
++      continue;
++    }
++    if (char === "*") {
++      source += "[^/]*";
++      continue;
++    }
++    source += escapeRegExp(char);
++  }
++  source += "$";
++  return new RegExp(source);
++}
++
++function globIntersects(a: string, b: string): boolean {
++  const pa = globLiteralPrefix(a);
++  const pb = globLiteralPrefix(b);
++  if (pa.length === 0 || pb.length === 0) return false;
++  return pa.startsWith(pb) || pb.startsWith(pa);
++}
++
++function globLiteralPrefix(pattern: string): string {
++  return pattern.replace(/\\/g, "/").split(/[?*]/, 1)[0].replace(/\/+$/, "").toLowerCase();
++}
++
++function basename(path: string): string {
++  const parts = path.split("/");
++  return parts[parts.length - 1] ?? path;
++}
++
++function resolveTimestamp(value: string): { ok: true; value: string } | { ok: false; reason: string } {
++  const trimmed = value.trim();
++  if (!RFC3339_UTC.test(trimmed)) return { ok: false, reason: "timestamp_must_be_rfc3339_utc" };
++  return { ok: true, value: trimmed };
++}
++
++function normalizeOptionalString(value: string | undefined): string | null {
++  if (value === undefined) return null;
++  const trimmed = value.trim();
++  return trimmed.length > 0 ? trimmed : null;
++}
++
++function expectLiteral(record: Record<string, unknown>, key: string, expected: unknown, issues: BranchWorktreeValidationIssue[], pathPrefix = ""): void {
++  if (record[key] !== expected) issues.push(issue(`${pathPrefix}/${key}`, "literal", `${key} must equal ${JSON.stringify(expected)}`));
++}
++
++function expectString(record: Record<string, unknown>, key: string, issues: BranchWorktreeValidationIssue[], options: { pathPrefix?: string; prefix?: string } = {}): string | null {
++  const value = record[key];
++  const path = `${options.pathPrefix ?? ""}/${key}`;
++  if (typeof value !== "string" || value.trim().length === 0) {
++    issues.push(issue(path, "string", `${key} must be a non-empty string`));
++    return null;
++  }
++  if (options.prefix !== undefined && !value.startsWith(options.prefix)) issues.push(issue(path, "prefix", `${key} must start with '${options.prefix}'`));
++  return value;
++}
++
++function expectStringOrNull(record: Record<string, unknown>, key: string, issues: BranchWorktreeValidationIssue[], pathPrefix = ""): string | null {
++  const value = record[key];
++  if (value === null || value === undefined) return null;
++  return expectString(record, key, issues, { pathPrefix });
++}
++
++function expectIntegerOrNull(record: Record<string, unknown>, key: string, issues: BranchWorktreeValidationIssue[], pathPrefix = ""): number | null {
++  const value = record[key];
++  if (value === null || value === undefined) return null;
++  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
++    issues.push(issue(`${pathPrefix}/${key}`, "integer_or_null", `${key} must be an integer or null`));
++    return null;
++  }
++  return value;
++}
++
++function expectBoolean(record: Record<string, unknown>, key: string, issues: BranchWorktreeValidationIssue[], pathPrefix = ""): boolean | null {
++  const value = record[key];
++  if (typeof value !== "boolean") {
++    issues.push(issue(`${pathPrefix}/${key}`, "boolean", `${key} must be boolean`));
++    return null;
++  }
++  return value;
++}
++
++function expectOneOf(record: Record<string, unknown>, key: string, allowed: ReadonlySet<string>, issues: BranchWorktreeValidationIssue[], pathPrefix = ""): string | null {
++  const value = record[key];
++  if (typeof value !== "string" || !allowed.has(value)) {
++    issues.push(issue(`${pathPrefix}/${key}`, "enum", `${key} must be one of ${[...allowed].join(", ")}`));
++    return null;
++  }
++  return value;
++}
++
++function expectStringArray(record: Record<string, unknown>, key: string, issues: BranchWorktreeValidationIssue[], pathPrefix = ""): readonly string[] {
++  const value = record[key];
++  if (!Array.isArray(value)) {
++    issues.push(issue(`${pathPrefix}/${key}`, "array", `${key} must be an array of strings`));
++    return [];
++  }
++  const result: string[] = [];
++  value.forEach((item, index) => {
++    if (typeof item !== "string" || item.trim().length === 0) issues.push(issue(`${pathPrefix}/${key}/${index}`, "string", `${key}[${index}] must be a non-empty string`));
++    else result.push(item);
++  });
++  if (result.length === 0) issues.push(issue(`${pathPrefix}/${key}`, "non_empty", `${key} must not be empty`));
++  return result;
++}
++
++function expectPositiveInteger(record: Record<string, unknown>, key: string, issues: BranchWorktreeValidationIssue[], pathPrefix = "", max?: number): number | null {
++  const value = record[key];
++  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) {
++    issues.push(issue(`${pathPrefix}/${key}`, "positive_integer", `${key} must be a positive integer`));
++    return null;
++  }
++  if (max !== undefined && value > max) issues.push(issue(`${pathPrefix}/${key}`, "max", `${key} must be <= ${max}`));
++  return value;
++}
++
++function expectRfc3339(record: Record<string, unknown>, key: string, issues: BranchWorktreeValidationIssue[]): string | null {
++  const value = expectString(record, key, issues);
++  if (value !== null && !RFC3339_UTC.test(value)) issues.push(issue(`/${key}`, "rfc3339", `${key} must be an RFC3339 UTC timestamp`));
++  return value;
++}
++
++function invalidResult(reasons: readonly string[], auditTrail: readonly string[], issues?: readonly BranchWorktreeValidationIssue[]): BranchWorktreeResult {
++  return { status: "invalid", reasons: uniqueStrings(reasons), auditTrail: [...auditTrail, "result:invalid"], ...(issues === undefined ? {} : { issues }) };
++}
++
++function issue(path: string, code: string, message: string): BranchWorktreeValidationIssue { return { path, code, message }; }
++function formatIssue(value: BranchWorktreeValidationIssue): string { return `${value.path}:${value.code}`; }
++function asRecord(value: unknown): Record<string, unknown> | null { return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null; }
++function escapeRegExp(value: string): string { return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&"); }
++function uniqueStrings(values: readonly string[]): readonly string[] { return [...new Set(values.filter((value) => value.trim().length > 0))]; }
++
++function slugify(value: string): string {
++  const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
++  return slug.length > 0 ? slug : "task";
++}
++
++function stableSlug(value: string): string {
++  const slug = value.replace(/^[A-Za-z0-9+.-]+:\/\//, "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
++  return slug.length > 0 ? slug.slice(0, 72) : "plan";
++}
++
++function stableHash(value: string): string {
++  let hash = 2166136261;
++  for (let index = 0; index < value.length; index += 1) {
++    hash ^= value.charCodeAt(index);
++    hash = Math.imul(hash, 16777619);
++  }
++  return (hash >>> 0).toString(36).padStart(8, "0");
++}
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/tests/worktree.test.mjs /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/tests/worktree.test.mjs
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/tests/worktree.test.mjs	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/tests/worktree.test.mjs	2026-04-18 16:53:23.672495897 +0000
+@@ -0,0 +1,170 @@
++import assert from "node:assert/strict";
++import { describe, it } from "node:test";
++import { createPlanSpecFromTaskCandidate } from "../../planner/dist/plan-schema.js";
++import {
++  BRANCH_WORKTREE_MANAGER_CONTRACT,
++  createBranchWorktreePlan,
++  validateBranchWorktreePlan,
++  validateChangedPaths,
++} from "../dist/index.js";
++
++const CREATED_AT = "2026-04-18T00:00:00Z";
++
++function docsTask(overrides = {}) {
++  return {
++    candidateId: "issue:42",
++    sourceKey: "issue:42",
++    sourceKind: "issue",
++    repositoryFullName: "hiroshitanaka-creator/ForgeRoot",
++    number: 42,
++    url: "https://github.com/hiroshitanaka-creator/ForgeRoot/issues/42",
++    title: "[P1][T018] worktree / branch manager",
++    summary: "Add deterministic branch and worktree planning before sandbox execution.",
++    category: "docs",
++    risk: "medium",
++    approvalClass: "B",
++    labels: ["forge:auto", "phase:P1", "class:B", "risk:medium"],
++    autoRequested: true,
++    bodyExcerpt: "Prepare branch/worktree manifest only; do not run git or edit files.",
++    plannerHints: {
++      oneTaskOnePr: true,
++      recommendedScope: "docs-only validation task",
++      mutablePathHints: ["README.md", "docs/**", "packages/executor/**"],
++      forbiddenPathHints: [".github/workflows/**", ".forge/policies/**", ".forge/network/**"],
++      requiresHumanReviewBeforePlanning: false,
++    },
++    ...overrides,
++  };
++}
++
++function docsPlan(overrides = {}) {
++  return createPlanSpecFromTaskCandidate(docsTask(overrides), { createdAt: CREATED_AT });
++}
++
++describe("T018 branch/worktree manager", () => {
++  it("declares a manifest-only contract with no git side effects", () => {
++    assert.equal(BRANCH_WORKTREE_MANAGER_CONTRACT.oneTaskOnePr, true);
++    assert.equal(BRANCH_WORKTREE_MANAGER_CONTRACT.branchPrefix, "forge/");
++    assert.ok(BRANCH_WORKTREE_MANAGER_CONTRACT.forbids.includes("git_worktree_add"));
++    assert.ok(BRANCH_WORKTREE_MANAGER_CONTRACT.forbids.includes("default_branch_write"));
++  });
++
++  it("creates one deterministic branch/worktree plan from one ready Plan Spec", () => {
++    const plan = docsPlan();
++    const result = createBranchWorktreePlan(plan, { now: CREATED_AT, defaultBranch: "main" });
++
++    assert.equal(result.status, "ready");
++    assert.ok(result.plan);
++    assert.match(result.plan.branch.name, /^forge\/p1\/T018-worktree-branch-manager/);
++    assert.equal(result.plan.branch.base_ref, "main");
++    assert.equal(result.plan.branch.default_branch, "main");
++    assert.notEqual(result.plan.branch.name, "main");
++    assert.equal(result.plan.worktree.ephemeral, true);
++    assert.match(result.plan.worktree.path, /^\.forgeroot\/worktrees\/forge__p1__T018-worktree-branch-manager/);
++    assert.deepEqual(result.plan.scope.mutable_paths, plan.scope_contract.mutable_paths);
++    assert.deepEqual(validateBranchWorktreePlan(result.plan), { ok: true, issues: [] });
++  });
++
++  it("is deterministic for identical Plan Spec and options", () => {
++    const plan = docsPlan();
++    const first = createBranchWorktreePlan(plan, { now: CREATED_AT, defaultBranch: "main" });
++    const second = createBranchWorktreePlan(plan, { now: CREATED_AT, defaultBranch: "main" });
++    assert.deepEqual(first, second);
++  });
++
++  it("blocks elevated plans before branch preparation unless execution approval is attached", () => {
++    const plan = docsPlan();
++    const elevated = {
++      ...plan,
++      status: "blocked_for_human",
++      risk_and_approval: {
++        ...plan.risk_and_approval,
++        risk: "high",
++        approval_class: "C",
++        human_review_required_before_execution: true,
++        escalation_required: true,
++      },
++    };
++
++    const blocked = createBranchWorktreePlan(elevated, { now: CREATED_AT });
++    assert.equal(blocked.status, "blocked");
++    assert.equal(blocked.plan, undefined);
++    assert.ok(blocked.reasons.includes("human_review_required_before_branch_preparation"));
++
++    const approved = createBranchWorktreePlan(elevated, {
++      now: CREATED_AT,
++      approvedForExecution: true,
++      approvalRef: "issue-comment://42#approval",
++    });
++    assert.equal(approved.status, "ready");
++    assert.equal(approved.plan.approval.approved_for_execution, true);
++    assert.equal(approved.plan.approval.approval_ref, "issue-comment://42#approval");
++  });
++
++  it("requires an approval reference when elevated execution approval is asserted", () => {
++    const plan = docsPlan();
++    const elevated = {
++      ...plan,
++      risk_and_approval: {
++        ...plan.risk_and_approval,
++        human_review_required_before_execution: true,
++        escalation_required: true,
++      },
++    };
++    const result = createBranchWorktreePlan(elevated, { approvedForExecution: true, now: CREATED_AT });
++    assert.equal(result.status, "invalid");
++    assert.ok(result.reasons.includes("approval_ref_required_when_approved_for_execution"));
++  });
++
++  it("rejects default-branch or unsafe branch targets", () => {
++    const plan = docsPlan();
++    const main = createBranchWorktreePlan(plan, { branchName: "main", now: CREATED_AT });
++    assert.equal(main.status, "invalid");
++    assert.ok(main.reasons.includes("branch_name_must_start_with_forge_prefix") || main.reasons.includes("branch_name_targets_default_branch"));
++
++    const traversal = createBranchWorktreePlan(plan, { branchName: "forge/p1/../escape", now: CREATED_AT });
++    assert.equal(traversal.status, "invalid");
++    assert.ok(traversal.reasons.includes("branch_name_invalid"));
++  });
++
++  it("rejects unsafe worktree roots", () => {
++    const plan = docsPlan();
++    const result = createBranchWorktreePlan(plan, { worktreeRoot: "../outside", now: CREATED_AT });
++    assert.equal(result.status, "invalid");
++    assert.ok(result.reasons.includes("worktree_root_contains_unsafe_segment"));
++  });
++
++  it("guards changed paths against immutable and out-of-scope paths", () => {
++    const plan = docsPlan();
++    const result = createBranchWorktreePlan(plan, { now: CREATED_AT });
++    assert.equal(result.status, "ready");
++
++    const accepted = validateChangedPaths(result.plan, ["README.md", "docs/ops/worktree.md", "packages/executor/src/worktree.ts"]);
++    assert.equal(accepted.ok, true);
++    assert.deepEqual(accepted.rejectedPaths, []);
++
++    const rejected = validateChangedPaths(result.plan, [".github/workflows/ci.yml", "src/unrelated.ts", "../escape"]);
++    assert.equal(rejected.ok, false);
++    assert.deepEqual(rejected.rejectedPaths.map((path) => path.reason), ["immutable", "outside_mutable_scope", "invalid_path"]);
++    assert.ok(rejected.reasons.includes("immutable_path_changed"));
++    assert.ok(rejected.reasons.includes("path_outside_mutable_scope"));
++    assert.ok(rejected.reasons.includes("invalid_changed_path"));
++  });
++
++  it("does not prepare branches for draft or superseded plans", () => {
++    const plan = docsPlan();
++    for (const status of ["draft", "superseded"]) {
++      const result = createBranchWorktreePlan({ ...plan, status }, { now: CREATED_AT });
++      assert.equal(result.status, "blocked");
++      assert.equal(result.plan, undefined);
++      assert.ok(result.reasons.includes(`plan_status_not_ready_for_worktree:${status}`));
++    }
++  });
++
++  it("rejects malformed plan-like inputs before branch derivation", () => {
++    const result = createBranchWorktreePlan({}, { now: CREATED_AT });
++    assert.equal(result.status, "invalid");
++    assert.ok(result.reasons.includes("invalid_plan_spec_like"));
++    assert.ok(result.issues.length >= 1);
++  });
++});
+diff -ruN /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/tsconfig.json /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/tsconfig.json
+--- /mnt/data/forgeroot_t017_baseline/ForgeRoot/packages/executor/tsconfig.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/forgeroot_t018_work/ForgeRoot/packages/executor/tsconfig.json	2026-04-18 16:49:27.356010876 +0000
+@@ -0,0 +1,15 @@
++{
++  "compilerOptions": {
++    "target": "ES2022",
++    "module": "NodeNext",
++    "moduleResolution": "NodeNext",
++    "rootDir": "src",
++    "outDir": "dist",
++    "declaration": true,
++    "sourceMap": true,
++    "strict": true,
++    "skipLibCheck": true,
++    "noEmitOnError": true
++  },
++  "include": ["src/**/*.ts"]
++}
