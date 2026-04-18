@@ -1,0 +1,31 @@
+#!forge/v1
+# Hash fixture B: same logical document, different source order and comments.
+extensions: {}
+provenance: {}
+mutation_log: []
+evolution:
+  generation: 0
+scores:
+  windows:
+    d7:
+      fitness: 0.0
+memory: {}
+tools: []
+context_recipe: {}
+constitution: {}
+role: {}
+identity:
+  role_name: hash-demo
+updated_at: 2026-04-18T00:00:00Z
+created_at: 2026-04-18T00:00:00Z
+owners:
+  - github-app://forgeroot
+summary: Minimal agent used to prove T005 canonical hash stability.
+title: Hash Demo Agent
+status: seeded
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+revision: 01KPF000000000000000000000
+id: forge://hiroshitanaka-creator/ForgeRoot/agent/hash.demo
+kind: agent
+schema_ref: urn:forgeroot:forge:agent:v1
+forge_version: 1

@@ -1,0 +1,5 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:agent:v1
+kind: agent
+metadata: {a: 1, a: 2}

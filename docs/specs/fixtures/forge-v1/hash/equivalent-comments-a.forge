@@ -1,0 +1,31 @@
+#!forge/v1
+# Hash fixture A: comments should not affect canonical bytes.
+forge_version: 1
+schema_ref: urn:forgeroot:forge:agent:v1
+kind: agent
+id: forge://hiroshitanaka-creator/ForgeRoot/agent/hash.demo
+revision: 01KPF000000000000000000000
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: seeded
+title: Hash Demo Agent
+summary: Minimal agent used to prove T005 canonical hash stability.
+owners:
+  - github-app://forgeroot
+created_at: 2026-04-18T00:00:00Z
+updated_at: 2026-04-18T00:00:00Z
+identity:
+  role_name: hash-demo # inline comment is stripped
+role: {}
+constitution: {}
+context_recipe: {}
+tools: []
+memory: {}
+scores:
+  windows:
+    d7:
+      fitness: 0.0
+evolution:
+  generation: 0
+mutation_log: []
+provenance: {}
+extensions: {}
