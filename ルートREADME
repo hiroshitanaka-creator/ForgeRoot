@@ -1,0 +1,66 @@
+# ForgeRoot
+
+GitHub repository as a living Forge Mind.
+
+This repository is currently seeded with the **Phase 0 / T001 monorepo skeleton**.
+At this stage, the repo intentionally stops at directory boundaries, numbered source documents, and placeholder READMEs.
+
+## Start here
+
+- `00_ForgeRoot_blueprint_設計書.md` — master blueprint
+- `01_単語や命名規則.md` — naming and identity rules
+- `02_README.md` — public-facing README source draft
+- `03_issue.md` — initial bounded issue drafts
+
+`README.md` is the GitHub entrypoint.
+The numbered documents remain the ordered design documents for the bootstrap phase.
+
+## Current layout
+
+```text
+.forge/
+  agents/
+  policies/
+  evals/
+  lineage/
+  network/
+  packs/
+.github/
+  workflows/
+apps/
+  github-app/
+  cli/
+  browser-extension/
+crates/
+packages/
+labs/
+docs/
+  specs/
+  rfcs/
+  ops/
+```
+
+## Seed status
+
+- Current task: `T001`
+- Scope completed here: monorepo skeleton and `.forge` root
+- Intentionally not implemented here:
+  - `.forge` schema implementation
+  - GitHub App runtime implementation
+  - workflow implementation
+
+## Next tasks
+
+- `T003` — initial constitution and `mind.forge`
+- `T004` — `.forge` v1 spec and schema
+- `T005` — canonical parser and hash kernel
+- `T006` — minimum GitHub App manifest and permissions
+- `T007` — webhook ingest with signature verification
+- `T008` — event inbox and idempotency
+- `T014` — runtime mode and kill switch
+
+## Notes
+
+- `.forge/` exists as the durable identity root, but `mind.forge` is intentionally not seeded until `T003`.
+- `.github/workflows/` is present but intentionally empty in `T001`.
+- `apps/`, `crates/`, `packages/`, `labs/`, and `docs/` exist to lock naming and responsibility boundaries before implementation starts.
