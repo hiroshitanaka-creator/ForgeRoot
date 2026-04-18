@@ -4,7 +4,7 @@ GitHub repository as a living Forge Mind.
 
 ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelligence. The durable identity layer lives in Git and `.forge`; the GitHub App and runtime DBs are control-plane machinery around that identity.
 
-## Current Phase 0 status
+## Current bootstrap status
 
 Completed bootstrap tasks in this working tree:
 
@@ -16,8 +16,9 @@ Completed bootstrap tasks in this working tree:
 - `T007` — webhook ingest with HMAC verification
 - `T008` — event inbox and delivery GUID idempotency
 - `T014` — runtime mode and kill switch
+- `T015` — issue intake classifier
 
-The next natural task is `T015` issue intake classifier.
+The next natural task is `T016` plan spec DSL.
 
 ## Core laws
 
@@ -27,6 +28,7 @@ The next natural task is `T015` issue intake classifier.
 4. No direct default-branch writes.
 5. Federation and spawning start allowlisted/lab-only.
 6. Runtime mutation must be stoppable by an explicit kill switch.
+7. Only `forge:auto`-labeled intake can enter the automatic planner candidate lane.
 
 ## Repository layout
 
@@ -45,6 +47,8 @@ apps/
   github-app/
 crates/
   forge-kernel/
+packages/
+  planner/
 docs/
   specs/
   ops/
@@ -59,7 +63,11 @@ cargo test -p forge-kernel
 
 # GitHub App webhook, inbox, runtime mode, and kill switch tests
 cd apps/github-app
-node --test --test-force-exit tests/*.test.mjs
+npm run test
+
+# Planner intake classifier tests
+cd packages/planner
+npm run test
 ```
 
 ## GitHub App runtime
@@ -76,11 +84,15 @@ node --test --test-force-exit tests/*.test.mjs
 - admin-token-protected kill switch endpoint
 - repeated 403/429 downgrade hook
 
-Runtime configuration starts from:
+## Planner package
 
-```text
-apps/github-app/.env.example
-```
+`packages/planner` currently provides:
+
+- deterministic issue/comment/alert intake classification
+- 14 intake categories
+- `accept` / `ignore` / `block` / `escalate` routing
+- strict `forge:auto` label handling
+- normalized task candidates with one-task-one-PR planner hints
 
 ## Design documents
 
@@ -89,6 +101,7 @@ apps/github-app/.env.example
 - `02_README.md` — public README source draft
 - `03_issue.md` — bounded issue drafts
 - `docs/specs/forge-v1.md` — `.forge` v1 specification
+- `docs/specs/issue-intake.md` — T015 issue intake classifier specification
 - `docs/ops/event-inbox.md` — T008 inbox operations
 - `docs/ops/runtime-mode.md` — T014 runtime mode and kill switch operations
 
