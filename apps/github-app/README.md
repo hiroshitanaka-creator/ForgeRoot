@@ -1,11 +1,11 @@
-# github-app
+# apps/github-app
 
-Reserved for the ForgeRoot GitHub App.
+GitHub App control-plane surface for ForgeRoot.
 
-Expected follow-up tasks:
+Current T006 contents:
 
-- `T006` — app manifest and permissions
-- `T007` — webhook ingest
-- `T008` — event inbox and idempotency
+- `app-manifest.json` — minimum GitHub App manifest for the initial control plane.
 
-No runtime code is seeded in T001.
+This directory still intentionally excludes the webhook server, token refresh logic, scheduler, and production rollout code. Those belong to later tasks, starting with T007.
+
+Permission notes live in `../../docs/github-app-permissions.md`.
