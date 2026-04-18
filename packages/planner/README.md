@@ -26,10 +26,31 @@ Main exports:
 
 The Plan Spec requires explicit `mutable_paths`, `immutable_paths`, `out_of_scope`, risk/approval linkage, and machine-checkable `acceptance_criteria`.
 
+## T017 planner runtime
+
+T017 adds `run.ts`, the deterministic runtime bridge from T015 intake to T016 Plan Spec creation.
+
+Main exports:
+
+- `runPlanner(input)`
+- `PlannerRunInput`
+- `PlannerRunResult`
+- `PlannerRunStatus`
+- `PLANNER_CONTEXT_RECIPE`
+- `PLANNER_BOUNDED_OUTPUT_CONTRACT`
+
+`runPlanner` accepts one of three source shapes:
+
+- `github_webhook` — converts a webhook-like payload through the intake classifier.
+- `intake_input` — classifies an already-normalized `IntakeInput`.
+- `task_candidate` — creates a Plan Spec from an already-accepted `NormalizedTaskCandidate`.
+
+The runtime never edits files, creates branches, creates commits, opens PRs, runs tests, or generates audit reports. It returns at most one valid Plan Spec per run. Ignored, blocked, escalated, or invalid inputs return no plan and include deterministic reasons plus an audit trail.
+
 ## Local development
 
 ```bash
 cd packages/planner
-TSC_NONPOLLING_WATCHER=1 tsc -p tsconfig.json --noEmit --pretty false --diagnostics
+timeout 20 tsc -p tsconfig.json
 node --test --test-force-exit tests/*.test.mjs
 ```
