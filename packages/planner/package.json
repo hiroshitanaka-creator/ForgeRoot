@@ -1,9 +1,9 @@
 {
   "name": "@forgeroot/planner",
-  "version": "0.0.0-t015",
+  "version": "0.0.0-t016",
   "private": true,
   "type": "module",
-  "description": "ForgeRoot planner primitives, starting with deterministic issue intake classification.",
+  "description": "ForgeRoot planner primitives: deterministic intake classification and one-task-one-PR Plan Spec DSL.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
