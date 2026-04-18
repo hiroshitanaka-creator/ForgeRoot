@@ -14,7 +14,7 @@ ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelli
 
 ## Current bootstrap status
 
-- Current completed task: `T006 minimum GitHub App manifest and permissions`
+- Current completed task: `T007 webhook ingest with signature verification`
 - Phase: `P0 / Forge Kernel`
 - Implemented so far:
   - `T001` monorepo skeleton and `.forge` root
@@ -22,6 +22,7 @@ ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelli
   - `T004` `.forge` v1 specification and JSON Schema
   - `T005` Rust parser/hash kernel crate and conformance fixtures
   - `T006` minimum GitHub App manifest, permission matrix, installation scope, and webhook event shortlist
+  - `T007` TypeScript webhook ingest server with HMAC-SHA256 verification, event/action allowlist, immediate ACK, and async handoff interface
 
 ## Current layout
 
@@ -33,6 +34,12 @@ ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelli
 apps/
   github-app/
     app-manifest.json
+    package.json
+    src/
+      server.ts
+      webhooks.ts
+    tests/
+      webhooks.test.mjs
 crates/
   forge-kernel/
     src/
@@ -45,57 +52,49 @@ docs/
     t004-validation-report.md
     t005-validation-report.md
     t006-validation-report.md
-    fixtures/forge-v1/
+    t007-validation-report.md
 schemas/
   forge-v1.schema.json
 ```
 
-## T005 kernel
+## T007 GitHub webhook ingest
 
-`crates/forge-kernel/` provides the first executable `.forge` v1 kernel:
+`apps/github-app/src/server.ts` exposes the initial GitHub App webhook server.
 
-- strict source-form validation;
-- duplicate-key rejection;
-- NFC and LF enforcement;
-- comment-insensitive canonicalization;
-- fixed top-level key ordering;
-- `sha256:<hex>` canonical hash calculation;
-- integrity verification for `integrity.canonical_hash` when present.
+Implemented behavior:
 
-Expected local commands once Rust is installed:
+- `POST /webhooks/github` and `POST /api/github/webhook`
+- `GET /healthz`
+- raw request body capture before JSON parsing
+- `X-Hub-Signature-256` HMAC-SHA256 verification
+- `X-GitHub-Delivery` extraction for the later T008 inbox/dedupe layer
+- event and action allowlist matching `docs/github-app-permissions.md`
+- accepted deliveries return `202` immediately and are handed to a non-blocking `WebhookHandoff`
+- signed but unsupported events/actions return `202` with `ignored=true` and are not handed off
+- invalid signatures return `401`
+
+Local commands:
 
 ```bash
-cargo test -p forge-kernel
-cargo run -p forge-kernel -- hash docs/specs/fixtures/forge-v1/valid/minimal-agent.forge
-cargo run -p forge-kernel -- verify .forge/mind.forge
+cd apps/github-app
+npm install
+npm test
+FORGE_WEBHOOK_SECRET=local-secret npm start
 ```
 
-## T006 GitHub App boundary
-
-`apps/github-app/app-manifest.json` defines the first GitHub App authority boundary.
-
-Initial permissions are intentionally limited to:
-
-- `metadata: read`
-- `contents: write`
-- `pull_requests: write`
-- `issues: write`
-- `checks: write`
-- `actions: read`
-
-The manifest does not request `administration`, `workflows`, secret-management permissions, organization permissions, or user permissions. The installation model is selected repositories only.
-
-See `docs/github-app-permissions.md` for the permission matrix, excluded permissions, installation scope, and webhook event shortlist.
+The current handoff is intentionally an interface plus in-memory test implementation. Persistent inbox, dedupe, replay state, and status transitions belong to `T008`.
 
 ## Important boundaries
 
 Still intentionally deferred:
 
-- webhook ingest server
-- HMAC signature verification implementation
-- event inbox / idempotency
+- persistent event inbox / idempotency
+- delivery redelivery automation
+- full scheduler
+- planner integration
 - installation token refresh
 - production GitHub App rollout
+- runtime mode / kill switch
 - pack compaction
 - replay engine
 - evaluator and mutation runtime
@@ -104,6 +103,6 @@ Still intentionally deferred:
 
 ## Next tasks
 
-- `T007` — webhook ingest with signature verification
 - `T008` — event inbox and idempotency
 - `T014` — runtime mode and kill switch
+- `T015` — issue intake classifier
