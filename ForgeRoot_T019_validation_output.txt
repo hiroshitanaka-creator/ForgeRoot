@@ -1,0 +1,309 @@
+# ForgeRoot T019 validation output
+
+## Executor tests
+TAP version 13
+# Subtest: T019 executor sandbox harness
+    # Subtest: declares a manifest-only sandbox contract with no command execution side effects
+    ok 1 - declares a manifest-only sandbox contract with no command execution side effects
+      ---
+      duration_ms: 1.762424
+      type: 'test'
+      ...
+    # Subtest: creates one deterministic sandbox execution request from one T018 worktree manifest
+    ok 2 - creates one deterministic sandbox execution request from one T018 worktree manifest
+      ---
+      duration_ms: 14.124858
+      type: 'test'
+      ...
+    # Subtest: blocks sandbox requests when a manifest still requires execution approval
+    ok 3 - blocks sandbox requests when a manifest still requires execution approval
+      ---
+      duration_ms: 1.111808
+      type: 'test'
+      ...
+    # Subtest: rejects malformed branch/worktree manifests before sandbox derivation
+    ok 4 - rejects malformed branch/worktree manifests before sandbox derivation
+      ---
+      duration_ms: 0.376337
+      type: 'test'
+      ...
+    # Subtest: rejects forbidden git, shell, and non-allowlisted command binaries
+    ok 5 - rejects forbidden git, shell, and non-allowlisted command binaries
+      ---
+      duration_ms: 1.056528
+      type: 'test'
+      ...
+    # Subtest: rejects command writable paths outside mutable scope or inside immutable scope
+    ok 6 - rejects command writable paths outside mutable scope or inside immutable scope
+      ---
+      duration_ms: 3.363778
+      type: 'test'
+      ...
+    # Subtest: rejects secret-bearing environment variables and locked default overrides
+    ok 7 - rejects secret-bearing environment variables and locked default overrides
+      ---
+      duration_ms: 1.649405
+      type: 'test'
+      ...
+    # Subtest: keeps network disabled by default and only allows explicit safe allowlists
+    ok 8 - keeps network disabled by default and only allows explicit safe allowlists
+      ---
+      duration_ms: 3.191507
+      type: 'test'
+      ...
+    # Subtest: rejects artifact roots inside the worktree
+    ok 9 - rejects artifact roots inside the worktree
+      ---
+      duration_ms: 0.988683
+      type: 'test'
+      ...
+    # Subtest: validates observed sandbox output against declared commands, path scope, and artifacts
+    ok 10 - validates observed sandbox output against declared commands, path scope, and artifacts
+      ---
+      duration_ms: 3.531603
+      type: 'test'
+      ...
+    # Subtest: rejects observed output that escapes commands, mutable paths, or declared artifacts
+    ok 11 - rejects observed output that escapes commands, mutable paths, or declared artifacts
+      ---
+      duration_ms: 2.420985
+      type: 'test'
+      ...
+    1..11
+ok 1 - T019 executor sandbox harness
+  ---
+  duration_ms: 35.558717
+  type: 'suite'
+  ...
+# Subtest: T018 branch/worktree manager
+    # Subtest: declares a manifest-only contract with no git side effects
+    ok 1 - declares a manifest-only contract with no git side effects
+      ---
+      duration_ms: 1.61377
+      type: 'test'
+      ...
+    # Subtest: creates one deterministic branch/worktree plan from one ready Plan Spec
+    ok 2 - creates one deterministic branch/worktree plan from one ready Plan Spec
+      ---
+      duration_ms: 5.185427
+      type: 'test'
+      ...
+    # Subtest: is deterministic for identical Plan Spec and options
+    ok 3 - is deterministic for identical Plan Spec and options
+      ---
+      duration_ms: 2.900894
+      type: 'test'
+      ...
+    # Subtest: blocks elevated plans before branch preparation unless execution approval is attached
+    ok 4 - blocks elevated plans before branch preparation unless execution approval is attached
+      ---
+      duration_ms: 0.723909
+      type: 'test'
+      ...
+    # Subtest: requires an approval reference when elevated execution approval is asserted
+    ok 5 - requires an approval reference when elevated execution approval is asserted
+      ---
+      duration_ms: 0.452908
+      type: 'test'
+      ...
+    # Subtest: rejects default-branch or unsafe branch targets
+    ok 6 - rejects default-branch or unsafe branch targets
+      ---
+      duration_ms: 0.435619
+      type: 'test'
+      ...
+    # Subtest: rejects unsafe worktree roots
+    ok 7 - rejects unsafe worktree roots
+      ---
+      duration_ms: 0.4198
+      type: 'test'
+      ...
+    # Subtest: guards changed paths against immutable and out-of-scope paths
+    ok 8 - guards changed paths against immutable and out-of-scope paths
+      ---
+      duration_ms: 1.626961
+      type: 'test'
+      ...
+    # Subtest: does not prepare branches for draft or superseded plans
+    ok 9 - does not prepare branches for draft or superseded plans
+      ---
+      duration_ms: 0.498693
+      type: 'test'
+      ...
+    # Subtest: rejects malformed plan-like inputs before branch derivation
+    ok 10 - rejects malformed plan-like inputs before branch derivation
+      ---
+      duration_ms: 1.161814
+      type: 'test'
+      ...
+    1..10
+ok 2 - T018 branch/worktree manager
+  ---
+  duration_ms: 17.300462
+  type: 'suite'
+  ...
+1..2
+# tests 21
+# suites 2
+# pass 21
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 224.38071
+
+## Planner regression tests
+TAP version 13
+# Subtest: normalizes labels deterministically
+ok 1 - normalizes labels deterministically
+  ---
+  duration_ms: 55.772374
+  type: 'test'
+  ...
+# Subtest: forge:auto docs issue becomes an automatic normalized task candidate
+ok 2 - forge:auto docs issue becomes an automatic normalized task candidate
+  ---
+  duration_ms: 2.182469
+  type: 'test'
+  ...
+# Subtest: issue without forge:auto is classified but ignored for automation
+ok 3 - issue without forge:auto is classified but ignored for automation
+  ---
+  duration_ms: 0.410023
+  type: 'test'
+  ...
+# Subtest: classifies at least four stable intake categories
+ok 4 - classifies at least four stable intake categories
+  ---
+  duration_ms: 1.164097
+  type: 'test'
+  ...
+# Subtest: security issue with forge:auto escalates instead of becoming an auto target
+ok 5 - security issue with forge:auto escalates instead of becoming an auto target
+  ---
+  duration_ms: 0.400436
+  type: 'test'
+  ...
+# Subtest: workflow and permission issues escalate as elevated governance work
+ok 6 - workflow and permission issues escalate as elevated governance work
+  ---
+  duration_ms: 0.510198
+  type: 'test'
+  ...
+# Subtest: explicit block labels and bypass requests block intake
+ok 7 - explicit block labels and bypass requests block intake
+  ---
+  duration_ms: 0.505048
+  type: 'test'
+  ...
+# Subtest: issue comments can classify when the parent issue has forge:auto
+ok 8 - issue comments can classify when the parent issue has forge:auto
+  ---
+  duration_ms: 0.385672
+  type: 'test'
+  ...
+# Subtest: failed CI alert is classified but not an automatic target without forge:auto
+ok 9 - failed CI alert is classified but not an automatic target without forge:auto
+  ---
+  duration_ms: 0.569104
+  type: 'test'
+  ...
+# Subtest: successful CI alert is ignored before planning
+ok 10 - successful CI alert is ignored before planning
+  ---
+  duration_ms: 1.1358
+  type: 'test'
+  ...
+# Subtest: broad forge:auto requests are blocked to preserve one-task-one-PR
+ok 11 - broad forge:auto requests are blocked to preserve one-task-one-PR
+  ---
+  duration_ms: 0.465166
+  type: 'test'
+  ...
+# Subtest: creates one deterministic Plan Spec from one accepted issue candidate
+ok 12 - creates one deterministic Plan Spec from one accepted issue candidate
+  ---
+  duration_ms: 19.662852
+  type: 'test'
+  ...
+# Subtest: acceptance criteria are required and machine-checkable
+ok 13 - acceptance criteria are required and machine-checkable
+  ---
+  duration_ms: 1.385542
+  type: 'test'
+  ...
+# Subtest: scope contract requires mutable paths and explicit out-of-scope boundaries
+ok 14 - scope contract requires mutable paths and explicit out-of-scope boundaries
+  ---
+  duration_ms: 0.811698
+  type: 'test'
+  ...
+# Subtest: mutable paths cannot overlap immutable governance paths
+ok 15 - mutable paths cannot overlap immutable governance paths
+  ---
+  duration_ms: 0.780234
+  type: 'test'
+  ...
+# Subtest: approval link blocks elevated class plans before execution
+ok 16 - approval link blocks elevated class plans before execution
+  ---
+  duration_ms: 2.387618
+  type: 'test'
+  ...
+# Subtest: planner runtime turns one forge:auto docs issue into one validated Plan Spec
+ok 17 - planner runtime turns one forge:auto docs issue into one validated Plan Spec
+  ---
+  duration_ms: 17.788804
+  type: 'test'
+  ...
+# Subtest: planner runtime ignores issues without the forge:auto label
+ok 18 - planner runtime ignores issues without the forge:auto label
+  ---
+  duration_ms: 0.588857
+  type: 'test'
+  ...
+# Subtest: planner runtime escalates security, workflow, and policy issues before plan creation
+ok 19 - planner runtime escalates security, workflow, and policy issues before plan creation
+  ---
+  duration_ms: 1.233408
+  type: 'test'
+  ...
+# Subtest: planner runtime blocks broad forge:auto requests
+ok 20 - planner runtime blocks broad forge:auto requests
+  ---
+  duration_ms: 0.425441
+  type: 'test'
+  ...
+# Subtest: planner runtime accepts a direct normalized task candidate deterministically
+ok 21 - planner runtime accepts a direct normalized task candidate deterministically
+  ---
+  duration_ms: 3.816301
+  type: 'test'
+  ...
+# Subtest: planner runtime rejects invalid payloads without creating a plan
+ok 22 - planner runtime rejects invalid payloads without creating a plan
+  ---
+  duration_ms: 0.225483
+  type: 'test'
+  ...
+# Subtest: planner runtime exposes bounded context and output contracts
+ok 23 - planner runtime exposes bounded context and output contracts
+  ---
+  duration_ms: 0.252181
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 302.638587
+
+## Node syntax checks
+sandbox:0
+index:0
+worktree:0
+planner_run:0
