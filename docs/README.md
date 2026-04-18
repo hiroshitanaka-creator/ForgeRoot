@@ -8,13 +8,16 @@ Directory conventions:
 - `rfcs/` — numbered RFCs for later governance and migration proposals
 - `ops/` — operational guides
 
-Current specs and docs:
+Current specs and reports:
 
-- `github-app-permissions.md` — T006 GitHub App permission boundary, selected-repository installation rule, webhook event shortlist, and T007 implementation note
-- `specs/forge-v1.md` — `.forge` v1 specification
+- `specs/forge-v1.md` — T004 `.forge` v1 specification seed
 - `specs/t003-validation-fixture.yaml` — T003 constitution/mind assertions
 - `specs/t004-validation-report.md` — T004 schema fixture result summary
-- `specs/t005-validation-report.md` — T005 parser/hash fixture result summary
-- `specs/t006-validation-report.md` — T006 manifest permission validation summary
+- `specs/t005-validation-report.md` — T005 parser/hash validation summary
+- `specs/t006-validation-report.md` — T006 GitHub App manifest validation summary
 - `specs/t007-validation-report.md` — T007 webhook ingest validation summary
-- `specs/fixtures/forge-v1/` — valid, invalid, and hash reproduction fixtures
+- `specs/t008-validation-report.md` — T008 event inbox/idempotency validation summary
+
+Operational notes:
+
+- `ops/event-inbox.md` — T008 event inbox status model and replay boundary
