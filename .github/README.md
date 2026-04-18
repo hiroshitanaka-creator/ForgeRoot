@@ -14,13 +14,14 @@ ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelli
 
 ## Current bootstrap status
 
-- Current completed task: `T005 canonical parser and hash kernel`
+- Current completed task: `T006 minimum GitHub App manifest and permissions`
 - Phase: `P0 / Forge Kernel`
 - Implemented so far:
   - `T001` monorepo skeleton and `.forge` root
   - `T003` root `mind.forge` and constitution policy seed
   - `T004` `.forge` v1 specification and JSON Schema
   - `T005` Rust parser/hash kernel crate and conformance fixtures
+  - `T006` minimum GitHub App manifest, permission matrix, installation scope, and webhook event shortlist
 
 ## Current layout
 
@@ -29,16 +30,21 @@ ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelli
   mind.forge
   policies/
     constitution.forge
+apps/
+  github-app/
+    app-manifest.json
 crates/
   forge-kernel/
     src/
     tests/
 docs/
+  github-app-permissions.md
   specs/
     forge-v1.md
     t003-validation-fixture.yaml
     t004-validation-report.md
     t005-validation-report.md
+    t006-validation-report.md
     fixtures/forge-v1/
 schemas/
   forge-v1.schema.json
@@ -64,13 +70,32 @@ cargo run -p forge-kernel -- hash docs/specs/fixtures/forge-v1/valid/minimal-age
 cargo run -p forge-kernel -- verify .forge/mind.forge
 ```
 
+## T006 GitHub App boundary
+
+`apps/github-app/app-manifest.json` defines the first GitHub App authority boundary.
+
+Initial permissions are intentionally limited to:
+
+- `metadata: read`
+- `contents: write`
+- `pull_requests: write`
+- `issues: write`
+- `checks: write`
+- `actions: read`
+
+The manifest does not request `administration`, `workflows`, secret-management permissions, organization permissions, or user permissions. The installation model is selected repositories only.
+
+See `docs/github-app-permissions.md` for the permission matrix, excluded permissions, installation scope, and webhook event shortlist.
+
 ## Important boundaries
 
 Still intentionally deferred:
 
-- GitHub App manifest and runtime
 - webhook ingest server
+- HMAC signature verification implementation
 - event inbox / idempotency
+- installation token refresh
+- production GitHub App rollout
 - pack compaction
 - replay engine
 - evaluator and mutation runtime
@@ -79,7 +104,6 @@ Still intentionally deferred:
 
 ## Next tasks
 
-- `T006` — minimum GitHub App manifest and permissions
 - `T007` — webhook ingest with signature verification
 - `T008` — event inbox and idempotency
 - `T014` — runtime mode and kill switch
