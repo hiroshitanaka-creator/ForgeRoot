@@ -15,8 +15,9 @@ Completed bootstrap tasks in this working tree:
 - `T006` — minimum GitHub App manifest and permissions
 - `T007` — webhook ingest with HMAC verification
 - `T008` — event inbox and delivery GUID idempotency
+- `T014` — runtime mode and kill switch
 
-The next natural task is `T014` runtime mode and kill switch.
+The next natural task is `T015` issue intake classifier.
 
 ## Core laws
 
@@ -25,14 +26,17 @@ The next natural task is `T014` runtime mode and kill switch.
 3. PR is the only evolution transport.
 4. No direct default-branch writes.
 5. Federation and spawning start allowlisted/lab-only.
+6. Runtime mutation must be stoppable by an explicit kill switch.
 
 ## Repository layout
 
 ```text
 .forge/
   mind.forge
-  agents/
   policies/
+    constitution.forge
+    runtime-mode.forge
+  agents/
   evals/
   lineage/
   network/
@@ -53,9 +57,8 @@ schemas/
 # .forge parser/hash kernel, in a Rust-enabled environment
 cargo test -p forge-kernel
 
-# GitHub App webhook + inbox tests
+# GitHub App webhook, inbox, runtime mode, and kill switch tests
 cd apps/github-app
-npm run build
 node --test --test-force-exit tests/*.test.mjs
 ```
 
@@ -69,6 +72,9 @@ node --test --test-force-exit tests/*.test.mjs
 - SQLite event inbox table
 - `X-GitHub-Delivery` idempotency
 - retryable vs terminal event failure states
+- runtime modes: `observe`, `propose`, `evolve`, `federate`, `quarantine`, `halted`
+- admin-token-protected kill switch endpoint
+- repeated 403/429 downgrade hook
 
 Runtime configuration starts from:
 
@@ -84,6 +90,7 @@ apps/github-app/.env.example
 - `03_issue.md` — bounded issue drafts
 - `docs/specs/forge-v1.md` — `.forge` v1 specification
 - `docs/ops/event-inbox.md` — T008 inbox operations
+- `docs/ops/runtime-mode.md` — T014 runtime mode and kill switch operations
 
 ## Non-goals
 
