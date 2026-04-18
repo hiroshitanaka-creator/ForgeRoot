@@ -39,13 +39,8 @@ export interface IgnoredWebhookDelivery {
     hookId: string | null;
     rawBodySha256: `sha256:${string}`;
 }
-export type WebhookHandoffResult = {
-    kind?: string;
-    status?: string;
-    [key: string]: unknown;
-} | undefined;
 export interface WebhookHandoff {
-    enqueue(delivery: AcceptedWebhookDelivery): void | WebhookHandoffResult | Promise<void | WebhookHandoffResult>;
+    enqueue(delivery: AcceptedWebhookDelivery): void | Promise<void>;
 }
 export interface MemoryWebhookHandoff extends WebhookHandoff {
     readonly deliveries: readonly AcceptedWebhookDelivery[];

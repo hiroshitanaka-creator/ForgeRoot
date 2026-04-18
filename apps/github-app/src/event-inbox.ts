@@ -402,15 +402,13 @@ export function isEventInboxEnqueueResult(value: unknown): value is EventInboxEn
 
 export function createEventInboxHandoff(inbox: EventInbox, options: InboxWebhookHandoffOptions = {}): WebhookHandoff {
   return {
-    async enqueue(delivery: AcceptedWebhookDelivery): Promise<EventInboxEnqueueResult> {
+    async enqueue(delivery: AcceptedWebhookDelivery): Promise<void> {
       const result = inbox.enqueue(delivery);
       options.onResult?.(result, delivery);
 
       if (result.kind === "inserted") {
         await options.downstream?.enqueue(delivery);
       }
-
-      return result;
     },
   };
 }

@@ -257,7 +257,6 @@ export function createEventInboxHandoff(inbox, options = {}) {
             if (result.kind === "inserted") {
                 await options.downstream?.enqueue(delivery);
             }
-            return result;
         },
     };
 }
