@@ -2,35 +2,34 @@
 
 GitHub repository as a living Forge Mind.
 
-ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelligence. Agents do not merely work on the repo; their identity, memory, policy, lineage, and mutation history are designed to live in Git.
+ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelligence. Agents do not merely work on your repo. They live in it.
 
 ## Core laws
 
 1. Git is the source of truth.
-2. `.forge` is the durable genome and curated memory layer.
+2. `.forge` is the durable genome and memory surface.
 3. No direct writes to the default branch.
 4. Every behavior-changing mutation must be reviewable as a PR.
 5. Humans set the constitution; agents optimize within it.
 6. Federation is allowlisted before it is autonomous.
 
-## Current bootstrap status
+## Current implementation status
 
-Implemented through **T016 Plan Spec DSL**.
+The repository has moved through the Phase 0 kernel and the first Phase 1 planning primitives.
 
-Completed bootstrap slice:
+Implemented so far:
 
-- T001 — monorepo skeleton and `.forge` root
-- T003 — `mind.forge` and initial constitution policy
+- T001 — monorepo skeleton and `.forge/` root
+- T003 — `mind.forge` and constitution seed
 - T004 — `.forge` v1 spec and JSON Schema
 - T005 — canonical parser/hash kernel seed
-- T006 — minimum GitHub App manifest and permissions doc
+- T006 — minimum GitHub App manifest and permission contract
 - T007 — webhook ingest with HMAC signature verification
 - T008 — event inbox and delivery idempotency
 - T014 — runtime mode and kill switch
-- T015 — issue intake classifier
+- T015 — deterministic issue intake classifier
 - T016 — one-task-one-PR Plan Spec DSL
-
-Next natural task: **T017 planner runtime**.
+- T017 — deterministic planner runtime bridge
 
 ## Repo layout
 
@@ -61,40 +60,23 @@ docs/
 schemas/
 ```
 
-## Start here
+## Planner path
 
-- `00_ForgeRoot_blueprint_設計書.md` — master blueprint
-- `01_単語や命名規則.md` — naming and identity rules
-- `02_README.md` — public-facing README source draft
-- `03_issue.md` — initial bounded issue drafts
-- `docs/specs/forge-v1.md` — `.forge` v1 specification
-- `docs/specs/issue-intake.md` — intake classification spec
-- `docs/specs/plan-spec.md` — one-task-one-PR Plan Spec DSL
+The first forging loop now has two pre-execution contracts:
 
-## Development notes
+1. `packages/planner/src/intake.ts` classifies issue/comment/alert-like inputs and only accepts normalized `forge:auto` candidates.
+2. `packages/planner/src/plan-schema.ts` turns one accepted candidate into one `forge.plan` with explicit mutable paths, forbidden paths, out-of-scope boundaries, risk/approval linkage, and machine-checkable acceptance criteria.
 
-Planner package local checks:
+3. `packages/planner/src/run.ts` is the deterministic runtime bridge that accepts a webhook-like event, normalized intake input, or pre-accepted task candidate and returns at most one valid Plan Spec.
 
-```bash
-cd packages/planner
-TSC_NONPOLLING_WATCHER=1 tsc -p tsconfig.json --noEmit --pretty false --diagnostics
-node --test --test-force-exit tests/*.test.mjs
-```
-
-GitHub App local checks:
-
-```bash
-cd apps/github-app
-tsc -p tsconfig.json
-node --test --test-force-exit tests/*.test.mjs
-```
+The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports.
 
 ## Safety defaults
 
-- GitHub App only; no production PAT flow.
-- Protected default branch; no default-branch direct writes.
-- Runtime starts in `observe`.
-- Mutating lane closes in `quarantine` and `halted`.
-- `forge:auto` is required for automatic intake.
-- T016 Plan Specs must declare mutable paths, immutable paths, out-of-scope boundaries, and machine-checkable acceptance criteria.
-- Workflow, policy, permission, and network/treaty changes remain elevated governance work.
+- GitHub App only for production automation.
+- Protected default branch required.
+- Runtime mode starts conservative.
+- Workflow, policy, permission, and network changes are elevated.
+- Kill switch can close the mutating lane in one operation.
+- Event Inbox dedupes GitHub delivery IDs before downstream processing.
+- One task becomes one plan and, later, one PR.
