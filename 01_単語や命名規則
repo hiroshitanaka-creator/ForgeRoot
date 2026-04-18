@@ -1,0 +1,431 @@
+# 01_単語や命名規則
+
+> Purpose: ForgeRoot 内で名称の揺れを止める。  
+> Rule: **命名の揺れはそのまま設計の揺れになる。**  
+> Scope: repo 名、ドキュメント名、`.forge` ID、branch / issue / PR / label / package / crate / env var 全体に適用する。
+
+## 0. 最上位の固定名称
+
+| 対象 | 正式名称 | 備考 |
+|---|---|---|
+| Repository name | `ForgeRoot` | 必ずこの表記を使う |
+| Owner / Creator | `hiroshitanaka-creator` | owner 名は省略しない |
+| Repository URL | `https://github.com/hiroshitanaka-creator/ForgeRoot` | ドキュメントにもこの URL を使う |
+| Forge Mind 名 | `ForgeRoot` | 別の概念名を増やさない |
+| Root mind ID slug | `root` | `mind/root` を起点にする |
+
+### 0.1 禁止する表記ゆれ
+
+以下は **誤表記** として扱う。
+
+- `ForgToot`
+- `Forge Route`
+- `Forge-Root`
+- `forgeroot`（固有名としての repo 名表記では禁止）
+- `EternalForge`（過去案の引用時を除く）
+
+### 0.2 許容する表記
+
+| 文脈 | 許容表記 |
+|---|---|
+| GitHub 上の固有名 | `ForgeRoot` |
+| URL / forge URI | `ForgeRoot` を含む canonical 表記 |
+| package / npm / cargo 名 | `forge-*` 系の lower-kebab |
+| Rust module | `forge_*` 系の snake_case |
+| `.forge` file | lower-kebab slug + `.forge` |
+| 環境変数 | `FORGE_*` |
+
+---
+
+## 1. 用語集（Glossary）
+
+### 1.1 根幹概念
+
+| 用語 | 定義 |
+|---|---|
+| Forge Mind | repo 全体の持続的自己。憲法・目的関数・境界・記憶・系譜を含む |
+| `.forge` | Forge Mind の自己記述、記憶、系譜、政策を格納する正本レイヤ |
+| Forge Kernel | `.forge` parser / canonical hash / integrity / replay の中核実装 |
+| Constitution | 非交渉境界。目的関数、禁止事項、approval class の前提 |
+| Policy | runtime mode / budget / treaty / quarantine など行動境界の定義 |
+| Lineage | 採択・分岐・親子関係・進化履歴 |
+| Mutation | 行動変化の候補。prompt / tool / threshold / role などの変更 |
+| Treaty | peer Forge との外交条約 |
+| Federation | Forge Mind 間の allowlisted な相互作用 |
+| Curated Memory | `.forge` に残す蒸留済み記憶 |
+| Episodic Pack | 生イベントを圧縮して保持する sidecar pack |
+| Commit Trailer | Git 履歴から再構築可能にする最小イベントメタデータ |
+| Approval Class | A/B/C/D の承認強度 |
+| Quarantine | 変異を止めた観察モード |
+| Shadow Eval | 本番採択前の影評価 |
+| Blast Radius | 変更影響範囲 |
+| Scope Contract | 1 issue = 1 PR を守るためのスコープ境界 |
+| Mutable Paths | agent が変更可能な範囲 |
+| Immutable Paths | agent が自律では触れてはいけない範囲 |
+
+### 1.2 役割名
+
+| Role | 用途 |
+|---|---|
+| SeedCurator | 初期構造と憲法の植え付け |
+| Planner | 課題分解とスコープ制御 |
+| Executor | 実装 |
+| Auditor | 独立検証 |
+| MemoryKeeper | 記憶蒸留・圧縮 |
+| Evaluator | 評価関数・採点 |
+| MutationEngine | 変異候補生成 |
+| EvolutionGuard | 危険変異の停止 |
+| Networker | peer Forge との外交 |
+| RateGovernor | レート制御・キュー |
+| Sandboxer | 実行隔離基盤 |
+| HumanLiaison | 人間 UX / 承認導線 |
+
+---
+
+## 2. ID と URI 規則
+
+### 2.1 forge URI 形式
+
+```text
+forge://<owner>/<repo>/<kind>/<slug>
+```
+
+### 2.2 ForgeRoot の canonical 例
+
+```text
+forge://hiroshitanaka-creator/ForgeRoot/mind/root
+forge://hiroshitanaka-creator/ForgeRoot/agent/planner.alpha
+forge://hiroshitanaka-creator/ForgeRoot/policy/runtime-mode
+forge://hiroshitanaka-creator/ForgeRoot/treaty/peer.acme.librepo
+```
+
+### 2.3 slug 規則
+
+- lower-kebab または dotted species 名を使う
+- 空白禁止
+- 日本語禁止
+- owner / repo / kind とは独立に、**意味で命名**する
+- 歴史的別名を slug に含めない
+
+**良い例**
+- `planner.alpha`
+- `runtime-mode`
+- `network-boundary`
+- `peer.acme.librepo`
+
+**悪い例**
+- `new-planner-final`
+- `planner2`
+- `temporary-policy`
+- `forgtoot-root`
+
+---
+
+## 3. ファイル命名規則
+
+### 3.1 正本ドキュメント
+
+順序を持つ文書は **2桁番号 + 用途名** で固定する。
+
+| ファイル | 用途 |
+|---|---|
+| `00_ForgeRoot_blueprint_設計書.md` | 最上位 blueprint |
+| `01_単語や命名規則.md` | 命名の正本 |
+| `02_README.md` | 公開説明文 |
+| `03_issue.md` | 初期 issue 起票用ドラフト |
+
+### 3.2 `.forge` 配下
+
+- 拡張子は `.forge`
+- ファイル名は lower-kebab または dotted species
+- 役割種は `role.track` を基本とする
+
+**例**
+```text
+.forge/mind.forge
+.forge/agents/planner.alpha.forge
+.forge/agents/executor.alpha.forge
+.forge/policies/runtime-mode.forge
+.forge/policies/security-gates.forge
+.forge/lineage/graph.forge
+.forge/network/peers.forge
+```
+
+### 3.3 docs 配下
+
+- lower-kebab を基本
+- 設計仕様は `docs/specs/*.md`
+- RFC は `docs/rfcs/NNNN-title.md`
+- 運用文書は `docs/ops/*.md`
+
+### 3.4 crates / packages / apps 配下
+
+| 種別 | ディレクトリ | 命名 |
+|---|---|---|
+| Rust crate | `crates/` | `forge-kernel`, `forge-replay` |
+| TypeScript package | `packages/` | `planner`, `memory`, `runtime`, `telemetry` |
+| 実行アプリ | `apps/` | `github-app`, `cli`, `browser-extension` |
+| MCP servers | `mcp/` | `repo-tools`, `gh-tools`, `eval-tools` |
+
+---
+
+## 4. Branch / PR / Commit 規則
+
+### 4.1 Branch 名
+
+```text
+forge/<phase>/<task-id>-<slug>
+```
+
+**例**
+- `forge/p0/T001-repo-skeleton`
+- `forge/p0/T005-canonical-parser`
+- `forge/p1/T017-planner-runtime`
+
+### 4.2 Issue タイトル
+
+```text
+[P<phase>][T<task-id>] <short imperative title>
+```
+
+**例**
+- `[P0][T001] monorepo skeleton and .forge root`
+- `[P0][T004] forge v1 spec and schema`
+- `[P1][T017] planner runtime`
+
+### 4.3 PR タイトル
+
+```text
+<type>(<scope>): <summary>
+```
+
+**推奨 type**
+- `feat`
+- `fix`
+- `chore`
+- `docs`
+- `refactor`
+- `test`
+- `build`
+- `security`
+
+**例**
+- `feat(forge): add canonical parser kernel`
+- `docs(blueprint): fix source-of-truth order`
+- `security(gates): enforce dependency review`
+
+### 4.4 Commit メッセージ
+
+Conventional Commits に寄せる。  
+最下部に forge trailer を付ける。
+
+```text
+feat(runtime): add webhook signature verification
+
+Forge-Task: T007
+Forge-Agent: rate-governor
+Forge-Revision: 01JS8...
+Forge-Source-PR: 23
+Forge-Mutation: none
+Forge-Approval-Class: B
+Forge-Provenance: sha256:...
+```
+
+---
+
+## 5. Label 規則
+
+### 5.1 自動化ラベル
+
+- `forge:auto`
+- `forge:plan`
+- `forge:execute`
+- `forge:audit`
+- `forge:memory`
+- `forge:evolution`
+- `forge:network`
+- `forge:quarantine`
+
+### 5.2 承認強度
+
+- `class:A`
+- `class:B`
+- `class:C`
+- `class:D`
+
+### 5.3 状態ラベル
+
+- `status:seeded`
+- `status:planned`
+- `status:executing`
+- `status:auditing`
+- `status:pr-open`
+- `status:blocked`
+- `status:merged`
+- `status:rejected`
+- `status:quarantined`
+
+### 5.4 リスクラベル
+
+- `risk:low`
+- `risk:medium`
+- `risk:high`
+- `risk:critical`
+
+---
+
+## 6. Agent / Species 命名規則
+
+### 6.1 形式
+
+```text
+<role>.<track>
+```
+
+**例**
+- `planner.alpha`
+- `executor.alpha`
+- `auditor.alpha`
+- `evolution-guard.alpha`
+- `networker.alpha`
+
+### 6.2 track の意味
+
+| track | 意味 |
+|---|---|
+| `seed` | 最初期の最小種 |
+| `alpha` | 初期運用種 |
+| `beta` | 実験的改良種 |
+| `stable` | 継続採択された種 |
+| `lab` | testnet 限定種 |
+
+### 6.3 禁止
+
+- `final`
+- `new`
+- `temp`
+- `v2` を名前に入れること
+- 意味のない連番
+- role を省略すること
+
+---
+
+## 7. フェーズ・タスク・承認クラス
+
+### 7.1 フェーズ識別子
+
+- `P0` = Forge Kernel
+- `P1` = 1 task = 1 PR forging loop
+- `P2` = memory + evaluation
+- `P3` = bounded self-evolution
+- `P4` = federation
+- `P5` = self-hosting
+
+### 7.2 タスク識別子
+
+- `T001` からの固定 3桁連番
+- 欠番は埋めない
+- タスク再定義時も ID は再利用しない
+
+### 7.3 承認クラス識別
+
+- `A` = 低リスク
+- `B` = 通常変更
+- `C` = 高リスク設定変更
+- `D` = 常時手動ガバナンス領域
+
+---
+
+## 8. コード・設定・環境変数の命名
+
+### 8.1 TypeScript / Node
+
+- package 名: `@forgeroot/<name>` は将来可
+- 内部 dir: lower-kebab
+- exported symbol: PascalCase / camelCase
+- config file: lower-kebab + `.ts` or `.json`
+
+### 8.2 Rust
+
+- Cargo package: `forge-kernel`
+- Rust crate import: `forge_kernel`
+- module: snake_case
+- binary: kebab-case
+
+### 8.3 環境変数
+
+すべて `FORGE_` prefix を使う。
+
+**例**
+- `FORGE_GITHUB_APP_ID`
+- `FORGE_GITHUB_PRIVATE_KEY_PATH`
+- `FORGE_WEBHOOK_SECRET`
+- `FORGE_MODEL_ROUTER_CONFIG`
+
+### 8.4 DB / queue / telemetry
+
+- table: snake_case
+- queue: lower-kebab
+- metric: dot.case
+- trace attribute: `forge.*`
+
+**例**
+- `event_inbox`
+- `mutation_shadow_runs`
+- `forge.webhook.delivery.accepted`
+- `forge.pr.approval.class`
+
+---
+
+## 9. 文章内の表記規則
+
+### 9.1 日本語文書中
+
+- repo 固有名は `ForgeRoot`
+- `.forge` はバッククォートで囲う
+- PR / CI / MCP / RFC などは大文字略語を維持
+- 役割名は初出で英語 + 必要なら日本語補足
+- 「GitHub App + Sandbox」は常にこの並びを使う
+
+### 9.2 英語文書中
+
+- product / repo name は `ForgeRoot`
+- `Forge Mind` は 2単語で固定
+- `source of truth` は lower case
+- `Git-Native` はハイフンを維持
+
+---
+
+## 10. やってはいけない命名
+
+- 仮名称のまま main に入れる
+- `final`, `latest`, `new`, `real`, `fixed` を名前に含める
+- 同義語を別概念として増やす
+- 歴史的別名を source-of-truth に混ぜる
+- typo をファイル名や ID に固定する
+- フェーズ番号と実装段階がズレた名前を付ける
+
+---
+
+## 11. 実務上の運用ルール
+
+- 新しい用語を導入したい場合は、まずこの文書を更新する
+- README に先に新語を書かない
+- `.forge` schema や path を変えるなら、この文書の関連節も更新する
+- typo は見つけたら即修正する
+- 例外を増やさず、パターンに統一する
+
+---
+
+## 12. 最終ルール
+
+**命名の正しさは見た目の問題ではない。**  
+ForgeRoot では、命名は以下の意味を持つ。
+
+- 設計境界
+- 役割境界
+- 安全境界
+- 自己同一性
+- 将来の進化履歴
+
+したがって、命名の揺れはレビュー時点で止める。
