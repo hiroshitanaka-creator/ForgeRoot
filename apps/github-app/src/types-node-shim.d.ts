@@ -96,13 +96,11 @@ declare module "node:sqlite" {
     changes: number;
     lastInsertRowid: number | bigint;
   }
-
   export class StatementSync {
     get(...params: unknown[]): unknown | undefined;
     all(...params: unknown[]): unknown[];
     run(...params: unknown[]): StatementResultingChanges;
   }
-
   export class DatabaseSync {
     constructor(location?: string | Uint8Array, options?: Record<string, unknown>);
     exec(sql: string): void;

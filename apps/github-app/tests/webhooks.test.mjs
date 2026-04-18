@@ -168,4 +168,3 @@ test('server returns 401 for bad signatures and does not hand off', async () => 
 
   await new Promise(resolve => server.close(resolve));
 });
-
