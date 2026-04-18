@@ -2,19 +2,16 @@
 
 `.forge` is the durable identity, policy, lineage, evaluation, and memory root for ForgeRoot.
 
-T001 seeds only the directory structure:
+Current bootstrap state:
 
-- `agents/`
-- `policies/`
-- `evals/`
-- `lineage/`
-- `network/`
-- `packs/`
+- `mind.forge` seeds the root Forge Mind.
+- `policies/constitution.forge` fixes the first non-negotiables and approval classes.
+- `docs/specs/t003-validation-fixture.yaml` records the minimum assertions that later schema and parser work should validate.
 
-Follow-up tasks:
+Still intentionally deferred:
 
-- `T003` will add `mind.forge` and the initial constitution policy.
-- `T004` will fix the `.forge` v1 spec and schema.
-- `T005` will implement deterministic parsing and canonical hashing.
+- `.forge` v1 schema and validation engine
+- deterministic canonical hashing
+- runtime loaders and replay logic
 
 Do not treat runtime caches or ad-hoc notes here as source of truth.
