@@ -15,7 +15,7 @@ ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelli
 
 ## Current implementation status
 
-The repository has moved through the Phase 0 kernel and the first Phase 1 planning primitives.
+The repository has moved through the Phase 0 kernel and the first Phase 1 planning and pre-execution primitives.
 
 Implemented so far:
 
@@ -30,6 +30,7 @@ Implemented so far:
 - T015 — deterministic issue intake classifier
 - T016 — one-task-one-PR Plan Spec DSL
 - T017 — deterministic planner runtime bridge
+- T018 — deterministic branch/worktree manager manifest
 
 ## Repo layout
 
@@ -52,6 +53,7 @@ crates/
   forge-kernel/
 packages/
   planner/
+  executor/
 labs/
 docs/
   specs/
@@ -60,16 +62,16 @@ docs/
 schemas/
 ```
 
-## Planner path
+## Pre-execution path
 
-The first forging loop now has two pre-execution contracts:
+The first forging loop now has pre-execution contracts that narrow one issue into one bounded execution lane:
 
 1. `packages/planner/src/intake.ts` classifies issue/comment/alert-like inputs and only accepts normalized `forge:auto` candidates.
 2. `packages/planner/src/plan-schema.ts` turns one accepted candidate into one `forge.plan` with explicit mutable paths, forbidden paths, out-of-scope boundaries, risk/approval linkage, and machine-checkable acceptance criteria.
-
 3. `packages/planner/src/run.ts` is the deterministic runtime bridge that accepts a webhook-like event, normalized intake input, or pre-accepted task candidate and returns at most one valid Plan Spec.
+4. `packages/executor/src/worktree.ts` consumes one ready Plan Spec-like object and returns at most one branch/worktree manifest with default-branch write protection, an ephemeral runtime worktree path, and mutable/immutable path guards.
 
-The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports.
+The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox.
 
 ## Safety defaults
 
@@ -79,4 +81,4 @@ The planner runtime still does not edit files, create branches, open PRs, run te
 - Workflow, policy, permission, and network changes are elevated.
 - Kill switch can close the mutating lane in one operation.
 - Event Inbox dedupes GitHub delivery IDs before downstream processing.
-- One task becomes one plan and, later, one PR.
+- One task becomes one plan, one branch/worktree manifest, and later one PR.
