@@ -1,0 +1,17 @@
+{
+  "name": "@forgeroot/planner",
+  "version": "0.0.0-t015",
+  "private": true,
+  "type": "module",
+  "description": "ForgeRoot planner primitives, starting with deterministic issue intake classification.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

@@ -2,11 +2,6 @@
 
 Shared TypeScript packages live here.
 
-Expected early package domains:
+Current packages:
 
-- `planner`
-- `runtime`
-- `memory`
-- `telemetry`
-
-T001 does not seed package manifests or runtime code.
+- `planner/` — planner-side primitives. T015 adds deterministic issue intake classification and normalized task candidate output.
