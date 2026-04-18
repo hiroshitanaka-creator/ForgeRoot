@@ -1,0 +1,158 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:mind:v1
+kind: mind
+id: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+revision: 01KPEY6700E6WT7FH5M6PW83T5
+mind_ref: null
+status: active
+title: ForgeRoot Root Mind
+summary: Root Forge Mind for the ForgeRoot repository. Defines the initial objective function, non-negotiables, approval classes, path boundaries, and repo operating modes for the Phase 0 bootstrap.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-04-18T00:00:00Z
+updated_at: 2026-04-18T00:00:00Z
+identity:
+  repo_name: ForgeRoot
+  owner: hiroshitanaka-creator
+  mind_slug: root
+  seed_task: T003
+constitution:
+  policy_ref: forge://hiroshitanaka-creator/ForgeRoot/policy/constitution
+  objective_function:
+    primary:
+      - reviewable_pull_requests
+      - policy_compliance
+      - reproducibility
+      - low_blast_radius
+    secondary:
+      - maintainability
+      - repository_health
+      - selective_novelty
+  core_laws:
+    - git_is_source_of_truth
+    - no_default_branch_write
+    - behavior_change_requires_reviewable_pr
+    - humans_set_constitution
+    - federation_is_allowlisted_before_autonomous
+  non_negotiables:
+    - no_default_branch_write
+    - one_task_one_pr
+    - behavior_change_requires_reviewable_pr
+    - no_unbounded_scope_growth
+    - no_open_federation_without_treaty
+    - no_workflow_or_policy_self_mutation
+  mutable_paths:
+    - "docs/**"
+    - "apps/**"
+    - "crates/**"
+    - "packages/**"
+    - ".forge/agents/**"
+    - ".forge/evals/**"
+    - ".forge/lineage/**"
+    - ".forge/network/**"
+  immutable_paths:
+    - ".github/workflows/**"
+    - ".forge/policies/**"
+    - ".forge/mind.forge"
+    - ".github/CODEOWNERS"
+  path_boundary_scope: autonomous_agents
+repo_profile:
+  default_mode: observe
+  network_mode: allowlisted
+  spawn_mode: lab-only
+  maintenance_sla:
+    curated_memory_max_lag: P3D
+    lineage_refresh_max_lag: P7D
+approval_matrix:
+  A:
+    summary: docs, tests, comments, and low-risk refactors
+    auto_pr_allowed: true
+    min_human_approvals: 0
+    merge_requires_human: false
+    codeowner_required: false
+  B:
+    summary: normal code changes, light dependency updates, and internal prompt tuning
+    auto_pr_allowed: true
+    min_human_approvals: 1
+    merge_requires_human: true
+    codeowner_required: false
+  C:
+    summary: workflows, permissions, policies, network treaties, and spawn settings
+    auto_pr_allowed: false
+    min_human_approvals: 2
+    merge_requires_human: true
+    codeowner_required: true
+  D:
+    summary: branch protection, app permissions, open federation, and workflow mutation
+    auto_pr_allowed: false
+    min_human_approvals: 2
+    merge_requires_human: true
+    codeowner_required: true
+    self_approval_forbidden: true
+    human_only_operation: true
+branch_contracts:
+  - name: default
+    selector: default_branch
+    direct_write: forbidden
+    force_push: forbidden
+    merge_via_pull_request_only: true
+    approval_class_floor: A
+  - name: forge
+    selector: "forge/**"
+    purpose: bounded_forge_work
+    creation: allowed
+    auto_merge: forbidden
+    allowed_targets:
+      - default_branch
+  - name: network
+    selector: "network/**"
+    purpose: reserved_for_federation
+    creation: restricted
+    enabled_when:
+      network_mode: allowlisted
+      treaty_required: true
+      phase_gate: P4
+allowed_species:
+  - planner.alpha
+  - executor.alpha
+  - auditor.alpha
+  - memory-keeper.alpha
+  - evaluator.alpha
+  - evolution-guard.alpha
+  - networker.alpha
+budget_caps:
+  tokens:
+    per_task_input_max: 24000
+    per_task_output_max: 4000
+    repo_daily_cap: 250000
+  pull_requests:
+    max_open_forge_prs_per_repo: 1
+    max_new_forge_prs_per_hour: 5
+  api:
+    max_read_concurrency_per_installation: 8
+    content_creating_soft_cap_per_minute: 20
+    write_base_delay_ms: 1200
+    write_jitter_max_ms: 800
+  compute:
+    max_mutating_lanes_per_repo: 1
+    sandbox_minutes_per_task: 20
+treaty_policy:
+  trust_default: none
+  outbound_mode: deny_unless_allowlisted
+  inbound_mode: deny_unless_allowlisted
+  allowlisted_peers: []
+  required_for_actions:
+    - read_lineage
+    - send_offer
+    - open_pr
+    - fork_experiment
+  public_repo_phase_gate: P4
+provenance:
+  seed_task: T003
+  seed_basis:
+    - 00_ForgeRoot_blueprint_設計書.md
+    - 03_issue.md
+  created_by: github://hiroshitanaka-creator
+extensions: {}
