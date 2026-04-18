@@ -1,10 +1,12 @@
 import { Buffer } from "node:buffer";
 import { createServer } from "node:http";
 import process from "node:process";
+import { createEventInboxHandoff, isEventInboxEnqueueResult, openSqliteEventInbox, } from "./event-inbox.js";
 import { classifyGitHubWebhookDelivery, } from "./webhooks.js";
 const DEFAULT_PORT = 8080;
 const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_MAX_BODY_BYTES = 26 * 1024 * 1024;
+const DEFAULT_EVENT_INBOX_SQLITE_PATH = "var/forgeroot/event-inbox.sqlite3";
 const WEBHOOK_PATHS = new Set(["/api/github/webhook", "/webhooks/github"]);
 export class HttpError extends Error {
     statusCode;
@@ -50,9 +52,9 @@ export async function routeRequest(request, response, options) {
         rawBody,
         secret: options.webhookSecret,
     });
-    respondToWebhookDecision(response, decision, options);
+    await respondToWebhookDecision(response, decision, options);
 }
-export function respondToWebhookDecision(response, decision, options) {
+export async function respondToWebhookDecision(response, decision, options) {
     if (decision.outcome === "rejected") {
         sendJson(response, decision.statusCode, {
             ok: false,
@@ -74,25 +76,42 @@ export function respondToWebhookDecision(response, decision, options) {
         return;
     }
     const delivery = decision.delivery;
-    void Promise.resolve()
-        .then(() => options.handoff.enqueue(delivery))
-        .catch((error) => {
+    let handoffResult;
+    try {
+        handoffResult = await options.handoff.enqueue(delivery);
+    }
+    catch (error) {
         if (options.onAsyncHandoffError !== undefined) {
             options.onAsyncHandoffError(error, delivery);
-            return;
         }
-        console.error("ForgeRoot webhook handoff failed", {
+        console.error("ForgeRoot webhook inbox enqueue failed", {
             deliveryId: delivery.deliveryId,
             eventName: delivery.eventName,
             error,
         });
-    });
+        throw new HttpError(503, "Webhook delivery could not be persisted to the event inbox.");
+    }
+    const inboxResult = isEventInboxEnqueueResult(handoffResult) ? handoffResult : null;
+    if (inboxResult?.kind === "conflict") {
+        sendJson(response, 409, {
+            ok: false,
+            accepted: false,
+            error: "delivery_id_hash_conflict",
+            delivery_id: delivery.deliveryId,
+            event: delivery.eventName,
+            action: delivery.action,
+            inbox: summarizeInboxResult(inboxResult),
+        });
+        return;
+    }
     sendJson(response, 202, {
         ok: true,
         accepted: true,
+        duplicate: inboxResult?.kind === "duplicate",
         delivery_id: delivery.deliveryId,
         event: delivery.eventName,
         action: delivery.action,
+        ...(inboxResult === null ? {} : { inbox: summarizeInboxResult(inboxResult) }),
     });
 }
 export function readRawBody(request, maxBodyBytes) {
@@ -126,6 +145,16 @@ export function readRawBody(request, maxBodyBytes) {
         });
     });
 }
+function summarizeInboxResult(result) {
+    return {
+        kind: result.kind,
+        delivery_id: result.record.deliveryId,
+        status: result.record.status,
+        attempts: result.record.attempts,
+        duplicate_count: result.record.duplicateCount,
+        ...(result.kind === "conflict" ? { reason: result.reason } : {}),
+    };
+}
 function sendJson(response, statusCode, body) {
     response.writeHead(statusCode, {
         "content-type": "application/json; charset=utf-8",
@@ -154,15 +183,18 @@ export function startFromEnvironment() {
     const webhookSecret = process.env.FORGE_WEBHOOK_SECRET ?? "";
     const host = process.env.FORGE_GITHUB_APP_HOST ?? DEFAULT_HOST;
     const port = Number.parseInt(process.env.FORGE_GITHUB_APP_PORT ?? `${DEFAULT_PORT}`, 10);
+    const inboxPath = process.env.FORGE_EVENT_INBOX_SQLITE_PATH ?? DEFAULT_EVENT_INBOX_SQLITE_PATH;
     if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) {
         throw new Error("FORGE_GITHUB_APP_PORT must be a valid TCP port.");
     }
+    const inbox = openSqliteEventInbox(inboxPath);
     const server = createGitHubWebhookServer({
         webhookSecret,
-        handoff: createLoggingHandoff(),
+        handoff: createEventInboxHandoff(inbox),
     });
     server.listen(port, host, () => {
         console.log(`ForgeRoot GitHub App webhook server listening on ${host}:${port}`);
+        console.log(`ForgeRoot event inbox SQLite path: ${inboxPath}`);
     });
     return server;
 }

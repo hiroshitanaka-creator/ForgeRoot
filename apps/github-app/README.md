@@ -2,42 +2,51 @@
 
 GitHub App control-plane surface for ForgeRoot.
 
-Current T007 contents:
+Current Phase 0 contents:
 
-- `app-manifest.json` — minimum GitHub App manifest from T006.
-- `src/webhooks.ts` — HMAC-SHA256 verification, header extraction, event/action allowlist, delivery normalization, and handoff types.
-- `src/server.ts` — minimal Node HTTP webhook server with immediate ACK and asynchronous handoff.
-- `tests/webhooks.test.mjs` — signature, allowlist, reject/ignore, and HTTP server tests.
-- `.env.example` — local development environment variable template.
+- `app-manifest.json` — minimum GitHub App manifest and permission surface from T006.
+- `src/webhooks.ts` — T007 signature verification, event/action allowlist, and normalized delivery envelope.
+- `src/server.ts` — webhook HTTP server with raw-body verification and inbox-backed acknowledgement.
+- `src/event-inbox.ts` — T008 SQLite event inbox, delivery GUID idempotency, and replay-ready status transitions.
+- `db/migrations/0001_event_inbox.sql` — portable event inbox table shape for future managed DB deployments.
+- `tests/` — signature, allowlist, server, inbox, idempotency, persistence, and retry-state tests.
 
-## Endpoints
-
-- `GET /healthz` — process health probe.
-- `POST /webhooks/github` — canonical GitHub webhook endpoint.
-- `POST /api/github/webhook` — compatibility alias for deployments that prefer an API prefix.
-
-## Security behavior
-
-1. Capture the raw request body.
-2. Verify `X-Hub-Signature-256` using HMAC-SHA256 and the configured webhook secret.
-3. Reject missing or invalid signatures with `401`.
-4. Extract `X-GitHub-Delivery` and `X-GitHub-Event`.
-5. Apply the T006 event/action allowlist.
-6. Return `202` immediately for accepted deliveries.
-7. Pass only accepted delivery envelopes to `WebhookHandoff`.
-
-Signed but unsupported events/actions are acknowledged with `202` and `ignored=true` so GitHub does not keep retrying a delivery that ForgeRoot intentionally does not process.
-
-## Local commands
+## Local development
 
 ```bash
-npm install
-npm test
+cd apps/github-app
+npm run build
+node --test --test-force-exit tests/*.test.mjs
 FORGE_WEBHOOK_SECRET=local-secret npm start
 ```
 
-## T007 boundary
+Runtime configuration:
 
-This is only the ingress boundary. It does not persist deliveries, dedupe `X-GitHub-Delivery`, schedule tasks, create PRs, refresh installation tokens, or redeliver failed events. Those are later tasks, starting with T008.
+```bash
+FORGE_WEBHOOK_SECRET=replace-with-local-webhook-secret
+FORGE_GITHUB_APP_HOST=127.0.0.1
+FORGE_GITHUB_APP_PORT=8080
+FORGE_EVENT_INBOX_SQLITE_PATH=var/forgeroot/event-inbox.sqlite3
+```
 
-Permission notes live in `../../docs/github-app-permissions.md`.
+## Ingress order
+
+Accepted webhooks follow this order:
+
+1. read the raw request body without mutation
+2. verify `X-Hub-Signature-256`
+3. validate `X-GitHub-Delivery` and `X-GitHub-Event`
+4. enforce the T006 event/action allowlist
+5. insert or dedupe by delivery GUID in the event inbox
+6. return `2xx` for accepted or duplicate deliveries
+7. let later scheduler/planner tasks claim inbox rows asynchronously
+
+## Event inbox status model
+
+- `received` — verified and persisted, not yet claimed
+- `processing` — leased by a worker
+- `processed` — completed successfully
+- `failed_retryable` — retryable failure with `next_attempt_at`
+- `failed_terminal` — non-retryable failure retained for replay/audit
+
+T008 intentionally does not implement the full replay engine, telemetry dashboard, planner integration, or mutation scheduling. Those remain later tasks.

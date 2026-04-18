@@ -1,16 +1,16 @@
 {
   "name": "@forgeroot/github-app",
-  "version": "0.0.0-t007",
+  "version": "0.0.0-t008",
   "private": true,
   "type": "module",
-  "description": "ForgeRoot GitHub App webhook ingest surface.",
+  "description": "ForgeRoot GitHub App webhook ingest, event inbox, and idempotency surface.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test --test-force-exit tests/*.test.mjs",
     "start": "node dist/server.js"
   },
   "engines": {
-    "node": ">=20.11"
+    "node": ">=22.5"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

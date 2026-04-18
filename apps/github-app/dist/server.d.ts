@@ -13,7 +13,7 @@ export declare class HttpError extends Error {
 }
 export declare function createGitHubWebhookServer(options: GitHubWebhookServerOptions): Server;
 export declare function routeRequest(request: IncomingMessage, response: ServerResponse, options: GitHubWebhookServerOptions): Promise<void>;
-export declare function respondToWebhookDecision(response: ServerResponse, decision: WebhookDecision, options: GitHubWebhookServerOptions): void;
+export declare function respondToWebhookDecision(response: ServerResponse, decision: WebhookDecision, options: GitHubWebhookServerOptions): Promise<void>;
 export declare function readRawBody(request: IncomingMessage, maxBodyBytes: number): Promise<Buffer>;
 export declare function createLoggingHandoff(): WebhookHandoff;
 export declare function startFromEnvironment(): Server;
