@@ -1,7 +1,9 @@
 # schemas
 
-Machine-readable schemas live here.
+Machine-readable schema contracts for ForgeRoot.
 
-- `forge-v1.schema.json` — Draft 2020-12 JSON Schema for parsed `.forge` v1 YAML documents after removing the `#!forge/v1` magic line.
+Current artifacts:
 
-T005 adds `crates/forge-kernel/`, which performs source-form validation and canonical hashing. The Rust kernel currently implements a minimal shape validator aligned with this schema, but full Draft 2020-12 JSON Schema evaluation inside Rust is deferred.
+- `forge-v1.schema.json` — Draft 2020-12 JSON Schema for parsed `.forge` v1 YAML documents after the `#!forge/v1` magic line is stripped.
+
+Source-form and canonical hash rules live in `docs/specs/forge-v1.md`. The parser/hash kernel that enforces those rules is intentionally deferred to T005.
