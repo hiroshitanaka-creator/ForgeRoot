@@ -2,118 +2,99 @@
 
 GitHub repository as a living Forge Mind.
 
-ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelligence. The durable identity layer lives in Git and `.forge`; the GitHub App and runtime DBs are control-plane machinery around that identity.
-
-## Current bootstrap status
-
-Completed bootstrap tasks in this working tree:
-
-- `T001` — monorepo skeleton and `.forge/` root
-- `T003` — initial `mind.forge` and constitution policy
-- `T004` — `.forge` v1 spec and JSON Schema
-- `T005` — canonical parser/hash kernel seed
-- `T006` — minimum GitHub App manifest and permissions
-- `T007` — webhook ingest with HMAC verification
-- `T008` — event inbox and delivery GUID idempotency
-- `T014` — runtime mode and kill switch
-- `T015` — issue intake classifier
-
-The next natural task is `T016` plan spec DSL.
+ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelligence. Agents do not merely work on the repo; their identity, memory, policy, lineage, and mutation history are designed to live in Git.
 
 ## Core laws
 
 1. Git is the source of truth.
-2. `.forge` is the genome and curated memory layer.
-3. PR is the only evolution transport.
-4. No direct default-branch writes.
-5. Federation and spawning start allowlisted/lab-only.
-6. Runtime mutation must be stoppable by an explicit kill switch.
-7. Only `forge:auto`-labeled intake can enter the automatic planner candidate lane.
+2. `.forge` is the durable genome and curated memory layer.
+3. No direct writes to the default branch.
+4. Every behavior-changing mutation must be reviewable as a PR.
+5. Humans set the constitution; agents optimize within it.
+6. Federation is allowlisted before it is autonomous.
 
-## Repository layout
+## Current bootstrap status
+
+Implemented through **T016 Plan Spec DSL**.
+
+Completed bootstrap slice:
+
+- T001 — monorepo skeleton and `.forge` root
+- T003 — `mind.forge` and initial constitution policy
+- T004 — `.forge` v1 spec and JSON Schema
+- T005 — canonical parser/hash kernel seed
+- T006 — minimum GitHub App manifest and permissions doc
+- T007 — webhook ingest with HMAC signature verification
+- T008 — event inbox and delivery idempotency
+- T014 — runtime mode and kill switch
+- T015 — issue intake classifier
+- T016 — one-task-one-PR Plan Spec DSL
+
+Next natural task: **T017 planner runtime**.
+
+## Repo layout
 
 ```text
 .forge/
   mind.forge
-  policies/
-    constitution.forge
-    runtime-mode.forge
   agents/
+  policies/
   evals/
   lineage/
   network/
   packs/
+.github/
+  workflows/
 apps/
   github-app/
+  cli/
+  browser-extension/
 crates/
   forge-kernel/
 packages/
   planner/
+labs/
 docs/
   specs/
+  rfcs/
   ops/
 schemas/
 ```
 
-## Current executable surfaces
+## Start here
+
+- `00_ForgeRoot_blueprint_設計書.md` — master blueprint
+- `01_単語や命名規則.md` — naming and identity rules
+- `02_README.md` — public-facing README source draft
+- `03_issue.md` — initial bounded issue drafts
+- `docs/specs/forge-v1.md` — `.forge` v1 specification
+- `docs/specs/issue-intake.md` — intake classification spec
+- `docs/specs/plan-spec.md` — one-task-one-PR Plan Spec DSL
+
+## Development notes
+
+Planner package local checks:
 
 ```bash
-# .forge parser/hash kernel, in a Rust-enabled environment
-cargo test -p forge-kernel
-
-# GitHub App webhook, inbox, runtime mode, and kill switch tests
-cd apps/github-app
-npm run test
-
-# Planner intake classifier tests
 cd packages/planner
-npm run test
+TSC_NONPOLLING_WATCHER=1 tsc -p tsconfig.json --noEmit --pretty false --diagnostics
+node --test --test-force-exit tests/*.test.mjs
 ```
 
-## GitHub App runtime
+GitHub App local checks:
 
-`apps/github-app` currently provides:
+```bash
+cd apps/github-app
+tsc -p tsconfig.json
+node --test --test-force-exit tests/*.test.mjs
+```
 
-- raw-body webhook signature verification
-- T006 event/action allowlist
-- accepted webhook envelope normalization
-- SQLite event inbox table
-- `X-GitHub-Delivery` idempotency
-- retryable vs terminal event failure states
-- runtime modes: `observe`, `propose`, `evolve`, `federate`, `quarantine`, `halted`
-- admin-token-protected kill switch endpoint
-- repeated 403/429 downgrade hook
+## Safety defaults
 
-## Planner package
-
-`packages/planner` currently provides:
-
-- deterministic issue/comment/alert intake classification
-- 14 intake categories
-- `accept` / `ignore` / `block` / `escalate` routing
-- strict `forge:auto` label handling
-- normalized task candidates with one-task-one-PR planner hints
-
-## Design documents
-
-- `00_ForgeRoot_blueprint_設計書.md` — fixed v1 design source
-- `01_単語や命名規則.md` — naming and terminology rules
-- `02_README.md` — public README source draft
-- `03_issue.md` — bounded issue drafts
-- `docs/specs/forge-v1.md` — `.forge` v1 specification
-- `docs/specs/issue-intake.md` — T015 issue intake classifier specification
-- `docs/ops/event-inbox.md` — T008 inbox operations
-- `docs/ops/runtime-mode.md` — T014 runtime mode and kill switch operations
-
-## Non-goals
-
-ForgeRoot is not designed to bypass GitHub governance. It is designed to make autonomous maintenance auditable, reversible, and evolvable inside Git-native constraints.
-
-Still intentionally out of scope at this point:
-
-- full planner/executor/auditor loop
-- production scheduler
-- full replay engine
-- mutation runtime
-- federation runtime
-- browser extension UI
+- GitHub App only; no production PAT flow.
+- Protected default branch; no default-branch direct writes.
+- Runtime starts in `observe`.
+- Mutating lane closes in `quarantine` and `halted`.
+- `forge:auto` is required for automatic intake.
+- T016 Plan Specs must declare mutable paths, immutable paths, out-of-scope boundaries, and machine-checkable acceptance criteria.
+- Workflow, policy, permission, and network/treaty changes remain elevated governance work.
