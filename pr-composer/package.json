@@ -1,0 +1,17 @@
+{
+  "name": "@forgeroot/pr-composer",
+  "version": "0.0.0-t024",
+  "private": true,
+  "type": "module",
+  "description": "ForgeRoot PR composer: deterministic PR composition manifest generation from passed audit evidence.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

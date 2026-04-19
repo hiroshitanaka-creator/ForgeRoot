@@ -1,0 +1,17 @@
+{
+  "name": "@forgeroot/forge-demo",
+  "version": "0.0.0-t028",
+  "private": true,
+  "type": "module",
+  "description": "ForgeRoot T028 end-to-end forged PR demo harness wiring the Phase 1 deterministic manifest chain.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

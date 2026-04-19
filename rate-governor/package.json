@@ -1,0 +1,17 @@
+{
+  "name": "@forgeroot/rate-governor",
+  "version": "0.0.0-t027",
+  "private": true,
+  "type": "module",
+  "description": "ForgeRoot rate governor queue: deterministic queue decisions before trusted GitHub write transport.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
