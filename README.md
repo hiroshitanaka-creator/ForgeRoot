@@ -34,6 +34,7 @@ Implemented so far:
 - T019 — deterministic executor sandbox request harness
 - T023 — deterministic independent auditor runtime and PR-composition gate
 - T024 — deterministic PR composition manifest and review body boundary
+- T025 — deterministic GitHub App PR creation request adapter
 
 ## Repo layout
 
@@ -59,6 +60,7 @@ packages/
   executor/
   auditor/
   pr-composer/
+  github-pr-adapter/
 labs/
 docs/
   specs/
@@ -78,8 +80,9 @@ The first forging loop now has pre-execution contracts that narrow one issue int
 5. `packages/executor/src/sandbox.ts` consumes one T018 branch/worktree manifest and returns at most one sandbox execution request with command, environment, path-scope, network, token, and artifact guards.
 6. `packages/auditor/src/run.ts` consumes one Plan Spec, one branch/worktree manifest, one sandbox request, and observed sandbox evidence, then emits one independent audit result with a PR-composition gate decision.
 7. `packages/pr-composer/src/run.ts` consumes the passed audit chain and emits one deterministic PR composition manifest with title, body, labels, review gate, artifact summary, and provenance for a later GitHub adapter.
+8. `packages/github-pr-adapter/src/run.ts` consumes one PR composition manifest and a GitHub App installation context, then emits one bounded PR creation request manifest for a trusted transport layer.
 
-The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request. The T023 auditor runtime validates existing evidence only; it does not execute commands, edit files, compose PRs, mutate GitHub, approve merges, update memory, or federate. The T024 PR composer prepares review text and metadata only; it does not call GitHub, create the pull request, approve, merge, update memory, or federate.
+The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request. The T023 auditor runtime validates existing evidence only; it does not execute commands, edit files, compose PRs, mutate GitHub, approve merges, update memory, or federate. The T024 PR composer prepares review text and metadata only; it does not call GitHub, create the pull request, approve, merge, update memory, or federate. The T025 GitHub PR adapter prepares GitHub App REST request metadata only; it does not perform network transport by itself, merge, approve, persist tokens, update memory, or federate.
 
 ## Safety defaults
 
@@ -89,4 +92,4 @@ The planner runtime still does not edit files, create branches, open PRs, run te
 - Workflow, policy, permission, and network changes are elevated.
 - Kill switch can close the mutating lane in one operation.
 - Event Inbox dedupes GitHub delivery IDs before downstream processing.
-- One task becomes one plan, one branch/worktree manifest, one sandbox execution request, one audit result, one PR composition manifest, and later one PR.
+- One task becomes one plan, one branch/worktree manifest, one sandbox execution request, one audit result, one PR composition manifest, one GitHub PR creation request manifest, and later one PR.
