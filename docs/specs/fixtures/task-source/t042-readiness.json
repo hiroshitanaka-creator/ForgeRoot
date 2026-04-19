@@ -1,0 +1,43 @@
+{
+  "schema_ref": "urn:forgeroot:t041-2:t042-readiness:v1",
+  "task_name": "T041-2",
+  "status": "ready_after_t041",
+  "canonicalized_task_source": [
+    "T029",
+    "T030",
+    "T031",
+    "T032",
+    "T033",
+    "T034",
+    "T035",
+    "T036",
+    "T037",
+    "T038",
+    "T039"
+  ],
+  "resolved_dependency_kind": "P2 memory/eval/provenance task definitions",
+  "t042_requires_before_implementation": [
+    "T040",
+    "T041",
+    "T041-2"
+  ],
+  "t042_blockers_cleared_by_t041_2": [
+    "T029-T039 canonical task source exists",
+    "Phase 2 memory/eval/provenance dependency DAG exists",
+    "Repo map placeholders for memory/eval/reporting/auditor provenance are documented",
+    "Interface registry placeholders for T029-T042 are documented",
+    "Missing score/memory values remain unknown rather than guessed"
+  ],
+  "t042_blockers_not_cleared_by_t041_2": [
+    "T041 security gates implementation and validation must still be completed before T042"
+  ],
+  "manifest_only_guards": {
+    "no_github_api_call": true,
+    "no_workflow_mutation": true,
+    "no_policy_mutation": true,
+    "no_ruleset_mutation": true,
+    "no_branch_protection_mutation": true,
+    "no_memory_or_evaluation_state_update": true,
+    "no_federation_or_self_evolution": true
+  }
+}

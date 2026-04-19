@@ -43,3 +43,11 @@ Current specs and reports:
 - `specs/t027-validation-report.md` — T027 rate governor queue report
 - `specs/t028-validation-report.md` — T028 end-to-end forged PR demo report
 - `specs/fixtures/forge-demo/valid/t028-demo-manifest.json` — compact valid T028 demo fixture
+- `ops/thread-handoff-after-t041-2.md` — handoff summary after T041-2 T042 dependency resolution
+- `specs/t041-2-dependency-resolution.md` — T041-2 dependency-resolution contract for T042
+- `specs/t029-t039-canonical-task-source.md` — canonical task source for T029-T039
+- `specs/t041-2-repo-map.md` — Phase 2 repo map supplement needed for T042
+- `specs/t041-2-interface-registry.md` — Phase 2 interface registry supplement needed for T042
+- `specs/t041-2-validation-report.md` — T041-2 dependency-resolution validation report
+- `specs/fixtures/task-source/t029-t039-canonical.json` — machine-readable T029-T039 task source fixture
+- `specs/fixtures/task-source/t042-readiness.json` — machine-readable T042 readiness fixture
