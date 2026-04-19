@@ -1,0 +1,128 @@
+{
+  "now": "2026-04-19T00:00:00Z",
+  "sarif_artifact": {
+    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
+    "sarif_version": "2.1.0",
+    "generated_at": "2026-04-18T00:00:00Z",
+    "source": {
+      "tool_name": "ForgeRoot Auditor",
+      "repository": "hiroshitanaka-creator/ForgeRoot",
+      "task_id": "T041",
+      "audit_id": "forge-audit://fixture",
+      "plan_id": "forge-plan://fixture",
+      "source_artifact_sha256": null
+    },
+    "runs": [
+      {
+        "tool": {
+          "driver": {
+            "name": "ForgeRoot Auditor",
+            "semanticVersion": "0.0.0-t040",
+            "rules": [
+              {
+                "id": "docs.link-check",
+                "name": "docs.link-check",
+                "shortDescription": {
+                  "text": "ForgeRoot normalized finding rule docs.link-check"
+                },
+                "defaultConfiguration": {
+                  "level": "note"
+                }
+              }
+            ]
+          }
+        },
+        "results": [
+          {
+            "ruleId": "docs.link-check",
+            "level": "note",
+            "message": {
+              "text": "low docs"
+            },
+            "locations": [
+              {
+                "physicalLocation": {
+                  "artifactLocation": {
+                    "uri": "docs/README.md"
+                  },
+                  "region": {
+                    "startLine": 1,
+                    "startColumn": 1
+                  }
+                }
+              }
+            ],
+            "partialFingerprints": {
+              "forgeRootFingerprint": "sha256:c8317c081879b892abf91ee86f21ecb1f28edc6ad860893cce131155db96c732"
+            },
+            "properties": {
+              "forge_severity": "low",
+              "source_severity": "low",
+              "category": "docs.link-check",
+              "forge_finding_id": "low",
+              "normalized_path": "docs/README.md"
+            }
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "result_count": 1,
+      "rejected_input_count": 0,
+      "severity_counts": {
+        "high": 0,
+        "medium": 0,
+        "low": 1,
+        "note": 0
+      },
+      "level_counts": {
+        "error": 0,
+        "warning": 0,
+        "note": 1,
+        "none": 0
+      },
+      "rule_ids": [
+        "docs.link-check"
+      ],
+      "paths": [
+        "docs/README.md"
+      ]
+    },
+    "guards": {
+      "no_github_code_scanning_upload": true,
+      "no_github_api_call": true,
+      "no_workflow_mutation": true,
+      "no_policy_mutation": true,
+      "no_ruleset_mutation": true,
+      "no_branch_protection_mutation": true,
+      "no_security_gate_decision": true,
+      "no_memory_or_evaluation_update": true,
+      "no_federation_or_self_evolution": true
+    },
+    "properties": {
+      "forge_task": "T040",
+      "bridge_kind": "sarif-like-deterministic-artifact",
+      "live_code_scanning_upload": false,
+      "security_gate_decision": false
+    }
+  },
+  "runtime": {
+    "mode": "evolve",
+    "mutating_lane_open": true,
+    "kill_switch_engaged": false
+  },
+  "rate": {
+    "status": "available",
+    "cooldown_active": false
+  },
+  "approval": {
+    "approval_class": "B",
+    "risk": "high"
+  },
+  "policy": {
+    "schema_ref": "urn:forgeroot:security-gates-policy:v1",
+    "severity_actions": {
+      "high": "allow"
+    }
+  }
+}

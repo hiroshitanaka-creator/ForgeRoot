@@ -49,5 +49,10 @@ Current specs and reports:
 - `specs/t041-2-repo-map.md` — Phase 2 repo map supplement needed for T042
 - `specs/t041-2-interface-registry.md` — Phase 2 interface registry supplement needed for T042
 - `specs/t041-2-validation-report.md` — T041-2 dependency-resolution validation report
+- `specs/security-gates.md` — T041 security gate decision manifest spec
+- `specs/t041-validation-report.md` — T041 security gates validation report
+- `ops/thread-handoff-after-t041.md` — handoff summary after T041 security gates
+- `specs/fixtures/security-gates/valid/*.json` — valid T041 security gate fixtures
+- `specs/fixtures/security-gates/invalid/*.json` — invalid T041 security gate fixtures
 - `specs/fixtures/task-source/t029-t039-canonical.json` — machine-readable T029-T039 task source fixture
 - `specs/fixtures/task-source/t042-readiness.json` — machine-readable T042 readiness fixture

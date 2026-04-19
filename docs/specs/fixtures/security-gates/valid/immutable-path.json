@@ -1,0 +1,122 @@
+{
+  "now": "2026-04-19T00:00:00Z",
+  "sarif_artifact": {
+    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
+    "sarif_version": "2.1.0",
+    "generated_at": "2026-04-18T00:00:00Z",
+    "source": {
+      "tool_name": "ForgeRoot Auditor",
+      "repository": "hiroshitanaka-creator/ForgeRoot",
+      "task_id": "T041",
+      "audit_id": "forge-audit://fixture",
+      "plan_id": "forge-plan://fixture",
+      "source_artifact_sha256": null
+    },
+    "runs": [
+      {
+        "tool": {
+          "driver": {
+            "name": "ForgeRoot Auditor",
+            "semanticVersion": "0.0.0-t040",
+            "rules": [
+              {
+                "id": "forge.policy-drift",
+                "name": "forge.policy-drift",
+                "shortDescription": {
+                  "text": "ForgeRoot normalized finding rule forge.policy-drift"
+                },
+                "defaultConfiguration": {
+                  "level": "note"
+                }
+              }
+            ]
+          }
+        },
+        "results": [
+          {
+            "ruleId": "forge.policy-drift",
+            "level": "note",
+            "message": {
+              "text": "immutable policy path touched"
+            },
+            "locations": [
+              {
+                "physicalLocation": {
+                  "artifactLocation": {
+                    "uri": ".github/workflows/ci.yml"
+                  },
+                  "region": {
+                    "startLine": 3,
+                    "startColumn": 1
+                  }
+                }
+              }
+            ],
+            "partialFingerprints": {
+              "forgeRootFingerprint": "sha256:1d6993ffec40b503a98e81a8bae87ac9df11aaeb679ab8e67f05df2477a2e609"
+            },
+            "properties": {
+              "forge_severity": "low",
+              "source_severity": "low",
+              "category": "scope",
+              "forge_finding_id": "immutable",
+              "normalized_path": ".github/workflows/ci.yml"
+            }
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "result_count": 1,
+      "rejected_input_count": 0,
+      "severity_counts": {
+        "high": 0,
+        "medium": 0,
+        "low": 1,
+        "note": 0
+      },
+      "level_counts": {
+        "error": 0,
+        "warning": 0,
+        "note": 1,
+        "none": 0
+      },
+      "rule_ids": [
+        "forge.policy-drift"
+      ],
+      "paths": [
+        ".github/workflows/ci.yml"
+      ]
+    },
+    "guards": {
+      "no_github_code_scanning_upload": true,
+      "no_github_api_call": true,
+      "no_workflow_mutation": true,
+      "no_policy_mutation": true,
+      "no_ruleset_mutation": true,
+      "no_branch_protection_mutation": true,
+      "no_security_gate_decision": true,
+      "no_memory_or_evaluation_update": true,
+      "no_federation_or_self_evolution": true
+    },
+    "properties": {
+      "forge_task": "T040",
+      "bridge_kind": "sarif-like-deterministic-artifact",
+      "live_code_scanning_upload": false,
+      "security_gate_decision": false
+    }
+  },
+  "runtime": {
+    "mode": "evolve",
+    "mutating_lane_open": true,
+    "kill_switch_engaged": false
+  },
+  "rate": {
+    "status": "available",
+    "cooldown_active": false
+  },
+  "approval": {
+    "approval_class": "B",
+    "risk": "high"
+  }
+}
