@@ -1,0 +1,4 @@
+# T007 local development only. Never commit real secrets or GitHub App private keys.
+FORGE_WEBHOOK_SECRET=replace-with-local-webhook-secret
+FORGE_GITHUB_APP_HOST=127.0.0.1
+FORGE_GITHUB_APP_PORT=8080
