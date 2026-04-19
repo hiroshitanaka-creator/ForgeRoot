@@ -1,0 +1,260 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:policy:v1
+kind: policy
+id: forge://hiroshitanaka-creator/ForgeRoot/policy/runtime-mode
+revision: 01KPF0T0147G5Y6B8C9D0E1F2A
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: active
+title: ForgeRoot Runtime Mode and Kill Switch Policy
+summary: Defines the Phase 0 runtime modes, one-operation kill switch semantics, quarantine versus halted behavior, and repeated 403/429 downgrade triggers for the GitHub App control plane.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-04-18T00:00:00Z
+updated_at: 2026-04-18T00:00:00Z
+policy_type: runtime-mode
+rules:
+  - id: observe-is-read-only
+    statement: Observe mode may ingest, persist, classify, read, and diagnose events, but must not create branches, commits, pull requests, comments, checks, network syncs, or self-evolution changes.
+    pass_conditions:
+      allowed_operations:
+        - webhook_ingest
+        - event_inbox_enqueue
+        - read_repository
+        - classify_event
+        - replay_diagnosis
+      mutating_lane_open: false
+    fail_conditions:
+      creates_branch: true
+      writes_commit: true
+      opens_pull_request: true
+      network_sync: true
+      self_evolution: true
+    required_approval_class: C
+  - id: propose-is-human-review-bound
+    statement: Propose mode may create plans, issues, and explanatory comments, but it must not create code patches or open forge PRs without a later mode transition.
+    pass_conditions:
+      allowed_operations:
+        - create_plan
+        - create_issue
+        - create_comment
+      mutating_lane_open: false
+      human_review_before_code_mutation: true
+    fail_conditions:
+      creates_branch: true
+      writes_commit: true
+      opens_pull_request: true
+      mutating_lane_open: true
+    required_approval_class: C
+  - id: evolve-opens-single-mutating-lane
+    statement: Evolve mode may run the bounded one-task-one-PR mutation lane, but only one mutating lane per repository may be open.
+    pass_conditions:
+      mutating_lane_open: true
+      max_mutating_lanes_per_repo: 1
+      pull_request_required: true
+      approval_matrix_enforced: true
+    fail_conditions:
+      mutating_lanes_gt: 1
+      direct_default_branch_write: true
+      workflow_mutation_without_class_d: true
+    required_approval_class: C
+  - id: federate-requires-treaty-and-phase-gate
+    statement: Federate mode may add network synchronization to evolve mode only when treaty, allowlist, and phase gates are satisfied.
+    pass_conditions:
+      treaty_required: true
+      peer_allowlist_required: true
+      public_repo_phase_gate: P4
+      network_mode_allowed:
+        - allowlisted
+        - supervised
+    fail_conditions:
+      open_federation: true
+      treaty_present: false
+      peer_in_allowlist: false
+    required_approval_class: D
+  - id: quarantine-is-contained-diagnosis
+    statement: Quarantine is a contained diagnosis mode; it may report, replay, and propose docs-only incident artifacts, but must not mutate code, workflows, treaties, or network state.
+    pass_conditions:
+      allowed_operations:
+        - webhook_ingest
+        - event_inbox_enqueue
+        - read_repository
+        - classify_event
+        - create_issue
+        - create_comment
+        - docs_only_incident_pr
+        - incident_report
+        - replay_diagnosis
+      mutating_lane_open: false
+    fail_conditions:
+      code_mutation: true
+      workflow_mutation: true
+      network_sync: true
+      treaty_update: true
+      self_evolution: true
+      auto_merge: true
+    required_approval_class: C
+  - id: halted-is-hard-stop
+    statement: Halted is a hard stop. It keeps only minimum observation and recovery diagnostics available, and closes every mutating or reporting lane until explicit human acknowledgement restores another mode.
+    pass_conditions:
+      kill_switch_engaged: true
+      mutating_lane_open: false
+      allowed_operations:
+        - webhook_ingest
+        - event_inbox_enqueue
+        - read_repository
+        - replay_diagnosis
+        - restore_runtime_mode
+      restore_requires_human_ack: true
+    fail_conditions:
+      create_issue: true
+      create_comment: true
+      docs_only_incident_pr: true
+      code_mutation: true
+      network_sync: true
+      auto_merge: true
+    required_approval_class: D
+  - id: kill-switch-one-operation
+    statement: A single authorized kill switch operation must immediately set runtime mode to halted, engage the kill switch flag, close the mutating lane, and require human acknowledgement before restore.
+    pass_conditions:
+      target_mode: halted
+      kill_switch_engaged: true
+      mutating_lane_open: false
+      restore_requires_human_ack: true
+      operation_count: 1
+    fail_conditions:
+      requires_multiple_operations: true
+      mutating_lane_open_after_kill: true
+      auto_restore_enabled: true
+    required_approval_class: D
+  - id: repeated-rate-limit-downgrade
+    statement: Two or more 403 or 429 signals inside a fifteen minute window must trigger runtime mode downgrade before any further mutating action is attempted.
+    pass_conditions:
+      window: PT15M
+      status_codes:
+        - 403
+        - 429
+      min_events: 2
+      downgrade_order:
+        - federate_to_propose
+        - evolve_to_propose
+        - propose_to_observe
+    fail_conditions:
+      retry_after_ignored: true
+      mutating_action_after_threshold_without_downgrade: true
+      silent_parallel_retry: true
+    required_approval_class: C
+thresholds:
+  runtime_modes:
+    allowed:
+      - observe
+      - propose
+      - evolve
+      - federate
+      - quarantine
+      - halted
+    default: observe
+  mutating_lanes:
+    max_per_repo: 1
+    open_only_in:
+      - evolve
+      - federate
+  rate_limit_downgrade:
+    window: PT15M
+    status_codes:
+      - 403
+      - 429
+    min_events: 2
+  restore:
+    halted_requires_human_ack: true
+    quarantine_requires_human_ack: true
+    automatic_restore: forbidden
+  admin_surface:
+    kill_switch_endpoint: /api/forge/kill-switch
+    runtime_mode_endpoint: /api/forge/runtime-mode
+    restore_endpoint: /api/forge/runtime-mode/restore
+    admin_token_required: true
+actions_on_breach:
+  observe-is-read-only:
+    - reject_mutating_action
+    - set_runtime_mode: observe
+  propose-is-human-review-bound:
+    - reject_code_mutation
+    - require_mode_transition
+  evolve-opens-single-mutating-lane:
+    - close_extra_lanes
+    - set_runtime_mode: propose
+  federate-requires-treaty-and-phase-gate:
+    - reject_network_action
+    - set_runtime_mode: propose
+  quarantine-is-contained-diagnosis:
+    - reject_forbidden_quarantine_action
+    - keep_runtime_mode: quarantine
+  halted-is-hard-stop:
+    - reject_mutating_action
+    - keep_runtime_mode: halted
+  kill-switch-one-operation:
+    - set_runtime_mode: halted
+    - engage_kill_switch
+    - close_mutating_lane
+    - require_human_ack_for_restore
+  repeated-rate-limit-downgrade:
+    - record_rate_limit_signal
+    - downgrade_runtime_mode
+    - open_cooldown_window
+required_approvals:
+  A:
+    summary: docs, tests, comments, and low-risk refactors
+    min_human_approvals: 0
+    auto_pr_allowed: true
+    merge_requires_human: false
+  B:
+    summary: normal code changes, light dependency updates, and internal prompt tuning
+    min_human_approvals: 1
+    auto_pr_allowed: true
+    merge_requires_human: true
+  C:
+    summary: runtime mode policy changes, scheduler-impacting controls, and quarantine rules
+    min_human_approvals: 2
+    auto_pr_allowed: false
+    codeowner_required: true
+  D:
+    summary: kill switch semantics, branch protection, app permissions, open federation, and workflow mutation
+    min_human_approvals: 2
+    auto_pr_allowed: false
+    codeowner_required: true
+    self_approval_forbidden: true
+    human_only_operation: true
+cooldowns:
+  secondary_rate_limit_backoff_seconds:
+    - 60
+    - 300
+    - 1800
+    - 7200
+  restore_requires_human_ack_after_step: 4
+  mode_downgrade_order:
+    - federate_to_propose
+    - evolve_to_propose
+    - propose_to_observe
+  kill_switch_restore:
+    minimum_target_after_halt: observe
+    automatic_restore: forbidden
+quarantine_triggers:
+  - secret_scanning_alert
+  - dependency_review_fail
+  - sarif_high_or_critical
+  - workflow_class_mismatch
+  - permission_drift
+  - treaty_boundary_violation
+  - repeated_403_429
+  - no_op_pr_loop
+  - trust_score_floor_breach
+provenance:
+  seed_task: T014
+  seed_basis:
+    - 00_ForgeRoot_blueprint_設計書.md
+    - 03_issue.md
+  created_by: github://hiroshitanaka-creator
+  implemented_by: github-app://forgeroot
+extensions: {}

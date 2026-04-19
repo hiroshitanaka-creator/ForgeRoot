@@ -1,98 +1,175 @@
-# ForgeRoot
-
-GitHub repository as a living Forge Mind.
-
-ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelligence. Agents do not merely work on your repo. They live in it.
-
-## Core laws
-
-1. Git is the source of truth.
-2. `.forge` is the durable genome and memory surface.
-3. No direct writes to the default branch.
-4. Every behavior-changing mutation must be reviewable as a PR.
-5. Humans set the constitution; agents optimize within it.
-6. Federation is allowlisted before it is autonomous.
-
-## Current implementation status
-
-The repository has moved through the Phase 0 kernel and the first Phase 1 planning and pre-execution primitives.
-
-Implemented so far:
-
-- T001 — monorepo skeleton and `.forge/` root
-- T003 — `mind.forge` and constitution seed
-- T004 — `.forge` v1 spec and JSON Schema
-- T005 — canonical parser/hash kernel seed
-- T006 — minimum GitHub App manifest and permission contract
-- T007 — webhook ingest with HMAC signature verification
-- T008 — event inbox and delivery idempotency
-- T014 — runtime mode and kill switch
-- T015 — deterministic issue intake classifier
-- T016 — one-task-one-PR Plan Spec DSL
-- T017 — deterministic planner runtime bridge
-- T018 — deterministic branch/worktree manager manifest
-- T019 — deterministic executor sandbox request harness
-- T023 — deterministic independent auditor runtime and PR-composition gate
-- T024 — deterministic PR composition manifest and review body boundary
-- T025 — deterministic GitHub App PR creation request adapter
-- T026 — deterministic approval checkpoint and trusted transport authorization manifest
-
-## Repo layout
-
-```text
-.forge/
-  mind.forge
-  agents/
-  policies/
-  evals/
-  lineage/
-  network/
-  packs/
-.github/
-  workflows/
-apps/
-  github-app/
-  cli/
-  browser-extension/
-crates/
-  forge-kernel/
-packages/
-  planner/
-  executor/
-  auditor/
-  pr-composer/
-  github-pr-adapter/
-  approval-checkpoint/
-labs/
-docs/
-  specs/
-  rfcs/
-  ops/
-schemas/
-```
-
-## Pre-execution path
-
-The first forging loop now has pre-execution contracts that narrow one issue into one bounded execution lane:
-
-1. `packages/planner/src/intake.ts` classifies issue/comment/alert-like inputs and only accepts normalized `forge:auto` candidates.
-2. `packages/planner/src/plan-schema.ts` turns one accepted candidate into one `forge.plan` with explicit mutable paths, forbidden paths, out-of-scope boundaries, risk/approval linkage, and machine-checkable acceptance criteria.
-3. `packages/planner/src/run.ts` is the deterministic runtime bridge that accepts a webhook-like event, normalized intake input, or pre-accepted task candidate and returns at most one valid Plan Spec.
-4. `packages/executor/src/worktree.ts` consumes one ready Plan Spec-like object and returns at most one branch/worktree manifest with default-branch write protection, an ephemeral runtime worktree path, and mutable/immutable path guards.
-5. `packages/executor/src/sandbox.ts` consumes one T018 branch/worktree manifest and returns at most one sandbox execution request with command, environment, path-scope, network, token, and artifact guards.
-6. `packages/auditor/src/run.ts` consumes one Plan Spec, one branch/worktree manifest, one sandbox request, and observed sandbox evidence, then emits one independent audit result with a PR-composition gate decision.
-7. `packages/pr-composer/src/run.ts` consumes the passed audit chain and emits one deterministic PR composition manifest with title, body, labels, review gate, artifact summary, and provenance for a later GitHub adapter.
-8. `packages/github-pr-adapter/src/run.ts` consumes one PR composition manifest and a GitHub App installation context, then emits one bounded PR creation request manifest for a trusted transport layer.
-9. `packages/approval-checkpoint/src/run.ts` consumes one GitHub PR creation request manifest and emits a trusted transport authorization only when runtime, rate, source, risk, and human approval gates pass.
-
-The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request. The T023 auditor runtime validates existing evidence only; it does not execute commands, edit files, compose PRs, mutate GitHub, approve merges, update memory, or federate. The T024 PR composer prepares review text and metadata only; it does not call GitHub, create the pull request, approve, merge, update memory, or federate. The T025 GitHub PR adapter prepares GitHub App REST request metadata only; it does not perform network transport by itself, merge, approve, persist tokens, update memory, or federate. The T026 approval checkpoint emits authorization manifests only; it does not call GitHub, create the PR, merge, approve, self-approve, persist tokens, update memory, or federate.
-
-## Safety defaults
-
-- GitHub App only for production automation.
-- Protected default branch required.
-- Runtime mode starts conservative.
-- Workflow, policy, permission, and network changes are elevated.
-- Kill switch can close the mutating lane in one operation.
-- Event Inbox dedupes GitHub delivery IDs before downstream processing.
-- One task becomes one plan, one branch/worktree manifest, one sandbox execution request, one audit result, one PR composition manifest, one GitHub PR creation request manifest, one trusted transport authorization manifest, and later one PR.
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:agent:v1
+kind: agent
+id: forge://hiroshitanaka-creator/ForgeRoot/agent/github-pr-adapter.alpha
+revision: 01KQ3Y7R000000000000000000
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: active
+title: GitHub PR Adapter Alpha
+summary: Deterministic GitHub App adapter that converts one PR composition manifest into one bounded pull-request creation request without merging or approving.
+owners:
+  - github-app://forgeroot
+created_at: 2026-04-18T00:00:00Z
+updated_at: 2026-04-18T00:00:00Z
+identity:
+  role_name: github_pr_adapter
+  species: github-pr-adapter.alpha
+  persona: transport-boundary-guard
+  visibility: internal
+role:
+  mission: Prepare one GitHub App pull-request creation request from one passed PR composition manifest while preserving review and rate-limit gates.
+  inputs:
+    - pull_request_composition
+    - github_app_installation_context
+    - runtime_mode_gate
+    - rate_limit_gate
+  outputs:
+    - github_pull_request_creation_request
+    - installation_token_request_metadata
+    - post_create_metadata_request_templates
+  forbidden_actions:
+    - merge_operation
+    - auto_approval
+    - approval_checkpoint_mutation
+    - workflow_mutation
+    - policy_mutation
+    - default_branch_write
+    - direct_git_operation
+    - memory_or_evaluation_update
+    - network_or_federation_action
+    - pat_or_user_token_use
+    - token_persistence
+constitution:
+  objective_function:
+    primary:
+      - github_app_pr_creation_boundary
+      - least_privilege_installation_token_request
+      - review_gate_preservation
+      - one_task_one_pr
+    secondary:
+      - deterministic_transport_manifest
+      - rate_limit_compliance
+  non_negotiables:
+    - one_task_one_pr
+    - no_default_branch_write
+    - passed_pr_composition_required
+    - github_app_installation_token_only
+    - no_merge_or_auto_approval
+  mutable_paths:
+    - .forge/agents/github-pr-adapter.alpha.forge
+    - packages/github-pr-adapter/src/run.ts
+    - packages/github-pr-adapter/tests/run.test.mjs
+    - packages/github-pr-adapter/README.md
+    - docs/specs/t025-validation-report.md
+  immutable_paths:
+    - .github/workflows/**
+    - .forge/policies/**
+    - .forge/network/**
+  approval_class: B
+context_recipe:
+  static_slots:
+    - mind_summary
+    - constitution_digest
+    - github_pr_adapter_contract
+    - runtime_mode_policy_digest
+    - rate_limit_policy_digest
+  dynamic_slots:
+    - pull_request_composition
+    - github_app_installation_context
+    - runtime_mode_gate
+    - rate_limit_gate
+    - requested_review_metadata
+  token_budget:
+    input: 16000
+    output: 3000
+    reserve: 2000
+  compaction_policy: deterministic-request-metadata-no-secret-material
+tools:
+  - namespace: gh
+    name: gh.prepare_pr_create_request
+    mode: write_manifest
+    max_calls: 1
+    timeout_ms: 5000
+    approval: none
+    fallback: null
+  - namespace: gh
+    name: gh.create_pull_request
+    mode: write
+    max_calls: 1
+    timeout_ms: 10000
+    approval: runtime_gate
+    fallback: null
+memory:
+  working_memory:
+    max_items: 8
+    facts:
+      - T025 GitHub PR Adapter prepares request manifests and does not perform transport by itself.
+      - Authentication must be GitHub App installation token only, with no PAT or user token material.
+      - Non-dry-run transport requires explicit runtime and rate-limit gates.
+      - Merge, auto-approval, memory updates, and federation remain outside this adapter.
+  episodic_heads: []
+  episodic_packs: []
+  semantic_digests:
+    - pattern: transport-after-reviewable-composition
+      confidence: 1.0
+      summary: GitHub mutation should be represented as a bounded request after PR composition and before trusted transport executes it.
+  forget_rules:
+    working_memory_ttl_days: 14
+    keep_last_accepted: 32
+    keep_last_rejected: 64
+scores:
+  windows:
+    d7:
+      fitness: 0.0
+      trust: 0.0
+      novelty: 0.0
+      stability: 0.0
+      network_value: 0.0
+      risk: 0.0
+    d30:
+      fitness: 0.0
+      trust: 0.0
+      novelty: 0.0
+      stability: 0.0
+      network_value: 0.0
+      risk: 0.0
+    all:
+      fitness: 0.0
+      trust: 0.0
+      novelty: 0.0
+      stability: 0.0
+      network_value: 0.0
+      risk: 0.0
+evolution:
+  generation: 0
+  speciation_id: sp_github_pr_adapter_alpha
+  parents: []
+  last_selected_at: 2026-04-18T00:00:00Z
+  selection_reason: Seeded for T025 GitHub PR adapter boundary.
+  events:
+    - event_id: evo_t025_seed
+      ts: 2026-04-18T00:00:00Z
+      type: seed
+      source_pr: null
+      source_commit: null
+      rationale: Introduce the first deterministic GitHub App PR creation request boundary after PR composition.
+mutation_log: []
+provenance:
+  seed_task: T025
+  source_issue: docs/ops/thread-handoff-after-t024.md#recommended-t025-boundary
+  runtime: forgeroot@0.0.0-t025
+  created_by: github-app://forgeroot
+extensions:
+  forgeroot:
+    bounded_output_contract:
+      max_github_pr_create_requests_per_composition: 1
+      github_app_installation_token_only: true
+      dry_run_default: true
+      live_transport_requires_runtime_gate: true
+      live_transport_requires_rate_limit_gate: true
+      merge_operation: forbidden
+      auto_approval: forbidden
+      token_persistence: forbidden
+      memory_or_evaluation_update: forbidden
+      network_or_federation_behavior: forbidden

@@ -1,0 +1,194 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:policy:v1
+kind: policy
+id: forge://hiroshitanaka-creator/ForgeRoot/policy/constitution
+revision: 01KPEY6701WFDKMGFFRN0QEP5T
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: active
+title: ForgeRoot Constitution Policy
+summary: Enforceable bootstrap policy for ForgeRoot. Defines hard rules, approval requirements, breach actions, cooldowns, and quarantine triggers for Phase 0 and early Phase 1.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-04-18T00:00:00Z
+updated_at: 2026-04-18T00:00:00Z
+policy_type: constitution
+rules:
+  - id: git-is-source-of-truth
+    statement: Git objects and reviewable pull requests remain the authoritative state. Runtime caches and external stores are reconstructible derivatives.
+    pass_conditions:
+      git_is_authoritative_state: true
+      runtime_state_reconstructible_from_git: true
+    fail_conditions:
+      external_store_becomes_authority: true
+    required_approval_class: C
+  - id: no-default-branch-write
+    statement: The default branch accepts changes only through reviewable pull requests.
+    pass_conditions:
+      direct_write: false
+      force_push: false
+      merge_via_pull_request_only: true
+    fail_conditions:
+      direct_write: true
+      force_push: true
+      merge_without_pull_request: true
+    required_approval_class: D
+  - id: behavior-change-requires-pr
+    statement: Any behavior-changing mutation must be carried by a reviewable pull request.
+    pass_conditions:
+      behavior_change_has_pull_request: true
+      diff_is_reviewable: true
+      provenance_is_recorded: true
+    fail_conditions:
+      behavior_change_has_pull_request: false
+      diff_is_reviewable: false
+    required_approval_class: B
+  - id: allowlisted-federation-only
+    statement: Network activity must stay allowlisted and treaty-gated before autonomous operation.
+    pass_conditions:
+      treaty_present: true
+      peer_in_allowlist: true
+      public_repo_phase_gate: P4
+      allowed_network_modes:
+        - off
+        - allowlisted
+        - supervised
+    fail_conditions:
+      network_mode: open
+      treaty_present: false
+      peer_in_allowlist: false
+    required_approval_class: C
+  - id: elevated-approval-for-policy-and-workflow
+    statement: Policy files, workflow files, and root mind changes require elevated human review.
+    match_paths:
+      - ".forge/policies/**"
+      - ".github/workflows/**"
+      - ".forge/mind.forge"
+    pass_conditions:
+      min_approval_class: C
+      human_approvals_min: 2
+      codeowner_review: true
+    fail_conditions:
+      approval_class_forbidden:
+        - A
+        - B
+      human_approvals_lt: 2
+      codeowner_review: false
+    required_approval_class: C
+  - id: no-self-approval-on-high-risk
+    statement: High-risk changes cannot self-approve or auto-merge.
+    applies_to_classes:
+      - C
+      - D
+    pass_conditions:
+      self_approval: false
+      auto_merge: false
+    fail_conditions:
+      self_approval: true
+      auto_merge: true
+    required_approval_class: D
+  - id: self-evolution-remains-disabled-by-default
+    statement: Self-evolution and open federation remain off until later tasks explicitly enable them.
+    pass_conditions:
+      allowed_repo_default_modes:
+        - observe
+        - propose
+      open_federation: false
+      workflow_self_mutation: false
+    fail_conditions:
+      repo_default_mode:
+        - evolve
+        - federate
+      open_federation: true
+      workflow_self_mutation: true
+    required_approval_class: D
+thresholds:
+  rate_limits:
+    max_read_concurrency_per_installation: 8
+    write_base_delay_ms: 1200
+    write_jitter_max_ms: 800
+    content_creating_soft_cap_per_minute: 20
+    max_new_forge_prs_per_hour: 5
+  repo_limits:
+    max_mutating_lanes_per_repo: 1
+    max_open_forge_prs_per_kind: 1
+    network_mode_default:
+      - allowlisted
+    spawn_mode_default:
+      - lab-only
+  path_class_floors:
+    ".forge/mind.forge": C
+    ".forge/policies/**": C
+    ".github/workflows/**": C
+    branch_protection_and_app_permissions: D
+actions_on_breach:
+  no-default-branch-write:
+    - reject_change
+    - open_incident_issue
+    - set_repo_mode: quarantine
+  behavior-change-requires-pr:
+    - reject_change
+    - require_reviewable_pull_request
+  allowlisted-federation-only:
+    - reject_change
+    - set_repo_mode: propose
+  elevated-approval-for-policy-and-workflow:
+    - reject_change
+    - request_codeowner_review
+  no-self-approval-on-high-risk:
+    - reject_change
+    - quarantine_candidate
+  self-evolution-remains-disabled-by-default:
+    - reject_change
+    - hold_for_human_governance
+required_approvals:
+  A:
+    summary: docs, tests, comments, and low-risk refactors
+    min_human_approvals: 0
+    auto_pr_allowed: true
+    merge_requires_human: false
+  B:
+    summary: normal code changes, light dependency updates, and internal prompt tuning
+    min_human_approvals: 1
+    auto_pr_allowed: true
+    merge_requires_human: true
+  C:
+    summary: workflows, permissions, policies, network treaties, and spawn settings
+    min_human_approvals: 2
+    auto_pr_allowed: false
+    codeowner_required: true
+  D:
+    summary: branch protection, app permissions, open federation, and workflow mutation
+    min_human_approvals: 2
+    auto_pr_allowed: false
+    codeowner_required: true
+    self_approval_forbidden: true
+    human_only_operation: true
+cooldowns:
+  secondary_rate_limit_backoff_seconds:
+    - 60
+    - 300
+    - 1800
+    - 7200
+  restore_requires_human_ack_after_step: 4
+  mode_downgrade_order:
+    - federate_to_propose
+    - evolve_to_propose
+    - propose_to_observe
+quarantine_triggers:
+  - secret_scanning_alert
+  - dependency_review_fail
+  - sarif_high_or_critical
+  - workflow_class_mismatch
+  - permission_drift
+  - treaty_boundary_violation
+  - repeated_secondary_rate_limit
+  - trust_score_floor_breach
+provenance:
+  seed_task: T003
+  seed_basis:
+    - 00_ForgeRoot_blueprint_設計書.md
+    - 03_issue.md
+  created_by: github://hiroshitanaka-creator
+extensions: {}

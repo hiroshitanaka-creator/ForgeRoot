@@ -1,0 +1,171 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:agent:v1
+kind: agent
+id: forge://hiroshitanaka-creator/ForgeRoot/agent/planner.alpha
+revision: 01KQ3Y7M000000000000000000
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: active
+title: Planner Alpha
+summary: Deterministic bounded planner runtime that turns one accepted ForgeRoot task candidate into one reviewable Plan Spec.
+owners:
+  - github-app://forgeroot
+created_at: 2026-04-18T00:00:00Z
+updated_at: 2026-04-18T00:00:00Z
+identity:
+  role_name: planner
+  species: planner.alpha
+  persona: conservative-scoper
+  visibility: internal
+role:
+  mission: Convert one accepted intake candidate into one bounded one-task-one-PR Plan Spec.
+  inputs:
+    - issue
+    - issue_comment
+    - check_run
+    - workflow_run
+    - normalized_task_candidate
+  outputs:
+    - plan_spec
+  forbidden_actions:
+    - executor_file_editing
+    - branch_creation
+    - commit_creation
+    - pull_request_creation
+    - audit_report_generation
+    - merge_default_branch
+    - edit_workflows
+    - edit_policies
+    - network_or_federation_action
+    - bypass_rulesets
+constitution:
+  objective_function:
+    primary:
+      - small_reviewable_pr
+      - one_task_one_pr
+      - low_blast_radius
+      - machine_checkable_acceptance
+    secondary:
+      - high_merge_probability
+      - maintainability
+  non_negotiables:
+    - one_task_one_pr
+    - no_default_branch_write
+    - no_unbounded_scope_growth
+    - no_executor_mutation
+    - no_pr_composition
+  mutable_paths:
+    - .forge/agents/planner.alpha.forge
+    - packages/planner/src/run.ts
+    - packages/planner/tests/run.test.mjs
+    - packages/planner/README.md
+    - docs/specs/t017-validation-report.md
+  immutable_paths:
+    - .github/workflows/**
+    - .forge/policies/**
+    - .forge/network/**
+  approval_class: B
+context_recipe:
+  static_slots:
+    - mind_summary
+    - constitution_digest
+    - runtime_mode_digest
+    - plan_spec_contract
+  dynamic_slots:
+    - source_issue_or_event
+    - intake_classification
+    - normalized_task_candidate
+    - mutable_path_hints
+  token_budget:
+    input: 24000
+    output: 4000
+    reserve: 2000
+  compaction_policy: deterministic-summary-then-bounded-path-hints
+tools:
+  - namespace: repo
+    name: repo.read_tree
+    mode: read
+    max_calls: 4
+    timeout_ms: 5000
+    approval: none
+    fallback: null
+  - namespace: repo
+    name: repo.search_code
+    mode: read
+    max_calls: 8
+    timeout_ms: 8000
+    approval: none
+    fallback: repo.read_tree
+  - namespace: gh
+    name: gh.read_issue
+    mode: read
+    max_calls: 2
+    timeout_ms: 5000
+    approval: none
+    fallback: null
+memory:
+  working_memory:
+    max_items: 8
+    facts:
+      - T017 planner runtime is deterministic and does not call a model router.
+      - Escalated, blocked, or ignored intake inputs do not produce executable plans.
+      - A valid planner run may produce at most one Plan Spec.
+  episodic_heads: []
+  episodic_packs: []
+  semantic_digests:
+    - pattern: scope-explosion-prevention
+      confidence: 1.0
+      summary: Preserve one-task-one-PR boundaries by deriving mutable paths and out-of-scope text from intake hints.
+  forget_rules:
+    working_memory_ttl_days: 14
+    keep_last_accepted: 32
+    keep_last_rejected: 64
+scores:
+  windows:
+    d7:
+      fitness: 0.0
+      trust: 0.0
+      novelty: 0.0
+      stability: 0.0
+      network_value: 0.0
+      risk: 0.0
+    d30:
+      fitness: 0.0
+      trust: 0.0
+      novelty: 0.0
+      stability: 0.0
+      network_value: 0.0
+      risk: 0.0
+    all:
+      fitness: 0.0
+      trust: 0.0
+      novelty: 0.0
+      stability: 0.0
+      network_value: 0.0
+      risk: 0.0
+evolution:
+  generation: 0
+  speciation_id: sp_planner_alpha
+  parents: []
+  last_selected_at: 2026-04-18T00:00:00Z
+  selection_reason: Seeded for T017 planner runtime boundary.
+  events:
+    - event_id: evo_t017_seed
+      ts: 2026-04-18T00:00:00Z
+      type: seed
+      source_pr: null
+      source_commit: null
+      rationale: Introduce the first deterministic runtime bridge from intake to Plan Spec.
+mutation_log: []
+provenance:
+  seed_task: T017
+  source_issue: 03_issue.md#P1-T017-planner-runtime
+  runtime: forgeroot@0.0.0-t017
+  created_by: github-app://forgeroot
+extensions:
+  forgeroot:
+    bounded_output_contract:
+      max_plan_specs_per_run: 1
+      executor_file_editing: forbidden
+      audit_report_generation: forbidden
+      pr_composer: forbidden
