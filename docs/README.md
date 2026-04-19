@@ -15,6 +15,7 @@ Current specs and reports:
 - `ops/thread-handoff-after-t019.md` — handoff summary for starting T023 auditor runtime
 - `ops/thread-handoff-after-t023.md` — handoff summary for starting T024 PR composer
 - `ops/thread-handoff-after-t024.md` — handoff summary for starting T025 GitHub PR adapter
+- `ops/thread-handoff-after-t025.md` — handoff summary for starting T026 approval checkpoint
 - `specs/forge-v1.md` — T004 `.forge` v1 specification seed
 - `specs/issue-intake.md` — T015 deterministic issue intake classifier
 - `specs/plan-spec.md` — T016 one-task-one-PR Plan Spec DSL
@@ -32,3 +33,4 @@ Current specs and reports:
 - `specs/t019-validation-report.md` — T019 executor sandbox harness report
 - `specs/t023-validation-report.md` — T023 auditor runtime report
 - `specs/t024-validation-report.md` — T024 PR composer report
+- `specs/t025-validation-report.md` — T025 GitHub PR adapter report

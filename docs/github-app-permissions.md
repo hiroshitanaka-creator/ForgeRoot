@@ -6,7 +6,7 @@ Manifest: `apps/github-app/app-manifest.json`
 
 This document fixes the initial GitHub App authority boundary for ForgeRoot. The control plane may receive GitHub events, create forge branches, create checks, and open reviewable pull requests. It must not administer repositories, change branch protection, edit GitHub Actions workflow files, or bypass review governance.
 
-The GitHub App is part of ForgeRoot's control plane, not the execution sandbox. Any model-generated patch is still expected to pass through later T007/T008/T018/T019/T024/T026 gates before a PR exists.
+The GitHub App is part of ForgeRoot's control plane, not the execution sandbox. Any model-generated patch is still expected to pass through later T007/T008/T018/T019/T024/T025/T026 gates before a PR exists.
 
 ## Source-of-truth policy
 
