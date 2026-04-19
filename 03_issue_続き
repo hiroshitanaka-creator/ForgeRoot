@@ -1,0 +1,2197 @@
+03_issue.md 追補案：T040以降 canonical task source
+16. [P2+][T040-T084] canonical task source append
+
+Rule: ここに定義する issue も、既存 03_issue.md と同じく 1 issue = 1 bounded PR scope を守る。
+Rule: forge:auto は manifest-only / docs / deterministic validator 系に限定する。self-evolution / federation / workflow / permission / release 系には原則付与しない。
+Rule: T029〜T039 の詳細 issue source はこの追補では埋めない。欠番を埋めない規則に従い、T040以降だけを追加定義する。
+Rule: 依存先が未canonicalの場合、その issue は status:blocked として扱う。
+
+16.1 Phase 2 safety / memory / evaluation continuation
+[P2][T040] SARIF bridge
+
+Suggested labels
+
+forge:auto
+phase:P2
+class:B
+risk:high
+## Goal
+Auditor / scan / sandbox evidence を SARIF-compatible な正規化 finding artifact に変換する deterministic bridge を実装する。
+
+## Why now
+T041 security gates は、scan 結果を直接読むのではなく、再現可能でレビュー可能な SARIF-like finding surface を前提にすべきため。
+
+## Scope
+- internal audit finding から SARIF-like result への変換
+- severity / level / ruleId / location / fingerprint の正規化
+- path normalization
+- deterministic ordering
+- invalid finding rejection
+- fixture-driven tests
+
+## Out of scope
+- GitHub Code Scanning への upload
+- `.github/workflows/*` の追加
+- branch protection / ruleset mutation
+- security gate 判定
+- memory / eval state update
+- federation / self-evolution
+
+## Dependencies
+- T014 runtime mode and kill switch
+- T023 auditor runtime
+- T028 end-to-end forged PR demo manifest chain
+- 00_ForgeRoot_blueprint_設計書.md
+- 01_単語や命名規則.md
+
+## Deliverables
+- `docs/specs/sarif-bridge.md`
+- `packages/auditor/src/sarif.ts`
+- `packages/auditor/tests/sarif.test.mjs`
+- `docs/specs/fixtures/sarif-bridge/valid/*.json`
+- `docs/specs/fixtures/sarif-bridge/invalid/*.json`
+- `docs/specs/t040-validation-report.md`
+
+## Acceptance criteria
+- 同一 input から同一 SARIF-like artifact が生成される
+- high / medium / low / note 相当の severity mapping が明文化されている
+- file path / line / column / ruleId / fingerprint が安定する
+- malformed input を reject できる
+- GitHub API を呼ばない
+- workflow / policy / ruleset を変更しない
+- Node test が pass する
+
+## Risks
+- SARIF schema を中途半端に模倣して後続 gate が誤判定する
+- path normalization の失敗で workspace path や secret-like path を漏らす
+- severity mapping が曖昧で security gate が過剰または過少反応する
+[P2][T041] security gates
+
+Suggested labels
+
+forge:plan
+phase:P2
+class:C
+risk:high
+## Goal
+T040 の SARIF-like artifact と既存 approval / runtime / rate boundary を接続し、PR transport 前に security gate decision を出す。
+
+## Why now
+ForgeRoot は安全最低ラインとして SARIF bridge と security gates を先に持つ必要があるため。
+
+## Scope
+- security gate policy の初版
+- SARIF-like finding から block / hold / pass / quarantine への deterministic 判定
+- severity threshold
+- allowed / denied ruleId
+- immutable path violation との接続
+- approval checkpoint へ渡す gate summary manifest
+
+## Out of scope
+- GitHub ruleset 作成
+- branch protection 変更
+- Code Scanning upload
+- dependency review の live API integration
+- auto-merge
+- self-evolution
+- federation
+
+## Dependencies
+- T014 runtime mode and kill switch
+- T026 approval checkpoint
+- T027 rate governor queue
+- T040 SARIF bridge
+
+## Deliverables
+- `.forge/policies/security-gates.forge`
+- `docs/specs/security-gates.md`
+- `packages/auditor/src/security-gates.ts`
+- `packages/auditor/tests/security-gates.test.mjs`
+- `docs/specs/fixtures/security-gates/valid/*.json`
+- `docs/specs/fixtures/security-gates/invalid/*.json`
+- `docs/specs/t041-validation-report.md`
+
+## Acceptance criteria
+- high / critical 相当 finding で transport authorization が block または quarantine になる
+- medium 相当 finding は policy に応じて hold にできる
+- docs-only / tests-only の low risk finding は pass 可能
+- gate decision に理由、finding summary、affected paths が含まれる
+- GitHub API を呼ばない
+- branch protection / ruleset を変更しない
+- `.forge/policies/security-gates.forge` が schema validation 可能
+
+## Risks
+- gate が緩すぎて危険 PR を通す
+- gate が厳しすぎて Phase 1 loop が停止する
+- approval checkpoint と責務が混ざる
+[P2][T042] memory/eval/security dashboard source
+
+Suggested labels
+
+forge:auto
+phase:P2
+class:B
+risk:medium
+## Goal
+memory / eval / security gate の状態を、GitHub PR review で読める deterministic report artifact として出力する。
+
+## Why now
+MemoryKeeper / Evaluator / SecurityGate の結果が散在すると、人間が Forge Mind の健康状態を判断できないため。
+
+## Scope
+- report artifact schema
+- fitness / trust / risk / gate summary の表示仕様
+- SARIF gate summary の human-readable rendering
+- JSON + Markdown report generation
+- fixture tests
+
+## Out of scope
+- browser extension 本実装
+- live dashboard hosting
+- GitHub Checks API 送信
+- memory score の算出本体
+- federation observability
+
+## Dependencies
+- T040 SARIF bridge
+- T041 security gates
+- P2 memory / evaluator task definitions once canonicalized
+
+## Deliverables
+- `docs/specs/forge-report.md`
+- `packages/reporting/src/security-report.ts`
+- `packages/reporting/src/fitness-report.ts`
+- `packages/reporting/tests/report.test.mjs`
+- `docs/specs/t042-validation-report.md`
+
+## Acceptance criteria
+- SARIF gate result を Markdown summary に決定的変換できる
+- report には source artifact hash / task id / approval class が含まれる
+- missing score は `unknown` として扱い、推測で埋めない
+- GitHub API を呼ばない
+- UI / extension を作らない
+
+## Risks
+- dashboard が source of truth のように扱われる
+- missing value を推測で埋めて評価汚染する
+16.2 Phase 3 bounded self-evolution
+[P3][T043] mutation taxonomy registry
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+ForgeRoot で許可される mutation class と禁止される mutation class を registry として定義する。
+
+## Why now
+自己進化を始める前に、何が mutation で、何が policy breach かを固定する必要があるため。
+
+## Scope
+- mutation taxonomy
+- prompt_patch / tool_route_patch / threshold_shift / role_split / role_merge / memory_prune / policy_tighten / peer_graft の定義
+- forbidden mutation class
+- approval class mapping
+- mutation target path constraints
+
+## Out of scope
+- mutation 実行
+- prompt patch application
+- shadow eval
+- self-evolution PR creation
+
+## Dependencies
+- Phase 2 exit criteria
+- T041 security gates
+
+## Deliverables
+- `docs/specs/mutations.md`
+- `.forge/policies/mutation-operators.forge`
+- `docs/specs/fixtures/mutations/*.json`
+- `docs/specs/t043-validation-report.md`
+
+## Acceptance criteria
+- 各 mutation class に目的、許可対象、禁止対象、approval class がある
+- workflow / permission / ruleset weakening が禁止 mutation として定義される
+- MutationEngine が自己 budget を増やせない制約が明記される
+- EvolutionGuard を弱める mutation が禁止される
+
+## Risks
+- mutation class が曖昧で自己改変が野放しになる
+- policy と taxonomy の責務が混ざる
+[P3][T044] mutation budget policy
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+mutation の頻度、cooldown、risk cap、同時実行数、rollback 条件を policy として固定する。
+
+## Why now
+MutationEngine を作る前に、自己進化の暴走を予算で止める必要があるため。
+
+## Scope
+- mutation budget
+- cooldown
+- max open mutation PRs
+- per-agent mutation cadence
+- rejected mutation retry rules
+- emergency downgrade triggers
+
+## Out of scope
+- mutation proposal generation
+- shadow eval engine
+- live scheduler
+- rollback execution
+
+## Dependencies
+- T043 mutation taxonomy registry
+- T014 runtime mode and kill switch
+- T041 security gates
+
+## Deliverables
+- `.forge/policies/mutation-budget.forge`
+- `docs/specs/mutation-budget.md`
+- `docs/specs/t044-validation-report.md`
+
+## Acceptance criteria
+- 連続 rejected mutation の上限がある
+- open mutation PR 数の上限がある
+- policy weakening は Class D として扱われる
+- budget 超過時は propose / observe / quarantine に降格可能
+
+## Risks
+- budget が緩すぎて自己進化が連鎖する
+- budget が厳しすぎて改善が止まる
+[P3][T045] shadow-run harness
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+mutation candidate を本番採択前に shadow environment で評価する harness を作る。
+
+## Why now
+自己進化は本番 PR に出す前に、既存 eval / security gate / regression fixture を通す必要があるため。
+
+## Scope
+- shadow run request manifest
+- baseline vs candidate comparison
+- allowed artifact list
+- deterministic score delta calculation
+- failure classification
+
+## Out of scope
+- live workflow creation
+- real sandbox execution
+- mutation generation
+- PR creation
+- model provider integration
+
+## Dependencies
+- T034 eval suite DSL once canonicalized
+- T037 fitness calculator once canonicalized
+- T041 security gates
+- T043 mutation taxonomy
+- T044 mutation budget policy
+
+## Deliverables
+- `packages/eval/src/shadow-run.ts`
+- `packages/eval/tests/shadow-run.test.mjs`
+- `docs/specs/shadow-run.md`
+- `docs/specs/t045-validation-report.md`
+
+## Acceptance criteria
+- baseline / candidate / regression result を deterministic に比較できる
+- score improvement と risk increase を分離して出力できる
+- failed shadow run は mutation PR へ進めない
+- GitHub API を呼ばない
+- workflow を追加しない
+
+## Risks
+- shadow eval が甘く、危険 mutation が通る
+- score delta が非決定的になる
+[P3][T046] prompt genome patcher
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+agent prompt / context recipe の mutation を RFC6902-like patch として表現・検証する。
+
+## Why now
+prompt mutation は diff review 可能でなければ自己進化として採用できないため。
+
+## Scope
+- prompt patch schema
+- allowed target paths
+- forbidden target paths
+- patch apply dry-run
+- before / after digest
+- validation tests
+
+## Out of scope
+- prompt generation
+- mutation selection
+- automatic merge
+- workflow / permission mutation
+
+## Dependencies
+- T043 mutation taxonomy
+- T044 mutation budget policy
+- T045 shadow-run harness
+
+## Deliverables
+- `packages/mutate/src/prompt-patch.ts`
+- `packages/mutate/tests/prompt-patch.test.mjs`
+- `docs/specs/prompt-patch.md`
+- `docs/specs/t046-validation-report.md`
+
+## Acceptance criteria
+- allowed `.forge/agents/*.forge` prompt field のみ変更対象にできる
+- policy / workflow / permissions を patch target にできない
+- patch application が deterministic
+- invalid patch を reject できる
+
+## Risks
+- prompt patch が policy bypass に使われる
+- context recipe の変更が広すぎて review 不能になる
+[P3][T047] tool-routing mutator
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+agent の tool namespace / max_calls / timeout / approval requirement の変更を bounded mutation として扱う。
+
+## Why now
+tool routing の変更は agent の行動範囲を変えるため、prompt 以上に厳密な境界が必要なため。
+
+## Scope
+- tool routing patch schema
+- namespace allowlist
+- max_calls upper bound
+- timeout upper bound
+- approval escalation rule
+- diff summary generation
+
+## Out of scope
+- tool implementation
+- MCP server implementation
+- external network permission expansion
+- policy weakening
+
+## Dependencies
+- T043 mutation taxonomy
+- T044 mutation budget policy
+- T045 shadow-run harness
+
+## Deliverables
+- `packages/mutate/src/tool-routing.ts`
+- `packages/mutate/tests/tool-routing.test.mjs`
+- `docs/specs/tool-routing-mutation.md`
+- `docs/specs/t047-validation-report.md`
+
+## Acceptance criteria
+- tool permission expansion は approval class escalation される
+- forbidden namespace は reject される
+- max_calls / timeout の budget 超過を reject できる
+- deterministic diff summary が出る
+
+## Risks
+- tool route mutation が権限拡張の抜け道になる
+- tool budget 増加が rate limit 事故を誘発する
+[P3][T048] role split/merge mechanism
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+agent species の split / merge を lineage 上の明示的イベントとして表現する。
+
+## Why now
+自己進化で role が分化しても、系譜と責務境界が追跡不能になることを防ぐため。
+
+## Scope
+- species split manifest
+- species merge manifest
+- parent / child relation
+- role boundary change summary
+- lineage update proposal
+
+## Out of scope
+- automatic species promotion
+- live agent deployment
+- cross-repo species graft
+- policy mutation
+
+## Dependencies
+- T043 mutation taxonomy
+- T045 shadow-run harness
+- T046 prompt genome patcher
+- T047 tool-routing mutator
+
+## Deliverables
+- `packages/mutate/src/speciation.ts`
+- `packages/mutate/tests/speciation.test.mjs`
+- `.forge/lineage/species.forge`
+- `docs/specs/speciation.md`
+- `docs/specs/t048-validation-report.md`
+
+## Acceptance criteria
+- split / merge に parent / child / rationale / approval class が含まれる
+- role boundary の変化が明示される
+- silent overwrite にならない
+- lineage cycle を reject できる
+
+## Risks
+- species が無意味に増殖する
+- role merge で責務分離が崩れる
+[P3][T049] n-version audit routing
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:B
+risk:medium
+## Goal
+Executor / MutationEngine と異なる evaluator profile で audit を行う n-version audit routing を定義する。
+
+## Why now
+自己進化では同一視点の自己監査が失敗しやすく、独立した監査経路が必要なため。
+
+## Scope
+- audit profile selection
+- primary / secondary verifier routing
+- disagreement summary
+- deterministic fallback
+- audit evidence manifest
+
+## Out of scope
+- model provider implementation
+- secret handling
+- live external calls
+- automatic approval
+
+## Dependencies
+- T023 auditor runtime
+- T041 security gates
+- T045 shadow-run harness
+
+## Deliverables
+- `packages/auditor/src/nversion.ts`
+- `packages/auditor/tests/nversion.test.mjs`
+- `docs/specs/n-version-audit.md`
+- `docs/specs/t049-validation-report.md`
+
+## Acceptance criteria
+- verifier profile が executor profile と同一の場合は警告または reject できる
+- disagreement が PR summary に載せられる
+- routing decision が deterministic
+- secret / token を扱わない
+
+## Risks
+- n-version と言いながら同一モデル依存になる
+- disagreement を無視して危険 PR が進む
+[P3][T050] EvolutionGuard engine
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:critical
+## Goal
+mutation proposal を policy / budget / security / lineage / approval class で検査する EvolutionGuard を実装する。
+
+## Why now
+MutationEngine より先に、危険変異を止める独立 guard が必要なため。
+
+## Scope
+- EvolutionGuard agent definition
+- guard decision manifest
+- mutation budget enforcement
+- forbidden target detection
+- self-disable prevention
+- quarantine decision
+
+## Out of scope
+- mutation generation
+- PR creation
+- merge execution
+- workflow / ruleset modification
+
+## Dependencies
+- T041 security gates
+- T043 mutation taxonomy
+- T044 mutation budget policy
+- T049 n-version audit routing
+
+## Deliverables
+- `.forge/agents/evolution-guard.alpha.forge`
+- `packages/guard/src/run.ts`
+- `packages/guard/tests/run.test.mjs`
+- `docs/specs/evolution-guard.md`
+- `docs/specs/t050-validation-report.md`
+
+## Acceptance criteria
+- policy weakening mutation を reject できる
+- EvolutionGuard 自身の無効化を reject できる
+- budget 超過を block / quarantine に変換できる
+- decision に reason と evidence refs が含まれる
+
+## Risks
+- Guard と MutationEngine の責務が混ざる
+- Guard 自身が弱体化可能になる
+[P3][T051] mutation PR generator
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+shadow eval と EvolutionGuard を通過した mutation candidate を reviewable PR composition manifest に変換する。
+
+## Why now
+行動変化は必ず PR として運ぶ必要があるため。
+
+## Scope
+- mutation PR title/body template
+- before / after fitness summary
+- risk delta summary
+- rollback plan embedding
+- approval class propagation
+
+## Out of scope
+- GitHub API call
+- automatic merge
+- mutation proposal generation
+- live self-deployment
+
+## Dependencies
+- T024 PR composer
+- T045 shadow-run harness
+- T050 EvolutionGuard engine
+
+## Deliverables
+- `packages/mutate/src/pr.ts`
+- `packages/mutate/tests/pr.test.mjs`
+- `docs/specs/mutation-pr.md`
+- `docs/specs/t051-validation-report.md`
+
+## Acceptance criteria
+- mutation PR body に hypothesis / eval / risk / rollback が含まれる
+- Class C/D mutation が self-approve されない
+- GitHub API を呼ばない
+- PR composition manifest と互換性がある
+
+## Risks
+- mutation PR が通常 code PR と区別できない
+- rollback 情報が欠落する
+[P3][T052] rollback engine
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+accepted mutation の rollback proposal を deterministic に生成する。
+
+## Why now
+自己進化は rollback 可能でなければ採択してはいけないため。
+
+## Scope
+- rollback candidate schema
+- rollback target mutation reference
+- inverse patch generation where possible
+- fallback manual rollback instruction
+- regression trigger mapping
+
+## Out of scope
+- direct revert execution
+- GitHub API call
+- auto-merge
+- policy rollback without human approval
+
+## Dependencies
+- T046 prompt genome patcher
+- T047 tool-routing mutator
+- T050 EvolutionGuard engine
+- T051 mutation PR generator
+
+## Deliverables
+- `packages/guard/src/rollback.ts`
+- `packages/guard/tests/rollback.test.mjs`
+- `docs/specs/mutation-rollback.md`
+- `docs/specs/t052-validation-report.md`
+
+## Acceptance criteria
+- rollback target が mutation_id で参照される
+- inverse patch が作れない場合は manual rollback plan を出す
+- rollback も PR 経由で表現される
+- direct default branch write をしない
+
+## Risks
+- rollback が再度危険 mutation になる
+- inverse patch を過信する
+[P3][T053] lineage graph thresholds
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+agent species の promotion / deprecation / quarantine を lineage graph threshold として定義する。
+
+## Why now
+self-evolution の結果を単なる最新状態ではなく、選択された系譜として扱う必要があるため。
+
+## Scope
+- lineage graph threshold
+- promotion rule
+- deprecation rule
+- rollback / quarantine rule
+- parent-child validity check
+
+## Out of scope
+- network lineage exchange
+- peer graft
+- automatic adoption
+- UI visualization
+
+## Dependencies
+- T037 fitness calculator once canonicalized
+- T048 role split/merge mechanism
+- T052 rollback engine
+
+## Deliverables
+- `.forge/lineage/graph.forge`
+- `packages/eval/src/speciation-thresholds.ts`
+- `packages/eval/tests/speciation-thresholds.test.mjs`
+- `docs/specs/lineage-thresholds.md`
+- `docs/specs/t053-validation-report.md`
+
+## Acceptance criteria
+- promotion に必要な fitness / trust / stability 条件が明文化される
+- risk 上昇時の deprecation / quarantine 条件がある
+- parent cycle を reject できる
+- silent replacement ができない
+
+## Risks
+- 最新 species が常に勝つ設計になる
+- lineage graph が評価と乖離する
+[P3][T054] evolution scheduler
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:high
+## Goal
+self-evolution の実行 cadence と queueing を runtime policy に従って決定する scheduler manifest を作る。
+
+## Why now
+mutation は思いついた時に即実行するのではなく、budget / cooldown / rate governance の内側で動く必要があるため。
+
+## Scope
+- evolution schedule manifest
+- cooldown handling
+- runtime mode gating
+- open mutation PR cap
+- deterministic scheduling decision
+
+## Out of scope
+- `.github/workflows/*` 追加
+- cron 実行
+- GitHub API call
+- mutation generation
+
+## Dependencies
+- T027 rate governor queue
+- T044 mutation budget policy
+- T050 EvolutionGuard engine
+- T053 lineage graph thresholds
+
+## Deliverables
+- `packages/runtime/src/evolve-schedule.ts`
+- `packages/runtime/tests/evolve-schedule.test.mjs`
+- `docs/specs/evolution-scheduler.md`
+- `docs/specs/t054-validation-report.md`
+
+## Acceptance criteria
+- runtime mode が observe / propose の場合に evolution を止められる
+- cooldown 中に mutation を起動しない
+- open mutation PR 上限を超えない
+- workflow を追加しない
+
+## Risks
+- scheduler が mutation spam を発生させる
+- runtime mode と不整合になる
+[P3][T055] evolution report generator
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:B
+risk:medium
+## Goal
+mutation candidate / accepted mutation / rollback の before-after report を生成する。
+
+## Why now
+自己進化 PR は、人間が hypothesis / evidence / score delta / rollback を一目で判断できる必要があるため。
+
+## Scope
+- evolution report schema
+- Markdown report renderer
+- score delta table
+- risk delta table
+- lineage diff summary
+
+## Out of scope
+- dashboard UI
+- PR creation
+- automatic approval
+- live model call
+
+## Dependencies
+- T051 mutation PR generator
+- T052 rollback engine
+- T053 lineage graph thresholds
+
+## Deliverables
+- `packages/reporting/src/evolution-report.ts`
+- `packages/reporting/tests/evolution-report.test.mjs`
+- `docs/specs/evolution-report.md`
+- `docs/specs/t055-validation-report.md`
+
+## Acceptance criteria
+- mutation hypothesis / eval result / risk delta / rollback が report に含まれる
+- missing score を推測で埋めない
+- Markdown と JSON の両方を deterministic に出力できる
+
+## Risks
+- report が楽観的説明に偏る
+- rollback 不備が隠れる
+[P3][T056] self-evolution demo
+
+Suggested labels
+
+forge:plan
+phase:P3
+class:C
+risk:critical
+## Goal
+lab-only で、安全な prompt または threshold mutation を self-evolution PR として生成する demo を成立させる。
+
+## Why now
+Phase 3 の価値は、自己改変が reviewable PR として安全に通ることで初めて検証できるため。
+
+## Scope
+- lab-only mutation candidate
+- shadow eval
+- EvolutionGuard pass
+- mutation PR composition
+- rollback report
+- validation report
+
+## Out of scope
+- production self-evolution
+- workflow mutation
+- permission mutation
+- policy weakening
+- automatic merge
+- federation
+
+## Dependencies
+- T043-T055
+- Phase 2 exit criteria
+
+## Deliverables
+- `docs/ops/t056-self-evolution-demo.md`
+- `docs/ops/examples/t056-mutation-pr-example.md`
+- `docs/specs/fixtures/self-evolution-demo/valid/*.json`
+- `docs/specs/t056-validation-report.md`
+
+## Acceptance criteria
+- lab-only mutation が PR composition manifest として生成される
+- shadow eval / guard / rollback evidence が揃う
+- production mode では実行されない
+- workflow / permission / ruleset を変更しない
+
+## Risks
+- demo のために安全境界を緩める
+- lab と production の境界が曖昧になる
+16.3 Phase 4 federation
+[P4][T057] treaty schema
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:high
+## Goal
+Forge Mind 間の allowlisted federation を treaty schema として定義する。
+
+## Why now
+peer との相互作用は、PR / lineage / fork の前に外交境界を固定しなければならないため。
+
+## Scope
+- treaty schema
+- peer repo identity
+- allowed actions
+- forbidden actions
+- revocation policy
+- reputation floor
+
+## Out of scope
+- peer discovery
+- cross-repo PR
+- fork creation
+- open federation
+
+## Dependencies
+- Phase 3 exit criteria
+- 01_単語や命名規則.md
+
+## Deliverables
+- `docs/specs/treaty.md`
+- `.forge/network/treaty-schema.forge`
+- `docs/specs/fixtures/treaty/valid/*.forge`
+- `docs/specs/fixtures/treaty/invalid/*.forge`
+- `docs/specs/t057-validation-report.md`
+
+## Acceptance criteria
+- treaty に allowed_actions / forbidden_actions / revocation_policy がある
+- treaty なし通信が禁止される
+- open federation が初期値にならない
+- schema validation 可能
+
+## Risks
+- federation boundary が曖昧になる
+- peer 権限が過剰になる
+[P4][T058] peer registry
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:high
+## Goal
+allowlisted peer Forge の registry を `.forge/network` に定義する。
+
+## Why now
+Networker は treaty と registry なしに peer と通信してはいけないため。
+
+## Scope
+- peer registry schema
+- peer identity
+- trust level
+- treaty reference
+- status / quarantine state
+- deterministic peer lookup
+
+## Out of scope
+- remote network call
+- reputation calculation
+- fork creation
+- cross-repo PR
+
+## Dependencies
+- T057 treaty schema
+
+## Deliverables
+- `.forge/network/peers.forge`
+- `packages/network/src/registry.ts`
+- `packages/network/tests/registry.test.mjs`
+- `docs/specs/peer-registry.md`
+- `docs/specs/t058-validation-report.md`
+
+## Acceptance criteria
+- unknown peer を reject できる
+- treaty なし peer を active にできない
+- status が active / suspended / quarantined / deprecated で表現できる
+- lookup が deterministic
+
+## Risks
+- allowlist が事実上 open list になる
+- peer identity が曖昧になる
+[P4][T059] remote discovery scan
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:high
+## Goal
+peer Forge と接触する前に、互換性と危険兆候を dry-run scan する manifest を作る。
+
+## Why now
+federation は相手 repo の treaty / `.forge` / policy を読んでからでなければ安全に開始できないため。
+
+## Scope
+- discovery scan request
+- compatibility check
+- forge version check
+- treaty presence check
+- policy risk summary
+
+## Out of scope
+- unauthorized remote access
+- automatic treaty creation
+- cross-repo PR
+- fork creation
+
+## Dependencies
+- T057 treaty schema
+- T058 peer registry
+- Forge Kernel validation surface
+
+## Deliverables
+- `packages/network/src/discovery.ts`
+- `packages/network/tests/discovery.test.mjs`
+- `docs/specs/remote-discovery.md`
+- `docs/specs/t059-validation-report.md`
+
+## Acceptance criteria
+- unknown peer / incompatible forge_version / missing treaty を blocked にできる
+- discovery result が deterministic manifest になる
+- write operation を行わない
+- registry 外 peer を scan 対象にできない
+
+## Risks
+- discovery が実質的な unauthorized crawling になる
+- compatibility を過信する
+[P4][T060] fork manager
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:critical
+## Goal
+lab-only / treaty-bound な fork experiment manifest を生成する。
+
+## Why now
+fork は種分化 / 繁殖に相当するため、実験境界を明示しないまま実行してはいけないため。
+
+## Scope
+- fork experiment manifest
+- allowed peer / branch / task scope
+- lab-only enforcement
+- fork lineage reference
+- cleanup instruction
+
+## Out of scope
+- GitHub API fork call
+- public repo proliferation
+- open federation
+- automatic PR creation
+
+## Dependencies
+- T057 treaty schema
+- T058 peer registry
+- T059 remote discovery scan
+
+## Deliverables
+- `packages/network/src/fork.ts`
+- `packages/network/tests/fork.test.mjs`
+- `docs/specs/fork-experiment.md`
+- `docs/specs/t060-validation-report.md`
+
+## Acceptance criteria
+- lab-only 以外の fork experiment を reject できる
+- treaty scope 外 fork を reject できる
+- fork rationale / cleanup plan / lineage ref が含まれる
+- GitHub API を呼ばない
+
+## Risks
+- fork が無制限自己複製に近づく
+- cleanup plan が欠落する
+[P4][T061] lineage export/import pack
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:high
+## Goal
+peer Forge と交換可能な lineage pack を export / import する deterministic packer を作る。
+
+## Why now
+分散進化では mutation / eval / lineage の証跡を、レビュー可能かつ検証可能な単位で交換する必要があるため。
+
+## Scope
+- lineage pack schema
+- export manifest
+- import validation
+- signature / hash reference
+- treaty scope enforcement
+
+## Out of scope
+- network transport
+- automatic adoption
+- peer reputation scoring
+- cross-repo PR
+
+## Dependencies
+- T032 archive packer once canonicalized
+- T053 lineage graph thresholds
+- T057 treaty schema
+- T058 peer registry
+
+## Deliverables
+- `packages/network/src/lineage-pack.ts`
+- `packages/network/tests/lineage-pack.test.mjs`
+- `docs/specs/lineage-pack.md`
+- `docs/specs/t061-validation-report.md`
+
+## Acceptance criteria
+- treaty scope 外 lineage を export できない
+- invalid hash / signature / schema を reject できる
+- import は adoption ではなく candidate registration に留まる
+- deterministic ordering がある
+
+## Risks
+- import が自動 adoption になる
+- peer 由来データが trust boundary を越える
+[P4][T062] cross-repo PR composer
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:critical
+## Goal
+peer repo 向け PR の composition manifest を treaty evidence 付きで作成する。
+
+## Why now
+Forge Mind 間の提案も、通常のPRと同じくレビュー可能な差分として運ぶ必要があるため。
+
+## Scope
+- cross-repo PR composition schema
+- treaty evidence summary
+- peer reputation summary
+- lineage pack reference
+- allowed path summary
+
+## Out of scope
+- GitHub API call
+- actual PR creation
+- fork creation
+- automatic merge
+- treaty creation
+
+## Dependencies
+- T024 PR composer
+- T057 treaty schema
+- T058 peer registry
+- T061 lineage export/import pack
+
+## Deliverables
+- `packages/network/src/cross-pr.ts`
+- `packages/network/tests/cross-pr.test.mjs`
+- `docs/specs/cross-repo-pr.md`
+- `docs/specs/t062-validation-report.md`
+
+## Acceptance criteria
+- treaty なし peer には PR composition を作れない
+- peer allowed_actions 外の提案を reject できる
+- body に treaty / lineage / risk / rollback 相当が含まれる
+- GitHub API を呼ばない
+
+## Risks
+- cross-repo PR が spam 化する
+- peer boundary を PR body だけで曖昧にする
+[P4][T063] peer reputation scoring
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:high
+## Goal
+peer Forge の提案品質、policy compliance、adoption outcome を reputation score に変換する。
+
+## Why now
+federation では peer を同等に扱うと、低品質または悪性 peer による汚染が起きるため。
+
+## Scope
+- peer reputation schema
+- scoring inputs
+- downrank rule
+- quarantine threshold
+- revocation trigger
+
+## Out of scope
+- global reputation network
+- public ranking
+- automatic adoption
+- network transport
+
+## Dependencies
+- T057 treaty schema
+- T058 peer registry
+- T061 lineage pack
+- T062 cross-repo PR composer
+
+## Deliverables
+- `.forge/network/reputation.forge`
+- `packages/eval/src/peer-reputation.ts`
+- `packages/eval/tests/peer-reputation.test.mjs`
+- `docs/specs/peer-reputation.md`
+- `docs/specs/t063-validation-report.md`
+
+## Acceptance criteria
+- repeated rejected peer proposals で score が下がる
+- policy breach で quarantine 可能
+- score は deterministic に再計算可能
+- reputation は adoption の補助であり source of truth ではない
+
+## Risks
+- reputation が恣意的になる
+- score が自動採択の根拠として過信される
+[P4][T064] gossip sync cadence
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:high
+## Goal
+peer sync の cadence / jitter / cooldown / rate boundary を manifest として定義する。
+
+## Why now
+federation は rate limit と PR spam を避けるため、同期頻度を明確に制御する必要があるため。
+
+## Scope
+- gossip schedule decision
+- peer offset
+- cooldown handling
+- runtime mode gating
+- rate governor integration
+
+## Out of scope
+- `.github/workflows/*` 追加
+- live network transport
+- peer discovery
+- cross-repo PR creation
+
+## Dependencies
+- T027 rate governor queue
+- T058 peer registry
+- T063 peer reputation scoring
+
+## Deliverables
+- `packages/network/src/gossip.ts`
+- `packages/network/tests/gossip.test.mjs`
+- `docs/specs/gossip-cadence.md`
+- `docs/specs/t064-validation-report.md`
+
+## Acceptance criteria
+- runtime mode が federate でない場合は sync しない
+- quarantined peer を sync 対象にしない
+- jitter / cooldown が deterministic に計算される
+- workflow を追加しない
+
+## Risks
+- sync が PR spam になる
+- peer ごとの cooldown が無視される
+[P4][T065] conflict arbitration arena
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:high
+## Goal
+複数 peer / species から来た相反する提案を arena で比較する評価 manifest を作る。
+
+## Why now
+分散進化では対立案をレビューの好みではなく、local benchmark と policy compliance で比較する必要があるため。
+
+## Scope
+- arena comparison schema
+- candidate registration
+- local eval binding
+- conflict reason classification
+- winner / loser / inconclusive decision
+
+## Out of scope
+- automatic merge
+- peer negotiation
+- live benchmark execution
+- global consensus protocol
+
+## Dependencies
+- T045 shadow-run harness
+- T053 lineage graph thresholds
+- T063 peer reputation scoring
+
+## Deliverables
+- `packages/eval/src/arena.ts`
+- `packages/eval/tests/arena.test.mjs`
+- `labs/arena/README.md`
+- `docs/specs/conflict-arena.md`
+- `docs/specs/t065-validation-report.md`
+
+## Acceptance criteria
+- two or more candidates を deterministic に比較できる
+- inconclusive を明示できる
+- reputation は補助入力であり唯一の判定基準にならない
+- local policy breach candidate を reject できる
+
+## Risks
+- arena が複雑化して判断不能になる
+- peer reputation が評価を歪める
+[P4][T066] symbiosis workflow demo
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:high
+## Goal
+lab repos 間で lib / app の相利共生的な cross-repo proposal demo を作る。
+
+## Why now
+federation の価値は、単なる fork ではなく依存 repo 間の相互改善で示す必要があるため。
+
+## Scope
+- lab-only topology
+- lib repo proposal
+- app repo response
+- lineage pack exchange example
+- human-readable walkthrough
+
+## Out of scope
+- public repo federation
+- live GitHub PR creation
+- open peer discovery
+- production treaty
+
+## Dependencies
+- T061 lineage export/import pack
+- T062 cross-repo PR composer
+- T065 conflict arbitration arena
+
+## Deliverables
+- `labs/forge-net/lib-app-demo/README.md`
+- `docs/ops/t066-symbiosis-demo.md`
+- `docs/ops/examples/t066-cross-repo-proposal.json`
+- `docs/specs/t066-validation-report.md`
+
+## Acceptance criteria
+- lab-only で lib/app 間の proposal flow が説明できる
+- treaty / lineage / reputation が demo artifact に含まれる
+- live GitHub mutation を行わない
+- production federation と混同されない
+
+## Risks
+- demo が本番 federation のように誤読される
+- cross-repo flow が手作業に依存する
+[P4][T067] network sandbox policy
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:critical
+## Goal
+Networker が peer とやり取りできる範囲を network sandbox policy として固定する。
+
+## Why now
+federation は外部入力を扱うため、通常 sandbox より厳しい trust boundary が必要なため。
+
+## Scope
+- network boundary policy
+- allowed peer actions
+- denied peer actions
+- import quarantine
+- treaty breach handling
+
+## Out of scope
+- network transport implementation
+- open federation
+- external crawler
+- policy weakening
+
+## Dependencies
+- T057 treaty schema
+- T058 peer registry
+- T061 lineage export/import pack
+- T063 peer reputation scoring
+
+## Deliverables
+- `.forge/policies/network-boundary.forge`
+- `docs/specs/network-boundary.md`
+- `packages/network/src/boundary.ts`
+- `packages/network/tests/boundary.test.mjs`
+- `docs/specs/t067-validation-report.md`
+
+## Acceptance criteria
+- treaty 外 action を reject できる
+- unknown peer input を quarantine できる
+- imported lineage を即 adoption しない
+- open federation が初期値にならない
+
+## Risks
+- network boundary が通常 runtime policy と重複する
+- peer input が信頼済みとして扱われる
+[P4][T068] federation observability
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:B
+risk:medium
+## Goal
+peer interaction / treaty status / lineage import-export / reputation を report artifact として可視化する。
+
+## Why now
+分散進化は、人間がどの peer から何を受け取ったか追えなければ危険なため。
+
+## Scope
+- federation report schema
+- peer status summary
+- treaty summary
+- lineage exchange summary
+- quarantine / revocation summary
+
+## Out of scope
+- browser extension UI
+- live dashboard hosting
+- network transport
+- automatic treaty changes
+
+## Dependencies
+- T058 peer registry
+- T061 lineage pack
+- T063 peer reputation scoring
+- T067 network sandbox policy
+
+## Deliverables
+- `packages/reporting/src/federation-report.ts`
+- `packages/reporting/tests/federation-report.test.mjs`
+- `docs/specs/federation-observability.md`
+- `docs/specs/t068-validation-report.md`
+
+## Acceptance criteria
+- peer ごとの status / reputation / treaty が report に出る
+- lineage import/export が追跡可能
+- revoked / quarantined peer が明示される
+- report は source of truth ではなく派生物として扱われる
+
+## Risks
+- report が treaty 本体の代替になる
+- peer risk を過小表示する
+[P4][T069] three-repo forge-net testnet
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:high
+## Goal
+allowlisted 3 repo 以上の forge-net testnet topology を定義する。
+
+## Why now
+federation は単一 peer ではなく、複数 Forge Mind 間の相互作用で検証する必要があるため。
+
+## Scope
+- testnet topology file
+- repo roles
+- treaty links
+- allowed action matrix
+- expected demo flows
+
+## Out of scope
+- public federation
+- live PR creation
+- production deployment
+- unrestricted fork network
+
+## Dependencies
+- T057-T068
+
+## Deliverables
+- `labs/forge-net/topology.yml`
+- `labs/forge-net/README.md`
+- `docs/ops/t069-three-repo-testnet.md`
+- `docs/specs/t069-validation-report.md`
+
+## Acceptance criteria
+- 3 repo 以上の role と treaty が定義される
+- network.mode は allowlisted 前提
+- public repo への外向きPRは含めない
+- topology が deterministic に読める
+
+## Risks
+- testnet が production と混ざる
+- allowlist が実質 open federation になる
+[P4][T070] distributed evolution demo
+
+Suggested labels
+
+forge:plan
+phase:P4
+class:C
+risk:critical
+## Goal
+lab forge-net 上で、良性 mutation / lineage pack が複数 repo に伝播する demo を作る。
+
+## Why now
+Phase 4 の完了条件は、allowlisted peer 間で lineage exchange と adoption / rejection が説明可能になることだから。
+
+## Scope
+- lab-only lineage propagation example
+- peer proposal
+- local arena comparison
+- adoption / rejection record
+- human-readable walkthrough
+
+## Out of scope
+- production federation
+- open peer network
+- automatic merge
+- live external PR spam
+
+## Dependencies
+- T057-T069
+
+## Deliverables
+- `docs/ops/t070-distributed-evolution-demo.md`
+- `docs/ops/examples/t070-lineage-graft.json`
+- `labs/forge-net/distributed-evolution-demo/README.md`
+- `docs/specs/t070-validation-report.md`
+
+## Acceptance criteria
+- 1つの良性 mutation が複数 repo に候補として伝わる
+- adoption と rejection の両方が表現できる
+- treaty / reputation / arena result が残る
+- production repo には作用しない
+
+## Risks
+- demo が uncontrolled federation に見える
+- adoption が自動採択に近づく
+16.4 Phase 5 self-hosting / release hardening
+[P5][T071] self-host bootstrap
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:C
+risk:critical
+## Goal
+ForgeRoot repo 自身を Forge Mind として self-maintain 対象にする bootstrap 境界を定義する。
+
+## Why now
+ForgeRoot の最終目的は、自身を ForgeRoot の鍛造ループで保守することだから。
+
+## Scope
+- self-hosting policy
+- self-maintenance scope
+- allowed self-tasks
+- forbidden self-mutations
+- bootstrap checklist
+
+## Out of scope
+- production autonomous merge
+- workflow mutation
+- open federation
+- self-approval
+- release automation
+
+## Dependencies
+- Phase 4 exit criteria
+- T014 runtime mode
+- T041 security gates
+- T056 self-evolution demo
+- T070 distributed evolution demo
+
+## Deliverables
+- `docs/self-hosting.md`
+- `.forge/policies/self-hosting.forge`
+- `docs/specs/t071-validation-report.md`
+
+## Acceptance criteria
+- ForgeRoot 自身の self-maintain 範囲が明示される
+- Class C/D を自己承認できない
+- initial mode は observe / propose に限定される
+- workflow / permission / ruleset mutation は禁止または Class D
+
+## Risks
+- 自己言及が権限拡張の口実になる
+- self-host と production autonomy が混同される
+[P5][T072] compatibility layer generation
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:B
+risk:medium
+## Goal
+`.forge` から AGENTS.md / `.github/agents/*.agent.md` などの派生ビューを生成する。
+
+## Why now
+ForgeRoot の source of truth は `.forge` だが、外部 agent tooling との互換ビューは必要なため。
+
+## Scope
+- `.forge` to AGENTS.md generator
+- `.forge` to `.github/agents/*.agent.md` generator
+- generated file header
+- regeneration determinism
+
+## Out of scope
+- `.forge` 以外を source of truth にすること
+- external agent runtime implementation
+- workflow mutation
+- policy mutation
+
+## Dependencies
+- T005 canonical parser / kernel
+- T071 self-host bootstrap
+
+## Deliverables
+- `scripts/gen-compat.ts`
+- `AGENTS.md`
+- `.github/agents/*.agent.md`
+- `docs/specs/compat-generation.md`
+- `docs/specs/t072-validation-report.md`
+
+## Acceptance criteria
+- generated files に `.forge` 派生物であることが明記される
+- reverse direction は禁止される
+- 同一 `.forge` から同一 output が生成される
+- naming rules と整合する
+
+## Risks
+- AGENTS.md が source of truth と誤認される
+- generated file の手編集が canonical drift を起こす
+[P5][T073] recursive maintainer workflow
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:D
+risk:critical
+## Goal
+ForgeRoot repo の docs / tests / refactor upkeep を self-maintenance queue に流す workflow 境界を定義する。
+
+## Why now
+self-hosting を実証するには、低リスク maintenance が鍛造ループへ入る必要があるため。
+
+## Scope
+- recursive maintenance policy
+- queue candidate types
+- allowed maintenance paths
+- approval class mapping
+- workflow proposal document
+
+## Out of scope
+- `.github/workflows/*` の自動変更
+- direct default branch write
+- self-approval
+- release automation
+- open federation
+
+## Dependencies
+- T071 self-host bootstrap
+- T072 compatibility layer generation
+- T028 end-to-end forged PR demo chain
+
+## Deliverables
+- `docs/ops/recursive-maintenance.md`
+- `.forge/policies/recursive-maintenance.forge`
+- `docs/specs/t073-validation-report.md`
+
+## Acceptance criteria
+- recursive maintenance 対象が docs / tests / low-risk refactor に限定される
+- workflow 変更は Class D として扱われる
+- self-approval が禁止される
+- auto-merge を含まない
+
+## Risks
+- recursive workflow が自己増殖する
+- maintenance queue が PR spam 化する
+[P5][T074] browser extension approval UI
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:B
+risk:medium
+## Goal
+PR review 時に approval class / risk / lineage / gate decision を表示する browser extension UI を実装する。
+
+## Why now
+高リスク PR の判断を人間が GitHub 画面上で速く正確に行えるようにするため。
+
+## Scope
+- extension shell
+- PR page overlay
+- risk summary rendering
+- lineage summary rendering
+- security gate summary rendering
+- local-only UI behavior
+
+## Out of scope
+- approval execution
+- GitHub write API call
+- secret handling
+- automatic merge
+
+## Dependencies
+- T042 dashboard source
+- T055 evolution report generator
+- T068 federation observability
+- T071 self-host bootstrap
+
+## Deliverables
+- `apps/browser-extension/`
+- `apps/browser-extension/src/panels/approval.tsx`
+- `apps/browser-extension/src/panels/risk.tsx`
+- `docs/ops/browser-extension.md`
+- `docs/specs/t074-validation-report.md`
+
+## Acceptance criteria
+- PR 上で risk / approval class / gate summary が表示できる
+- UI は write action を持たない
+- missing artifact は明示的に unknown 表示される
+- source of truth は `.forge` / artifact であり UI ではない
+
+## Risks
+- UI が承認実行まで持ってしまう
+- dashboard 表示が source of truth と誤認される
+[P5][T075] forge doctor
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:B
+risk:medium
+## Goal
+ForgeRoot repo の safety / config / `.forge` / runtime health を診断する `forge doctor` を作る。
+
+## Why now
+self-hosting 前に、運用者が安全姿勢を1コマンドで確認できる必要があるため。
+
+## Scope
+- CLI doctor command
+- `.forge` validation check
+- runtime mode check
+- policy presence check
+- package surface check
+- report output
+
+## Out of scope
+- automatic remediation
+- GitHub write API
+- ruleset mutation
+- secret printing
+
+## Dependencies
+- T005 canonical parser / kernel
+- T014 runtime mode
+- T041 security gates
+- T071 self-host bootstrap
+
+## Deliverables
+- `apps/cli/src/commands/doctor.ts`
+- `apps/cli/tests/doctor.test.mjs`
+- `docs/ops/forge-doctor.md`
+- `docs/specs/t075-validation-report.md`
+
+## Acceptance criteria
+- missing policy / invalid `.forge` / unsafe runtime mode を検出できる
+- secret value を出力しない
+- machine-readable JSON と human-readable Markdown を出せる
+- write operation を行わない
+
+## Risks
+- doctor が自動修正まで始める
+- secret material を report に漏らす
+[P5][T076] disaster recovery/replay
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:C
+risk:high
+## Goal
+Git history / commit trailers / `.forge` / event inbox から derived runtime state を再構築する replay engine を作る。
+
+## Why now
+ForgeRoot の DB は権威ではなく、Git と `.forge` から再構築できなければ設計原理に反するため。
+
+## Scope
+- replay source schema
+- commit trailer parser integration
+- event inbox replay plan
+- `.forge` state reconstruction check
+- recovery report
+
+## Out of scope
+- live GitHub mutation
+- automatic rollback
+- production DB restore automation
+- federation replay
+
+## Dependencies
+- T005 canonical parser / kernel
+- T008 event inbox
+- T039 provenance/signature writer once canonicalized
+- T071 self-host bootstrap
+
+## Deliverables
+- `packages/replay/src/replay.ts`
+- `packages/replay/tests/replay.test.mjs`
+- `docs/recovery.md`
+- `docs/specs/t076-validation-report.md`
+
+## Acceptance criteria
+- DB 喪失を想定した replay plan が出せる
+- commit trailer / `.forge` hash / event id を照合できる
+- destructive action を行わない
+- recovery report に gap が明示される
+
+## Risks
+- replay が現在状態を上書きする
+- event gap を隠す
+[P5][T077] cost budgets/quotas
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:C
+risk:high
+## Goal
+token / API / PR / compute cost の budget policy と enforcement manifest を作る。
+
+## Why now
+self-hosting と federation では、品質だけでなく費用暴走も停止条件に含める必要があるため。
+
+## Scope
+- cost budget policy
+- monthly / daily cap
+- per-task cap
+- model tier cap
+- budget breach downgrade rule
+
+## Out of scope
+- provider billing API integration
+- payment handling
+- automatic budget increase
+- secret handling
+
+## Dependencies
+- T027 rate governor queue
+- T044 mutation budget policy
+- T071 self-host bootstrap
+
+## Deliverables
+- `.forge/policies/cost-budget.forge`
+- `packages/runtime/src/costs.ts`
+- `packages/runtime/tests/costs.test.mjs`
+- `docs/specs/cost-budget.md`
+- `docs/specs/t077-validation-report.md`
+
+## Acceptance criteria
+- budget breach で observe / propose へ降格できる
+- model tier ごとの cap を表現できる
+- budget increase は自己提案できない
+- deterministic cost decision manifest が出る
+
+## Risks
+- budget が緩く費用暴走する
+- budget が厳しすぎて maintenance が止まる
+[P5][T078] release pipeline
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:D
+risk:critical
+## Goal
+ForgeRoot release pipeline の設計と最小 workflow proposal を作る。
+
+## Why now
+self-hosting repo は自身の release も再現可能でなければならないが、workflow mutation は Class D として扱う必要があるため。
+
+## Scope
+- release pipeline spec
+- release checklist
+- artifact list
+- versioning policy
+- workflow proposal document
+
+## Out of scope
+- automatic release
+- workflow self-mutation without approval
+- publishing credentials
+- package registry secret handling
+
+## Dependencies
+- T071 self-host bootstrap
+- T075 forge doctor
+- T076 disaster recovery/replay
+
+## Deliverables
+- `docs/release/release-pipeline.md`
+- `docs/release/v1-checklist.md`
+- `.github/workflows/release.yml` only if manually approved under Class D
+- `docs/specs/t078-validation-report.md`
+
+## Acceptance criteria
+- release steps が reproducible に記述されている
+- workflow 追加が必要な場合は Class D として明記される
+- secret / credential を含まない
+- rollback / recovery 手順がある
+
+## Risks
+- release workflow を軽い自動化として扱う
+- publishing secret が漏れる
+[P5][T079] artifact attestation integration
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:D
+risk:critical
+## Goal
+release artifact に provenance / attestation を紐づける設計と検証手順を追加する。
+
+## Why now
+ForgeRoot の生成物は、自己進化 repo であるほど provenance を検証可能にする必要があるため。
+
+## Scope
+- artifact attestation spec
+- provenance fields
+- verification command guide
+- release checklist integration
+- workflow proposal if required
+
+## Out of scope
+- secret provisioning
+- production publishing
+- automatic release
+- unapproved workflow mutation
+
+## Dependencies
+- T039 provenance/signature writer once canonicalized
+- T078 release pipeline
+
+## Deliverables
+- `docs/attestations.md`
+- `docs/release/artifact-attestation.md`
+- `.github/workflows/attest.yml` only if manually approved under Class D
+- `docs/specs/t079-validation-report.md`
+
+## Acceptance criteria
+- artifact と source commit / task / PR / forge revision の関係が追跡できる
+- verification 手順が明記される
+- workflow 変更は Class D として扱う
+- credential を含めない
+
+## Risks
+- attestation が形式だけになる
+- workflow 変更が無承認で入る
+[P5][T080] docs/autogen diagrams
+
+Suggested labels
+
+forge:auto
+phase:P5
+class:B
+risk:medium
+## Goal
+spec / `.forge` / docs から architecture diagram を deterministic に生成する。
+
+## Why now
+ForgeRoot は構造が複雑なため、図と正本が drift するとレビュー不能になるため。
+
+## Scope
+- diagram generation script
+- Mermaid output
+- source file references
+- drift check
+- docs update guide
+
+## Out of scope
+- changing architecture
+- UI dashboard
+- live GitHub API
+- mutation of policy
+
+## Dependencies
+- T005 canonical parser / kernel
+- T071 self-host bootstrap
+- T072 compatibility layer generation
+
+## Deliverables
+- `scripts/gen-diagrams.ts`
+- `docs/architecture/README.md`
+- `docs/architecture/forgeroot-system.mmd`
+- `docs/specs/t080-validation-report.md`
+
+## Acceptance criteria
+- 同じ source から同じ Mermaid が出る
+- generated file であることが明記される
+- manual diagram drift を検知できる
+- architecture を勝手に変更しない
+
+## Risks
+- 生成図が正本の代替になる
+- 図を更新して設計変更したように見せる
+[P5][T081] MCP/plugin marketplace skeleton
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:C
+risk:high
+## Goal
+ForgeRoot に bounded MCP/tool plugin を追加するための registry skeleton を定義する。
+
+## Why now
+外部 tool は Forge Mind の感覚器官になるが、無制限に追加すると安全境界が崩れるため。
+
+## Scope
+- MCP/plugin registry schema
+- tool namespace rule
+- approval class mapping
+- permission declaration
+- test fixture
+
+## Out of scope
+- public marketplace
+- dynamic plugin install
+- arbitrary code execution
+- network permission expansion
+
+## Dependencies
+- T047 tool-routing mutator
+- T071 self-host bootstrap
+- T077 cost budgets/quotas
+
+## Deliverables
+- `mcp/registry/README.md`
+- `docs/plugin-sdk.md`
+- `docs/specs/tool-plugin-registry.md`
+- `docs/specs/t081-validation-report.md`
+
+## Acceptance criteria
+- plugin に namespace / mode / max_calls / approval / timeout が必須
+- write tool は明示的 approval class を持つ
+- unknown namespace を reject できる
+- plugin registry は source of truth を `.forge` と衝突させない
+
+## Risks
+- plugin が権限拡張の抜け道になる
+- marketplace という名前で open install に近づく
+[P5][T082] governance & RFC flow
+
+Suggested labels
+
+forge:auto
+phase:P5
+class:B
+risk:medium
+## Goal
+Class C/D 変更、schema変更、self-evolution policy変更のための RFC flow を定義する。
+
+## Why now
+ForgeRoot の高リスク変更は、通常 issue / PR よりも強い合意プロセスを必要とするため。
+
+## Scope
+- RFC template
+- required sections
+- approval matrix
+- decision record link
+- migration requirement
+
+## Out of scope
+- governance automation
+- legal policy
+- maintainer election
+- automatic approval
+
+## Dependencies
+- T071 self-host bootstrap
+- T078 release pipeline
+
+## Deliverables
+- `docs/rfcs/0001-governance.md`
+- `.github/ISSUE_TEMPLATE/rfc.yml`
+- `docs/ops/governance.md`
+- `docs/specs/t082-validation-report.md`
+
+## Acceptance criteria
+- Class C/D 変更に RFC が必要な条件が明記される
+- schema / policy / workflow / permission change の扱いが明確
+- migration / backward compatibility 欄が必須
+- automatic approval を含まない
+
+## Risks
+- RFC が儀式化して実効性を失う
+- high-risk 変更が通常 issue に紛れる
+[P5][T083] long-run chaos suite
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:C
+risk:high
+## Goal
+ForgeRoot の長時間運転での rate / queue / quarantine / replay / mutation safety を検証する chaos suite を作る。
+
+## Why now
+自己進化・federation・self-hosting は短時間テストでは暴走やループを検出できないため。
+
+## Scope
+- chaos scenario definitions
+- no-op PR loop simulation
+- rate limit simulation
+- webhook duplication simulation
+- quarantine / replay simulation
+- report artifact
+
+## Out of scope
+- production chaos run
+- destructive tests
+- live GitHub spam
+- real credential usage
+
+## Dependencies
+- T027 rate governor queue
+- T041 security gates
+- T054 evolution scheduler
+- T064 gossip sync cadence
+- T076 disaster recovery/replay
+- T077 cost budgets/quotas
+
+## Deliverables
+- `labs/chaos/README.md`
+- `labs/chaos/scenarios/*.json`
+- `packages/runtime/tests/chaos.test.mjs`
+- `docs/ops/chaos-suite.md`
+- `docs/specs/t083-validation-report.md`
+
+## Acceptance criteria
+- duplicate webhook / rate limit / no-op loop を simulation できる
+- quarantine への降格が検証される
+- real GitHub API を呼ばない
+- report に failure と unknown が明示される
+
+## Risks
+- chaos が本番へ作用する
+- simulation が楽観的で意味を失う
+[P5][T084] v1.0 hardening checklist
+
+Suggested labels
+
+forge:plan
+phase:P5
+class:C
+risk:high
+## Goal
+ForgeRoot v1.0 公開前に、設計・安全・実装・運用・復旧の総点検 checklist を固定する。
+
+## Why now
+self-evolving / Git-Native / federation-ready repo は、公開前に安全境界と復旧性を明示検査する必要があるため。
+
+## Scope
+- v1.0 hardening checklist
+- release readiness criteria
+- safety gate checklist
+- self-hosting readiness checklist
+- rollback / replay readiness checklist
+- unresolved-risk register
+
+## Out of scope
+- actual release
+- workflow mutation
+- automatic publishing
+- production federation enablement
+
+## Dependencies
+- T071-T083
+- Phase 0〜5 exit criteria
+
+## Deliverables
+- `docs/release/v1-hardening-checklist.md`
+- `docs/release/unresolved-risk-register.md`
+- `docs/specs/t084-validation-report.md`
+
+## Acceptance criteria
+- Phase 0〜5 の exit criteria が checklist に反映される
+- default branch protection / security gates / kill switch / replay / budget / quarantine が確認項目にある
+- unresolved risk を隠さない
+- v1.0 release を実行しない
+
+## Risks
+- checklist が形式的になり事故要因を見落とす
+- unresolved risk を release blocker として扱わない
+5. 未解決事項
+T029〜T039 の詳細 issue source が未提示
+今回の依頼は T040以降なので埋めていません。ただし T042以降には MemoryKeeper / Evaluator 系の未canonical依存が残ります。これを放置して T042以降を実装すると依存関係が未解決になります。
+T025 の番号・名称衝突
+00_ForgeRoot_blueprint_設計書.md は T025 を check suite integration としているが、現在の実装/handoffは T025 GitHub PR adapter です。T040 はこの衝突を避けるため T025 に依存させていません。これは decision log に記録すべきです。
+01_DECISION_LOG.md, 02_REPO_MAP.md, 03_INTERFACE_REGISTRY.md が未提供
+プロジェクト指示上はこれらが正本階層に入りますが、今回の添付には存在しません。したがって、上記追補は既存の 00_ForgeRoot_blueprint_設計書.md, 01_単語や命名規則.md, 03_issue.md, T028 handoff に基づく提示です。
+T040 は live GitHub Code Scanning upload ではない
+T040 は SARIF-like artifact の deterministic bridge までです。GitHub API呼び出し、workflow追加、Code Scanning upload は明示的に範囲外です。
+Class C/D tasks に forge:auto を付けない判断
+self-evolution / federation / workflow / release 系は、T015 の forge:auto 自動対象化ルールと衝突しやすいため、原則 forge:plan としました。
+6. プロジェクト保存用メモ
+
+T040以降の canonical task source は、既存の 03_issue.md に追記する形で扱うのが最も整合的。T040 は packages/auditor/src/sarif.ts を中心とした manifest-only / deterministic SARIF bridge とし、GitHub API呼び出し、workflow追加、policy/ruleset mutation、memory/eval update、federation/self-evolution は範囲外に固定する。T041 は T040 の SARIF-like artifact を前提に security gate decision を生成する。T042以降は Phase 3〜5 の self-evolution / federation / self-hosting まで定義したが、T029〜T039 の詳細 issue source が未提示のため、依存するものは status:blocked 扱いにする。T025 は blueprint 上の check suite integration と実装済み GitHub PR adapter の番号衝突があるため、decision log で明示解決する必要がある。
