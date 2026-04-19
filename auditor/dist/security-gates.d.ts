@@ -1,0 +1,27 @@
+export declare const SECURITY_GATES_SCHEMA_REF = "urn:forgeroot:security-gate-decision:v1";
+export declare const SECURITY_GATES_POLICY_SCHEMA_REF = "urn:forgeroot:security-gates-policy:v1";
+export declare const SECURITY_GATE_DECISION_SCHEMA_REF: typeof SECURITY_GATES_SCHEMA_REF;
+export declare const SECURITY_GATE_CONTRACT: typeof SECURITY_GATES_CONTRACT;
+export declare const SECURITY_GATES_CONTRACT: {
+  readonly consumes: readonly string[];
+  readonly produces: readonly string[];
+  readonly validates: readonly string[];
+  readonly decisions: readonly string[];
+  readonly forbids: readonly string[];
+  readonly manifestOnly: true;
+  readonly deterministic: true;
+};
+export declare const DEFAULT_SECURITY_GATES_POLICY: any;
+export declare const DEFAULT_SECURITY_GATE_POLICY: any;
+export declare function defaultSecurityGatePolicy(): any;
+export declare function evaluateSecurityGate(input?: any, options?: any): any;
+export declare const runSecurityGate: typeof evaluateSecurityGate;
+export declare const evaluateSecurityGates: typeof evaluateSecurityGate;
+export declare const createSecurityGateDecision: typeof evaluateSecurityGate;
+export declare const createSecurityGateManifest: typeof evaluateSecurityGate;
+export declare const evaluateSarifSecurityGate: typeof evaluateSecurityGate;
+export declare function validateSecurityGateInput(input?: any, options?: any): any;
+export declare function validateSecurityGatePolicy(policy?: any): any;
+export declare function validateSecurityGateDecision(value: any): any;
+export declare const validateSecurityGateManifest: typeof validateSecurityGateDecision;
+export declare const validateSecurityGateDecisionManifest: typeof validateSecurityGateDecision;
