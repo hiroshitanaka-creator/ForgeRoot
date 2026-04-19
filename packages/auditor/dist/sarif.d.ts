@@ -1,0 +1,22 @@
+export declare const SARIF_BRIDGE_SCHEMA_REF = "urn:forgeroot:sarif-bridge:v1";
+export declare const SARIF_BRIDGE_SARIF_VERSION = "2.1.0";
+export declare const SARIF_BRIDGE_CONTRACT: {
+  readonly consumes: readonly string[];
+  readonly produces: readonly string[];
+  readonly validates: readonly string[];
+  readonly forbids: readonly string[];
+  readonly manifestOnly: true;
+  readonly deterministic: true;
+};
+export declare function convertAuditFindingsToSarif(input: any, options?: any): any;
+export declare const createSarifBridgeArtifact: typeof convertAuditFindingsToSarif;
+export declare const convertFindingsToSarif: typeof convertAuditFindingsToSarif;
+export declare const normalizeFindingsToSarif: typeof convertAuditFindingsToSarif;
+export declare const normalizeAuditFindingsToSarif: typeof convertAuditFindingsToSarif;
+export declare function validateSarifBridgeInput(input: any, options?: any): any;
+export declare function validateSarifLikeArtifact(artifact: any): any;
+export declare const validateSarifBridgeArtifact: typeof validateSarifLikeArtifact;
+export declare const validateSarifArtifact: typeof validateSarifLikeArtifact;
+export declare const validateSarifFindingsArtifact: typeof validateSarifLikeArtifact;
+export declare function normalizeSarifSeverity(value: any): any;
+export declare function normalizeSarifPath(value: any, workspaceRoot?: any): any;

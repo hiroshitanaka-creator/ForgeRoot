@@ -1,9 +1,9 @@
 {
   "name": "@forgeroot/auditor",
-  "version": "0.0.0-t023",
+  "version": "0.0.0-t040",
   "private": true,
   "type": "module",
-  "description": "ForgeRoot auditor runtime: independent validation from plan/worktree/sandbox evidence to bounded audit result.",
+  "description": "ForgeRoot auditor runtime and T040 deterministic SARIF-like finding bridge.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
