@@ -1,0 +1,38 @@
+import fs from "node:fs";
+import path from "node:path";
+const root = path.resolve(new URL("..", import.meta.url).pathname);
+const srcDir = path.join(root, "src");
+const distDir = path.join(root, "dist");
+fs.rmSync(distDir, { recursive: true, force: true });
+fs.mkdirSync(distDir, { recursive: true });
+for (const [src, dest] of [["run.ts", "run.js"], ["index.ts", "index.js"]]) {
+  fs.writeFileSync(path.join(distDir, dest), fs.readFileSync(path.join(srcDir, src), "utf8"), "utf8");
+  fs.writeFileSync(path.join(distDir, `${dest}.map`), JSON.stringify({ version: 3, file: dest, sources: [`../src/${src}`], sourcesContent: [], names: [], mappings: "" }) + "\n", "utf8");
+}
+fs.writeFileSync(path.join(distDir, "run.d.ts"), `export declare const RATE_GOVERNOR_VERSION = 1;
+export declare const RATE_GOVERNOR_DISPATCH_SCHEMA_REF = "urn:forgeroot:rate-governor-dispatch:v1";
+export declare const RATE_GOVERNOR_COOLDOWN_SCHEMA_REF = "urn:forgeroot:rate-governor-cooldown:v1";
+export declare const FORGEROOT_RATE_GOVERNOR_LIMITS: Readonly<Record<string, any>>;
+export declare const RATE_GOVERNOR_QUEUE_CONTRACT: any;
+export declare function runRateGovernor(input?: any): any;
+export declare const governRateLimit: typeof runRateGovernor;
+export declare const runRateGovernorQueue: typeof runRateGovernor;
+export declare const enqueueTrustedTransport: typeof runRateGovernor;
+export declare const enqueueTransportAuthorization: typeof runRateGovernor;
+export declare const queuePullRequestTransport: typeof runRateGovernor;
+export declare const governTrustedTransport: typeof runRateGovernor;
+export declare const governGitHubPullRequestTransport: typeof runRateGovernor;
+export declare const governGithubPullRequestTransport: typeof runRateGovernor;
+export declare function validateTransportAuthorizationForRateGovernor(value: any): any;
+export declare const validateRateGovernorAuthorization: typeof validateTransportAuthorizationForRateGovernor;
+export declare const validateTrustedTransportAuthorizationForRateGovernor: typeof validateTransportAuthorizationForRateGovernor;
+export declare function validateRateGovernorDispatch(value: any): any;
+export declare const validateRateGovernorQueueEntry: typeof validateRateGovernorDispatch;
+export declare const validateRateGovernorDecision: typeof validateRateGovernorDispatch;
+export declare const validateGitHubTransportDispatch: typeof validateRateGovernorDispatch;
+export declare const validateGithubTransportDispatch: typeof validateRateGovernorDispatch;
+export declare function deriveRateGovernorCooldown(observation?: any, options?: any): any;
+export declare const deriveCooldownFromRateLimitResponse: typeof deriveRateGovernorCooldown;
+export declare const deriveRetryAfterCooldown: typeof deriveRateGovernorCooldown;
+`, "utf8");
+fs.writeFileSync(path.join(distDir, "index.d.ts"), 'export * from "./run.js";\n', "utf8");
