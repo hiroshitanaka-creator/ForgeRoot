@@ -1,0 +1,4401 @@
+diff -ruN orig_t041_2/ForgeRoot/.forge/README.md work_t041/ForgeRoot/.forge/README.md
+--- orig_t041_2/ForgeRoot/.forge/README.md	2026-04-19 09:22:18.000000000 +0000
++++ work_t041/ForgeRoot/.forge/README.md	2026-04-19 09:39:05.697695448 +0000
+@@ -7,6 +7,7 @@
+ - `mind.forge` seeds the root Forge Mind.
+ - `policies/constitution.forge` fixes the first non-negotiables and approval classes.
+ - `policies/runtime-mode.forge` defines conservative runtime modes and kill-switch behavior.
++- `policies/security-gates.forge` defines the T041 manifest-only security gate policy.
+ - `agents/planner.alpha.forge` defines the T017 Planner Alpha identity, context recipe, and bounded output contract.
+ - `agents/executor.alpha.forge` defines the T019 Executor Alpha identity and sandbox request boundary.
+ - `agents/auditor.alpha.forge` defines the T023 Auditor Alpha identity, independent audit boundary, and PR-composition gate.
+@@ -23,6 +24,7 @@
+ - `packages/rate-governor/src/run.ts` defines the T027 rate-governed dispatch decision schema and queue runtime.
+ - `packages/forge-demo/src/run.ts` defines the T028 end-to-end forged PR demo manifest chain.
+ - `packages/auditor/src/sarif.ts` defines the T040 SARIF bridge manifest boundary.
++- `packages/auditor/src/security-gates.ts` defines the T041 security gate decision manifest boundary.
+ - `docs/specs/t041-2-dependency-resolution.md` defines the T041-2 dependency-resolution boundary for T042.
+ - `docs/specs/t003-validation-fixture.yaml` records the minimum assertions that later schema and parser work should validate.
+ 
+@@ -42,6 +44,7 @@
+ - T028 may validate and package the Phase 1 manifest chain only; it must not call GitHub, create PRs, execute commands, approve, merge, persist tokens, update memory, or federate.
+ - T040 may normalize findings into a SARIF-like artifact only; it must not upload to GitHub Code Scanning, call GitHub APIs, make gate decisions, update memory/eval state, or federate.
+ - T041-2 resolves task-source dependencies for T042 only; it must not implement T041 security gates, T042 reporting, live transport, memory/eval writes, federation, or self-evolution.
++- T041 consumes T040 SARIF-like artifacts and emits pass / hold / block / quarantine decision manifests only; it must not upload SARIF, call GitHub APIs, mutate rulesets or branch protection, invoke the approval checkpoint, update memory/eval state, federate, or self-evolve.
+ 
+ Still intentionally deferred:
+ 
+diff -ruN orig_t041_2/ForgeRoot/.forge/policies/security-gates.forge work_t041/ForgeRoot/.forge/policies/security-gates.forge
+--- orig_t041_2/ForgeRoot/.forge/policies/security-gates.forge	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/.forge/policies/security-gates.forge	2026-04-19 09:41:30.275523298 +0000
+@@ -0,0 +1,230 @@
++#!forge/v1
++forge_version: 1
++schema_ref: urn:forgeroot:forge:policy:v1
++kind: policy
++id: forge://hiroshitanaka-creator/ForgeRoot/policy/security-gates
++revision: 01KPF0T0417G5Y6B8C9D0E1F2B
++mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
++status: active
++title: ForgeRoot Security Gates Policy
++summary: Defines the T041 manifest-only security gate thresholds that convert SARIF-like findings into pass, hold, block, or quarantine decisions before PR transport authorization.
++owners:
++  - github://hiroshitanaka-creator
++  - github-app://forgeroot
++created_at: 2026-04-18T00:00:00Z
++updated_at: 2026-04-19T00:00:00Z
++policy_type: security-gates
++rules:
++  - id: sarif-high-blocks-transport
++    statement: A high severity SARIF-like finding blocks transport authorization unless a stricter quarantine rule applies.
++    pass_conditions:
++      sarif_forge_severity: high
++      gate_decision:
++        - block
++        - quarantine
++      approval_checkpoint_status:
++        - block_transport_authorization
++        - quarantine_candidate
++    fail_conditions:
++      high_finding_passed: true
++      high_finding_held_without_reason: true
++    required_approval_class: C
++  - id: critical-source-quarantines-candidate
++    statement: A critical-equivalent source severity finding quarantines the candidate before PR transport.
++    pass_conditions:
++      source_severity:
++        - critical
++        - fatal
++        - security_critical
++      gate_decision: quarantine
++    fail_conditions:
++      critical_source_passed: true
++      critical_source_blocked_without_quarantine: true
++    required_approval_class: C
++  - id: medium-defaults-to-hold
++    statement: Medium severity findings are held for human review by default.
++    pass_conditions:
++      sarif_forge_severity: medium
++      default_gate_decision: hold
++    fail_conditions:
++      medium_finding_passed_without_policy_override: true
++    required_approval_class: B
++  - id: low-docs-tests-can-pass
++    statement: Low or note severity findings in docs or tests may pass when no denied rule, critical source severity, runtime stop, rate stop, or immutable path violation is present.
++    pass_conditions:
++      sarif_forge_severity:
++        - low
++        - note
++      allowed_path_classes:
++        - docs
++        - tests
++      gate_decision: pass
++    fail_conditions:
++      low_docs_tests_quarantined_without_reason: true
++    required_approval_class: B
++  - id: denied-rule-quarantines
++    statement: A denied ruleId is treated as an immune signal and quarantines the candidate.
++    pass_conditions:
++      denied_rule_id_present: true
++      gate_decision: quarantine
++    fail_conditions:
++      denied_rule_id_passed: true
++      denied_rule_id_held_only: true
++    required_approval_class: C
++  - id: immutable-path-quarantines
++    statement: A finding on an immutable governance surface quarantines the candidate before transport.
++    match_paths:
++      - .github/workflows/**
++      - .github/actions/**
++      - .forge/mind.forge
++      - .forge/policies/**
++      - .forge/network/**
++      - apps/github-app/app-manifest.json
++    pass_conditions:
++      immutable_path_violation_present: true
++      gate_decision: quarantine
++    fail_conditions:
++      immutable_path_passed: true
++      immutable_path_blocked_without_quarantine: true
++    required_approval_class: C
++  - id: runtime-stop-quarantines
++    statement: Runtime mode quarantine or halted, or an engaged kill switch, quarantines the candidate before trusted transport.
++    pass_conditions:
++      runtime_modes:
++        - quarantine
++        - halted
++      kill_switch_engaged: true
++      gate_decision: quarantine
++    fail_conditions:
++      runtime_stop_ignored: true
++    required_approval_class: C
++  - id: no-live-github-mutation
++    statement: The T041 security gate emits only a deterministic decision manifest and never uploads SARIF, mutates rulesets, changes branch protection, creates PRs, approves, merges, or calls GitHub APIs.
++    pass_conditions:
++      live_code_scanning_upload: false
++      github_api_call: false
++      ruleset_mutation: false
++      branch_protection_mutation: false
++      pull_request_creation: false
++    fail_conditions:
++      live_code_scanning_upload: true
++      github_api_call: true
++      ruleset_mutation: true
++      branch_protection_mutation: true
++      pull_request_creation: true
++    required_approval_class: C
++thresholds:
++  severity_actions:
++    high: block
++    medium: hold
++    low: pass
++    note: pass
++  critical_source_severities:
++    - critical
++    - fatal
++    - security_critical
++  denied_rule_ids:
++    - forge.secret_scanning
++    - forge.secret-scanning
++    - forge.permission_drift
++    - forge.permission-drift
++    - forge.workflow_class_mismatch
++    - forge.workflow-class-mismatch
++    - forge.default_branch_write
++    - forge.default-branch-write
++    - security.secret
++    - security.secret-scanning
++    - security.credential-leak
++  allowed_rule_ids: []
++  immutable_path_patterns:
++    - .github/workflows/**
++    - .github/actions/**
++    - .forge/mind.forge
++    - .forge/policies/**
++    - .forge/network/**
++    - apps/github-app/app-manifest.json
++  low_risk_path_patterns:
++    - docs/**
++    - '**/*.md'
++    - '**/*.mdx'
++    - tests/**
++    - '**/tests/**'
++    - '**/*.test.mjs'
++    - '**/*.test.js'
++    - '**/*.test.ts'
++  path_actions:
++    immutable: quarantine
++  rule_actions:
++    denied: quarantine
++    not_allowed: block
++  boundary_actions:
++    runtime_halted_or_quarantined: quarantine
++    runtime_not_mutating_when_enforced: hold
++    rate_blocked: block
++    rate_delayed_or_cooldown: hold
++actions_on_breach:
++  sarif-high-blocks-transport:
++    - block_transport_authorization
++    - require_human_security_review
++  critical-source-quarantines-candidate:
++    - quarantine_candidate
++    - open_incident_review
++  medium-defaults-to-hold:
++    - hold_for_human_review
++  denied-rule-quarantines:
++    - quarantine_candidate
++    - require_policy_owner_review
++  immutable-path-quarantines:
++    - quarantine_candidate
++    - require_codeowner_review
++  runtime-stop-quarantines:
++    - quarantine_candidate
++    - keep_runtime_mode
++  no-live-github-mutation:
++    - reject_gate_runtime
++    - keep_manifest_only
++required_approvals:
++  A:
++    summary: docs, tests, comments, and low-risk refactors
++    min_human_approvals: 0
++    auto_pr_allowed: true
++    merge_requires_human: false
++  B:
++    summary: normal code changes and held medium findings
++    min_human_approvals: 1
++    auto_pr_allowed: true
++    merge_requires_human: true
++  C:
++    summary: security gate block, quarantine, policy, workflow, or governance surface findings
++    min_human_approvals: 2
++    auto_pr_allowed: false
++    codeowner_required: true
++  D:
++    summary: branch protection, GitHub App permission, ruleset, open federation, and workflow mutation
++    min_human_approvals: 2
++    auto_pr_allowed: false
++    codeowner_required: true
++    self_approval_forbidden: true
++    human_only_operation: true
++cooldowns:
++  quarantine_restore:
++    automatic_restore: forbidden
++    requires_human_ack: true
++  held_medium_review:
++    max_staleness: P7D
++quarantine_triggers:
++  - sarif_high_or_critical
++  - denied_rule_id
++  - immutable_path_violation
++  - runtime_halted
++  - kill_switch_engaged
++  - secret_scanning_signal
++provenance:
++  seed_task: T041
++  seed_basis:
++    - 00_ForgeRoot_blueprint_設計書.md
++    - 03_issue.md 追補案：T040以降 canonical task source
++    - T040 SARIF bridge
++  created_by: github://hiroshitanaka-creator
++  implemented_by: github-app://forgeroot
++extensions: {}
+diff -ruN orig_t041_2/ForgeRoot/docs/README.md work_t041/ForgeRoot/docs/README.md
+--- orig_t041_2/ForgeRoot/docs/README.md	2026-04-19 09:22:17.000000000 +0000
++++ work_t041/ForgeRoot/docs/README.md	2026-04-19 09:44:16.187378483 +0000
+@@ -49,5 +49,10 @@
+ - `specs/t041-2-repo-map.md` — Phase 2 repo map supplement needed for T042
+ - `specs/t041-2-interface-registry.md` — Phase 2 interface registry supplement needed for T042
+ - `specs/t041-2-validation-report.md` — T041-2 dependency-resolution validation report
++- `specs/security-gates.md` — T041 security gate decision manifest spec
++- `specs/t041-validation-report.md` — T041 security gates validation report
++- `ops/thread-handoff-after-t041.md` — handoff summary after T041 security gates
++- `specs/fixtures/security-gates/valid/*.json` — valid T041 security gate fixtures
++- `specs/fixtures/security-gates/invalid/*.json` — invalid T041 security gate fixtures
+ - `specs/fixtures/task-source/t029-t039-canonical.json` — machine-readable T029-T039 task source fixture
+ - `specs/fixtures/task-source/t042-readiness.json` — machine-readable T042 readiness fixture
+diff -ruN orig_t041_2/ForgeRoot/docs/ops/thread-handoff-after-t041.md work_t041/ForgeRoot/docs/ops/thread-handoff-after-t041.md
+--- orig_t041_2/ForgeRoot/docs/ops/thread-handoff-after-t041.md	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/ops/thread-handoff-after-t041.md	2026-04-19 09:44:06.461655845 +0000
+@@ -0,0 +1,63 @@
++# ForgeRoot Thread Handoff: after T041
++
++Date: 2026-04-19 JST
++
++## Completed task
++
++T041 security gates is complete.
++
++## What T041 added
++
++- `.forge/policies/security-gates.forge`
++- `docs/specs/security-gates.md`
++- `packages/auditor/src/security-gates.ts`
++- `packages/auditor/tests/security-gates.test.mjs`
++- `docs/specs/fixtures/security-gates/valid/*.json`
++- `docs/specs/fixtures/security-gates/invalid/*.json`
++- `docs/specs/t041-validation-report.md`
++
++## Public API
++
++```ts
++evaluateSecurityGate(input, options?)
++runSecurityGate(input, options?)
++evaluateSecurityGates(input, options?)
++createSecurityGateDecision(input, options?)
++createSecurityGateManifest(input, options?)
++validateSecurityGateInput(input, options?)
++validateSecurityGatePolicy(policy?)
++validateSecurityGateDecision(manifest)
++validateSecurityGateManifest(manifest)
++```
++
++## Boundary
++
++T041 is manifest-only. It does not call GitHub APIs, upload SARIF, mutate branch protection, mutate rulesets, create PRs, approve, merge, update memory/eval state, federate, or self-evolve.
++
++## Validation summary
++
++- T041 security gates tests: 13 pass / 0 fail
++- Auditor regression tests including T023, T040, T041: 45 pass / 0 fail
++- Planner regression tests including T041-2 readiness: 28 pass / 0 fail
++- Executor regression tests: 21 pass / 0 fail
++- PR composer regression tests: 8 pass / 0 fail
++- GitHub PR adapter regression tests: 10 pass / 0 fail
++- Approval checkpoint regression tests: 10 pass / 0 fail
++- Rate governor regression tests: 10 pass / 0 fail
++- Forge demo regression tests: 8 pass / 0 fail
++- Node syntax checks: pass
++
++## Recommended next target
++
++T042 can now start with both direct blockers addressed:
++
++- T041 security gates is complete.
++- T041-2 already canonicalized the T029-T039 task-source dependency gap for T042.
++
++T042 must remain report/dashboard artifact generation only. It must not implement browser UI, live dashboard hosting, GitHub Checks API, memory score calculation, or federation observability.
++
++## Still unresolved
++
++- T025 numbering/name mismatch remains unresolved in Decision Log form.
++- Runtime implementation of T029-T039 remains unimplemented; only task-source dependency readiness was added by T041-2.
++- Rust kernel validation caveat remains unchanged.
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/bad-policy-action.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/bad-policy-action.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/bad-policy-action.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/bad-policy-action.json	2026-04-19 09:41:21.020923251 +0000
+@@ -0,0 +1,128 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "docs.link-check",
++                "name": "docs.link-check",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule docs.link-check"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "docs.link-check",
++            "level": "note",
++            "message": {
++              "text": "low docs"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "docs/README.md"
++                  },
++                  "region": {
++                    "startLine": 1,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:c8317c081879b892abf91ee86f21ecb1f28edc6ad860893cce131155db96c732"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "docs.link-check",
++              "forge_finding_id": "low",
++              "normalized_path": "docs/README.md"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "docs.link-check"
++      ],
++      "paths": [
++        "docs/README.md"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  },
++  "policy": {
++    "schema_ref": "urn:forgeroot:security-gates-policy:v1",
++    "severity_actions": {
++      "high": "allow"
++    }
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/bad-policy.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/bad-policy.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/bad-policy.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/bad-policy.json	2026-04-19 09:41:21.021225183 +0000
+@@ -0,0 +1,128 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "docs.link-check",
++                "name": "docs.link-check",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule docs.link-check"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "docs.link-check",
++            "level": "note",
++            "message": {
++              "text": "low docs"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "docs/README.md"
++                  },
++                  "region": {
++                    "startLine": 1,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:c8317c081879b892abf91ee86f21ecb1f28edc6ad860893cce131155db96c732"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "docs.link-check",
++              "forge_finding_id": "low",
++              "normalized_path": "docs/README.md"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "docs.link-check"
++      ],
++      "paths": [
++        "docs/README.md"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  },
++  "policy": {
++    "schema_ref": "urn:forgeroot:security-gates-policy:v1",
++    "severity_actions": {
++      "high": "allow"
++    }
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/malformed-sarif.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/malformed-sarif.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/malformed-sarif.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/malformed-sarif.json	2026-04-19 09:41:21.020575161 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "docs.bad",
++                "name": "docs.bad",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule docs.bad"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "docs.bad",
++            "level": "note",
++            "message": {
++              "text": "bad uri"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "/tmp/leaked/ok.md"
++                  },
++                  "region": {
++                    "startLine": 1,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:b945e94241c6a03c0a11cf98a26ca311d73b5b7897fcc38c4f26a9b7597937e7"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "docs.bad",
++              "forge_finding_id": "bad",
++              "normalized_path": "docs/ok.md"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "docs.bad"
++      ],
++      "paths": [
++        "docs/ok.md"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/missing-sarif-artifact.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/missing-sarif-artifact.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/missing-sarif-artifact.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/missing-sarif-artifact.json	2026-04-19 09:41:21.019718804 +0000
+@@ -0,0 +1,6 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "runtime": {
++    "mode": "evolve"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/secret-field.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/secret-field.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/secret-field.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/secret-field.json	2026-04-19 09:41:21.021577305 +0000
+@@ -0,0 +1,123 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "docs.link-check",
++                "name": "docs.link-check",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule docs.link-check"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "docs.link-check",
++            "level": "note",
++            "message": {
++              "text": "low docs"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "docs/README.md"
++                  },
++                  "region": {
++                    "startLine": 1,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:c8317c081879b892abf91ee86f21ecb1f28edc6ad860893cce131155db96c732"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "docs.link-check",
++              "forge_finding_id": "low",
++              "normalized_path": "docs/README.md"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "docs.link-check"
++      ],
++      "paths": [
++        "docs/README.md"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  },
++  "github_token": "ghp_notallowed"
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/tampered-sarif-artifact.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/tampered-sarif-artifact.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/invalid/tampered-sarif-artifact.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/invalid/tampered-sarif-artifact.json	2026-04-19 09:41:21.020231623 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "docs.bad",
++                "name": "docs.bad",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule docs.bad"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "docs.bad",
++            "level": "note",
++            "message": {
++              "text": "bad uri"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "/tmp/leaked/ok.md"
++                  },
++                  "region": {
++                    "startLine": 1,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:b945e94241c6a03c0a11cf98a26ca311d73b5b7897fcc38c4f26a9b7597937e7"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "docs.bad",
++              "forge_finding_id": "bad",
++              "normalized_path": "docs/ok.md"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "docs.bad"
++      ],
++      "paths": [
++        "docs/ok.md"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/critical-quarantine.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/critical-quarantine.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/critical-quarantine.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/critical-quarantine.json	2026-04-19 09:41:21.013696813 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "security.memory-corruption",
++                "name": "security.memory-corruption",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule security.memory-corruption"
++                },
++                "defaultConfiguration": {
++                  "level": "error"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "security.memory-corruption",
++            "level": "error",
++            "message": {
++              "text": "critical-equivalent finding quarantines candidate"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "packages/auditor/src/run.ts"
++                  },
++                  "region": {
++                    "startLine": 9,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:dd4bfeca52b6bbce123b6350409399953e846738608df362a3ab66f55bf115cb"
++            },
++            "properties": {
++              "forge_severity": "high",
++              "source_severity": "critical",
++              "category": "security",
++              "forge_finding_id": "critical",
++              "normalized_path": "packages/auditor/src/run.ts"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 1,
++        "medium": 0,
++        "low": 0,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 1,
++        "warning": 0,
++        "note": 0,
++        "none": 0
++      },
++      "rule_ids": [
++        "security.memory-corruption"
++      ],
++      "paths": [
++        "packages/auditor/src/run.ts"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/denied-rule-quarantine.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/denied-rule-quarantine.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/denied-rule-quarantine.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/denied-rule-quarantine.json	2026-04-19 09:41:21.015285540 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "security.secret",
++                "name": "security.secret",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule security.secret"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "security.secret",
++            "level": "note",
++            "message": {
++              "text": "denied rule quarantines candidate"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "packages/auditor/src/run.ts"
++                  },
++                  "region": {
++                    "startLine": 15,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:a33105e3fd43493b65d518081c2a70a4903219bc3a0b8a6bcdc7d460d6acfd7a"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "security",
++              "forge_finding_id": "denied",
++              "normalized_path": "packages/auditor/src/run.ts"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "security.secret"
++      ],
++      "paths": [
++        "packages/auditor/src/run.ts"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/high-block.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/high-block.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/high-block.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/high-block.json	2026-04-19 09:41:21.013022410 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "security.path-traversal",
++                "name": "security.path-traversal",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule security.path-traversal"
++                },
++                "defaultConfiguration": {
++                  "level": "error"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "security.path-traversal",
++            "level": "error",
++            "message": {
++              "text": "high finding blocks transport"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "packages/auditor/src/run.ts"
++                  },
++                  "region": {
++                    "startLine": 12,
++                    "startColumn": 3
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:1b98c94869123ba5bed62f736a37a1f0ac545c651ed2f24e3875f81b30e78482"
++            },
++            "properties": {
++              "forge_severity": "high",
++              "source_severity": "high",
++              "category": "security",
++              "forge_finding_id": "high",
++              "normalized_path": "packages/auditor/src/run.ts"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 1,
++        "medium": 0,
++        "low": 0,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 1,
++        "warning": 0,
++        "note": 0,
++        "none": 0
++      },
++      "rule_ids": [
++        "security.path-traversal"
++      ],
++      "paths": [
++        "packages/auditor/src/run.ts"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/high-finding.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/high-finding.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/high-finding.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/high-finding.json	2026-04-19 09:41:21.016995157 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "security.path-traversal",
++                "name": "security.path-traversal",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule security.path-traversal"
++                },
++                "defaultConfiguration": {
++                  "level": "error"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "security.path-traversal",
++            "level": "error",
++            "message": {
++              "text": "high finding blocks transport"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "packages/auditor/src/run.ts"
++                  },
++                  "region": {
++                    "startLine": 12,
++                    "startColumn": 3
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:1b98c94869123ba5bed62f736a37a1f0ac545c651ed2f24e3875f81b30e78482"
++            },
++            "properties": {
++              "forge_severity": "high",
++              "source_severity": "high",
++              "category": "security",
++              "forge_finding_id": "high",
++              "normalized_path": "packages/auditor/src/run.ts"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 1,
++        "medium": 0,
++        "low": 0,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 1,
++        "warning": 0,
++        "note": 0,
++        "none": 0
++      },
++      "rule_ids": [
++        "security.path-traversal"
++      ],
++      "paths": [
++        "packages/auditor/src/run.ts"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/immutable-path-quarantine.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/immutable-path-quarantine.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/immutable-path-quarantine.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/immutable-path-quarantine.json	2026-04-19 09:41:21.015915747 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "forge.policy-drift",
++                "name": "forge.policy-drift",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule forge.policy-drift"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "forge.policy-drift",
++            "level": "note",
++            "message": {
++              "text": "immutable policy path touched"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": ".forge/policies/runtime-mode.forge"
++                  },
++                  "region": {
++                    "startLine": 3,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:8693185e546f6766cb7281d828eb528080bdc0483b0493952e5f064dad3784dd"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "scope",
++              "forge_finding_id": "immutable",
++              "normalized_path": ".forge/policies/runtime-mode.forge"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "forge.policy-drift"
++      ],
++      "paths": [
++        ".forge/policies/runtime-mode.forge"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/immutable-path.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/immutable-path.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/immutable-path.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/immutable-path.json	2026-04-19 09:41:21.019443697 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "forge.policy-drift",
++                "name": "forge.policy-drift",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule forge.policy-drift"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "forge.policy-drift",
++            "level": "note",
++            "message": {
++              "text": "immutable policy path touched"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": ".github/workflows/ci.yml"
++                  },
++                  "region": {
++                    "startLine": 3,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:1d6993ffec40b503a98e81a8bae87ac9df11aaeb679ab8e67f05df2477a2e609"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "scope",
++              "forge_finding_id": "immutable",
++              "normalized_path": ".github/workflows/ci.yml"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "forge.policy-drift"
++      ],
++      "paths": [
++        ".github/workflows/ci.yml"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/low-docs-finding.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/low-docs-finding.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/low-docs-finding.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/low-docs-finding.json	2026-04-19 09:41:21.018669830 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "docs.link-check",
++                "name": "docs.link-check",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule docs.link-check"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "docs.link-check",
++            "level": "note",
++            "message": {
++              "text": "low docs-only finding can pass"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "docs/specs/security-gates.md"
++                  },
++                  "region": {
++                    "startLine": 7,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:b5fab287c83ae51a6675cb8670244cd24e2dc84a3568c6e21778fda035f35dae"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "docs",
++              "forge_finding_id": "low-docs",
++              "normalized_path": "docs/specs/security-gates.md"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "docs.link-check"
++      ],
++      "paths": [
++        "docs/specs/security-gates.md"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "A",
++    "risk": "low"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/low-docs-pass.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/low-docs-pass.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/low-docs-pass.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/low-docs-pass.json	2026-04-19 09:41:21.014792983 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "docs.link-check",
++                "name": "docs.link-check",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule docs.link-check"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "docs.link-check",
++            "level": "note",
++            "message": {
++              "text": "low docs-only finding can pass"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "docs/specs/security-gates.md"
++                  },
++                  "region": {
++                    "startLine": 7,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:b5fab287c83ae51a6675cb8670244cd24e2dc84a3568c6e21778fda035f35dae"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "docs",
++              "forge_finding_id": "low-docs",
++              "normalized_path": "docs/specs/security-gates.md"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "docs.link-check"
++      ],
++      "paths": [
++        "docs/specs/security-gates.md"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "A",
++    "risk": "low"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/medium-finding.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/medium-finding.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/medium-finding.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/medium-finding.json	2026-04-19 09:41:21.017794834 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "security.dependency-warning",
++                "name": "security.dependency-warning",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule security.dependency-warning"
++                },
++                "defaultConfiguration": {
++                  "level": "warning"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "security.dependency-warning",
++            "level": "warning",
++            "message": {
++              "text": "medium finding holds transport"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "packages/auditor/src/run.ts"
++                  },
++                  "region": {
++                    "startLine": 10,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:7496de58336b0e181fce1ce6e5723922276d77f7307ce29ed08d2b38b7dce8ab"
++            },
++            "properties": {
++              "forge_severity": "medium",
++              "source_severity": "medium",
++              "category": "security",
++              "forge_finding_id": "medium",
++              "normalized_path": "packages/auditor/src/run.ts"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 1,
++        "low": 0,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 1,
++        "note": 0,
++        "none": 0
++      },
++      "rule_ids": [
++        "security.dependency-warning"
++      ],
++      "paths": [
++        "packages/auditor/src/run.ts"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/medium-hold.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/medium-hold.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/medium-hold.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/medium-hold.json	2026-04-19 09:41:21.014231140 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "security.dependency-warning",
++                "name": "security.dependency-warning",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule security.dependency-warning"
++                },
++                "defaultConfiguration": {
++                  "level": "warning"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "security.dependency-warning",
++            "level": "warning",
++            "message": {
++              "text": "medium finding holds transport"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "packages/auditor/src/run.ts"
++                  },
++                  "region": {
++                    "startLine": 10,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:7496de58336b0e181fce1ce6e5723922276d77f7307ce29ed08d2b38b7dce8ab"
++            },
++            "properties": {
++              "forge_severity": "medium",
++              "source_severity": "medium",
++              "category": "security",
++              "forge_finding_id": "medium",
++              "normalized_path": "packages/auditor/src/run.ts"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 1,
++        "low": 0,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 1,
++        "note": 0,
++        "none": 0
++      },
++      "rule_ids": [
++        "security.dependency-warning"
++      ],
++      "paths": [
++        "packages/auditor/src/run.ts"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "evolve",
++    "mutating_lane_open": true,
++    "kill_switch_engaged": false
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/runtime-quarantine.json work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/runtime-quarantine.json
+--- orig_t041_2/ForgeRoot/docs/specs/fixtures/security-gates/valid/runtime-quarantine.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/fixtures/security-gates/valid/runtime-quarantine.json	2026-04-19 09:41:21.016566719 +0000
+@@ -0,0 +1,122 @@
++{
++  "now": "2026-04-19T00:00:00Z",
++  "sarif_artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-18T00:00:00Z",
++    "source": {
++      "tool_name": "ForgeRoot Auditor",
++      "repository": "hiroshitanaka-creator/ForgeRoot",
++      "task_id": "T041",
++      "audit_id": "forge-audit://fixture",
++      "plan_id": "forge-plan://fixture",
++      "source_artifact_sha256": null
++    },
++    "runs": [
++      {
++        "tool": {
++          "driver": {
++            "name": "ForgeRoot Auditor",
++            "semanticVersion": "0.0.0-t040",
++            "rules": [
++              {
++                "id": "docs.link-check",
++                "name": "docs.link-check",
++                "shortDescription": {
++                  "text": "ForgeRoot normalized finding rule docs.link-check"
++                },
++                "defaultConfiguration": {
++                  "level": "note"
++                }
++              }
++            ]
++          }
++        },
++        "results": [
++          {
++            "ruleId": "docs.link-check",
++            "level": "note",
++            "message": {
++              "text": "low docs-only finding would pass except runtime quarantine"
++            },
++            "locations": [
++              {
++                "physicalLocation": {
++                  "artifactLocation": {
++                    "uri": "docs/specs/security-gates.md"
++                  },
++                  "region": {
++                    "startLine": 7,
++                    "startColumn": 1
++                  }
++                }
++              }
++            ],
++            "partialFingerprints": {
++              "forgeRootFingerprint": "sha256:49190ffb2759299796396b45af68b6a00e7e1d50c8bd568055cd151e158a0916"
++            },
++            "properties": {
++              "forge_severity": "low",
++              "source_severity": "low",
++              "category": "docs",
++              "forge_finding_id": "low-docs",
++              "normalized_path": "docs/specs/security-gates.md"
++            }
++          }
++        ]
++      }
++    ],
++    "summary": {
++      "result_count": 1,
++      "rejected_input_count": 0,
++      "severity_counts": {
++        "high": 0,
++        "medium": 0,
++        "low": 1,
++        "note": 0
++      },
++      "level_counts": {
++        "error": 0,
++        "warning": 0,
++        "note": 1,
++        "none": 0
++      },
++      "rule_ids": [
++        "docs.link-check"
++      ],
++      "paths": [
++        "docs/specs/security-gates.md"
++      ]
++    },
++    "guards": {
++      "no_github_code_scanning_upload": true,
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_security_gate_decision": true,
++      "no_memory_or_evaluation_update": true,
++      "no_federation_or_self_evolution": true
++    },
++    "properties": {
++      "forge_task": "T040",
++      "bridge_kind": "sarif-like-deterministic-artifact",
++      "live_code_scanning_upload": false,
++      "security_gate_decision": false
++    }
++  },
++  "runtime": {
++    "mode": "quarantine",
++    "mutating_lane_open": false,
++    "kill_switch_engaged": true
++  },
++  "rate": {
++    "status": "available",
++    "cooldown_active": false
++  },
++  "approval": {
++    "approval_class": "B",
++    "risk": "high"
++  }
++}
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/security-gates.md work_t041/ForgeRoot/docs/specs/security-gates.md
+--- orig_t041_2/ForgeRoot/docs/specs/security-gates.md	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/security-gates.md	2026-04-19 09:41:54.075710929 +0000
+@@ -0,0 +1,167 @@
++# T041 Security Gates
++
++## Status
++
++T041 defines ForgeRoot's first security gate decision surface. It is deterministic and manifest-only: it consumes a T040 SARIF-like artifact and emits a reviewable gate decision before any trusted PR transport.
++
++T041 is not a GitHub Code Scanning upload implementation, not a dependency-review live API integration, not a GitHub Rulesets integration, and not a branch protection configurator.
++
++## Inputs
++
++A T041 security gate input may contain:
++
++- `sarif_artifact` or `sarif`: a T040 SARIF-like artifact with schema `urn:forgeroot:sarif-bridge:v1`.
++- `policy`: optional deterministic policy override for tests and fixtures.
++- `runtime`, `runtime_gate`: optional runtime mode summary.
++- `rate`, `rate_gate`, `rate_limit`: optional rate-governor summary.
++- `approval`, `approval_checkpoint`: optional approval class and risk summary.
++- `now`: optional RFC3339 UTC timestamp.
++
++Runtime, rate, and approval values are summaries only. T041 does not invoke the approval checkpoint, rate governor, GitHub App transport, GitHub Code Scanning, branch protection, or ruleset APIs.
++
++## Decision model
++
++The output decision is one of:
++
++| Decision | Status | Transport meaning |
++|---|---|---|
++| `pass` | `passed` | Security gate found no blocking finding. Merge is still not approved by T041. |
++| `hold` | `held` | Transport must wait for human/security review. |
++| `block` | `blocked` | Transport must not proceed until the input or scope is corrected. |
++| `quarantine` | `quarantined` | The candidate is isolated for governance review. |
++| `invalid` | `invalid` | The input did not validate; no gate manifest is emitted. |
++
++Decision precedence is:
++
++```text
++quarantine > block > hold > pass
++```
++
++## Default policy
++
++The default policy is mirrored by `.forge/policies/security-gates.forge`.
++
++```text
++high   -> block
++medium -> hold
++low    -> pass
++note   -> pass
++```
++
++Critical-equivalent source severities are stricter than ordinary high findings and quarantine the candidate:
++
++```text
++critical
++fatal
++security_critical
++```
++
++Denied rule IDs quarantine by default. Immutable governance paths quarantine even if the SARIF finding is low severity:
++
++```text
++.github/workflows/**
++.github/actions/**
++.forge/mind.forge
++.forge/policies/**
++.forge/network/**
++apps/github-app/app-manifest.json
++```
++
++Low or note findings in docs/tests may pass when no denied rule, critical-equivalent source severity, runtime stop, rate stop, or immutable path violation is present.
++
++## Output manifest
++
++`evaluateSecurityGate(input)` returns an object with `status`, `decision`, `manifest`, and `gate` / `gateDecision` aliases.
++
++The manifest uses:
++
++```text
++schema_ref: urn:forgeroot:security-gate-decision:v1
++decision_id: forge-security-gate://<deterministic-id>
++```
++
++It includes:
++
++- decision and reasons
++- SARIF artifact hash
++- policy summary
++- runtime and rate summaries
++- approval checkpoint handoff summary
++- finding decisions
++- boundary decisions
++- severity, decision, affected-path, denied-rule, and immutable-path summaries
++- guards proving no live mutation occurred
++
++## Guard contract
++
++T041 must keep all of these true:
++
++```text
++no_github_api_call
++no_github_code_scanning_upload
++no_branch_protection_mutation
++no_ruleset_mutation
++no_workflow_mutation
++no_policy_mutation_in_runtime
++no_dependency_review_live_api_integration
++no_pull_request_creation
++no_merge_operation
++no_auto_merge
++no_memory_or_evaluation_update
++no_federation_or_self_evolution
++```
++
++## Public API
++
++```ts
++evaluateSecurityGate(input, options?)
++runSecurityGate(input, options?)
++evaluateSecurityGates(input, options?)
++createSecurityGateDecision(input, options?)
++createSecurityGateManifest(input, options?)
++validateSecurityGateInput(input, options?)
++validateSecurityGatePolicy(policy?)
++validateSecurityGateDecision(decision)
++validateSecurityGateManifest(decision)
++defaultSecurityGatePolicy()
++```
++
++Compatibility constants are also exported:
++
++```ts
++SECURITY_GATES_CONTRACT
++SECURITY_GATE_CONTRACT
++DEFAULT_SECURITY_GATES_POLICY
++DEFAULT_SECURITY_GATE_POLICY
++```
++
++## Boundaries
++
++T041 does not:
++
++- call GitHub APIs
++- upload SARIF to GitHub Code Scanning
++- create, update, or enforce branch protection
++- create, update, or enforce rulesets
++- call dependency review APIs
++- create PRs
++- approve or merge PRs
++- update memory or evaluation state
++- perform federation
++- perform self-evolution
++
++## Fixtures
++
++Valid fixtures live under:
++
++```text
++docs/specs/fixtures/security-gates/valid/*.json
++```
++
++Invalid fixtures live under:
++
++```text
++docs/specs/fixtures/security-gates/invalid/*.json
++```
++
++These fixtures cover high block, critical quarantine, medium hold, low docs-only pass, denied-rule quarantine, immutable-path quarantine, runtime quarantine, malformed SARIF rejection, secret-like input rejection, and invalid policy rejection.
+diff -ruN orig_t041_2/ForgeRoot/docs/specs/t041-validation-report.md work_t041/ForgeRoot/docs/specs/t041-validation-report.md
+--- orig_t041_2/ForgeRoot/docs/specs/t041-validation-report.md	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/docs/specs/t041-validation-report.md	2026-04-19 09:44:06.443779548 +0000
+@@ -0,0 +1,107 @@
++# T041 Validation Report — Security Gates
++
++Date: 2026-04-19 JST
++
++## Scope validated
++
++T041 implements a deterministic, manifest-only security gate decision surface in `packages/auditor`.
++
++Validated deliverables:
++
++- `.forge/policies/security-gates.forge`
++- `docs/specs/security-gates.md`
++- `packages/auditor/src/security-gates.ts`
++- `packages/auditor/tests/security-gates.test.mjs`
++- `docs/specs/fixtures/security-gates/valid/*.json`
++- `docs/specs/fixtures/security-gates/invalid/*.json`
++- `packages/auditor/dist/security-gates.js`
++- `packages/auditor/dist/security-gates.d.ts`
++
++## Boundary checks
++
++T041 remains manifest-only.
++
++It does not:
++
++- call GitHub APIs
++- upload SARIF to GitHub Code Scanning
++- call dependency review APIs
++- mutate `.github/workflows/*`
++- mutate branch protection
++- mutate GitHub rulesets
++- create PRs
++- approve or merge PRs
++- invoke the approval checkpoint
++- invoke the rate governor
++- update memory or evaluation state
++- perform federation
++- perform self-evolution
++
++## Test commands
++
++```bash
++cd packages/auditor
++npm run build
++```
++
++```bash
++node --test --test-force-exit packages/auditor/tests/security-gates.test.mjs
++node --test --test-force-exit packages/auditor/tests/*.test.mjs
++node --test --test-force-exit packages/planner/tests/*.test.mjs
++node --test --test-force-exit packages/executor/tests/*.test.mjs
++node --test --test-force-exit packages/pr-composer/tests/run.test.mjs
++node --test --test-force-exit packages/github-pr-adapter/tests/run.test.mjs
++node --test --test-force-exit packages/approval-checkpoint/tests/run.test.mjs
++node --test --test-force-exit packages/rate-governor/tests/run.test.mjs
++node --test --test-force-exit packages/forge-demo/tests/run.test.mjs
++```
++
++```bash
++node --check packages/auditor/dist/security-gates.js
++node --check packages/auditor/dist/index.js
++node --check packages/auditor/dist/sarif.js
++node --check packages/auditor/dist/run.js
++node --check packages/planner/dist/run.js
++node --check packages/executor/dist/index.js
++node --check packages/pr-composer/dist/run.js
++node --check packages/github-pr-adapter/dist/run.js
++node --check packages/approval-checkpoint/dist/run.js
++node --check packages/rate-governor/dist/run.js
++node --check packages/forge-demo/dist/run.js
++```
++
++## Results
++
++| Test surface | Result |
++|---|---:|
++| T041 security gates tests | 13 pass / 0 fail |
++| Auditor regression tests including T023, T040, T041 | 45 pass / 0 fail |
++| Planner regression tests including T041-2 task-source readiness | 28 pass / 0 fail |
++| Executor regression tests | 21 pass / 0 fail |
++| PR composer regression tests | 8 pass / 0 fail |
++| GitHub PR adapter regression tests | 10 pass / 0 fail |
++| Approval checkpoint regression tests | 10 pass / 0 fail |
++| Rate governor regression tests | 10 pass / 0 fail |
++| Forge demo regression tests | 8 pass / 0 fail |
++| Node syntax checks | pass |
++
++## Acceptance criteria mapping
++
++| T041 acceptance criterion | Evidence |
++|---|---|
++| High / critical-equivalent findings block or quarantine transport | `high-block.json` blocks; `critical-quarantine.json` quarantines. |
++| Medium findings can hold by policy | `medium-hold.json` holds. |
++| Docs-only / tests-like low risk findings can pass | `low-docs-pass.json` passes. |
++| Gate decision contains reasons, finding summary, and affected paths | `validateSecurityGateDecision()` requires `reasons`, `summary`, `finding_decisions`, and affected-path summary. |
++| Immutable path violation is connected to the gate | `immutable-path-quarantine.json` quarantines `.forge/policies/runtime-mode.forge`. |
++| GitHub API is not called | Guard `no_github_api_call` is required and tested. |
++| Branch protection / ruleset are not changed | Guards `no_branch_protection_mutation` and `no_ruleset_mutation` are required and tested. |
++| `.forge/policies/security-gates.forge` is schema-shaped Forge policy | Test verifies magic line, policy schema, `kind: policy`, `policy_type: security-gates`, and no tabs. |
++
++## Known caveats
++
++- T041 emits an approval-checkpoint handoff summary only. It does not invoke or modify the T026 approval checkpoint.
++- T041 consumes T040 SARIF-like artifacts. It does not upload SARIF to GitHub Code Scanning.
++- T041 does not implement live dependency review integration.
++- T041 does not implement T042 reporting/dashboard artifacts.
++- Rust kernel validation caveat from earlier handoff remains unchanged.
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/README.md work_t041/ForgeRoot/packages/auditor/README.md
+--- orig_t041_2/ForgeRoot/packages/auditor/README.md	2026-04-18 17:34:20.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/README.md	2026-04-19 09:39:05.694747541 +0000
+@@ -1,19 +1,23 @@
+ # @forgeroot/auditor
+ 
+-T023 adds the deterministic Auditor runtime for the first ForgeRoot forging loop.
++The auditor package contains the deterministic audit-side safety surface for the first ForgeRoot forging loop.
+ 
+-The package consumes:
++Implemented task surfaces:
++
++- T023 independent Auditor runtime
++- T040 SARIF-like finding bridge
++- T041 manifest-only security gates
++
++## T023 Auditor runtime
++
++The T023 runtime consumes:
+ 
+ - one Plan Spec
+ - one T018 branch/worktree manifest
+ - one T019 sandbox execution request
+ - one sandbox observed output / evidence summary
+ 
+-It produces one bounded `AuditResultReport` with a PR-composition gate decision.
+-
+-## Boundary
+-
+-The auditor is independent from the executor. It validates evidence that already exists; it does not execute commands, edit files, create branches, create commits, compose PRs, mutate GitHub, update memory, or approve merges.
++It produces one bounded `AuditResultReport` with a PR-composition gate decision. It can also normalize audit findings into T040 SARIF-like artifacts and evaluate T041 security gate decisions from those artifacts.
+ 
+ Primary API:
+ 
+@@ -23,6 +27,9 @@
+ validateBranchWorktreePlanForAudit(worktreePlan)
+ validateSandboxExecutionRequestForAudit(request)
+ validateAuditResult(report)
++convertAuditFindingsToSarif(input)
++evaluateSecurityGate(input)
++validateSecurityGateDecision(decision)
+ ```
+ 
+ Runtime statuses:
+@@ -32,6 +39,47 @@
+ - `blocked` — required evidence is missing.
+ - `invalid` — the supplied Plan Spec / worktree / sandbox request chain is malformed or inconsistent.
+ 
++## T040 SARIF bridge
++
++The T040 bridge converts internal audit / scan / sandbox evidence findings into deterministic SARIF-like artifacts.
++
++Primary API:
++
++```ts
++convertAuditFindingsToSarif(input, options?)
++createSarifBridgeArtifact(input, options?)
++validateSarifBridgeInput(input, options?)
++validateSarifBridgeArtifact(artifact)
++```
++
++The bridge does not upload to GitHub Code Scanning and does not make security gate decisions.
++
++## T041 security gates
++
++The T041 gate consumes a T040 SARIF-like artifact and emits a deterministic `security_gate_decision` manifest with an approval-checkpoint handoff summary.
++
++Primary API:
++
++```ts
++evaluateSecurityGate(input, options?)
++runSecurityGate(input, options?)
++validateSecurityGateInput(input, options?)
++validateSecurityGatePolicy(policy?)
++validateSecurityGateDecision(manifest)
++```
++
++Gate decisions:
++
++- `pass`
++- `hold`
++- `block`
++- `quarantine`
++- `invalid`
++
++Boundary:
++
++The auditor package validates existing evidence and emits reviewable manifests only. It does not execute commands, edit files, create branches, create commits, compose PRs, call GitHub APIs, upload SARIF, mutate branch protection or rulesets, update memory/evaluation state, approve, merge, self-evolve, or federate.
++
+ ## Local development
+ 
+ ```bash
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/dist/index.d.ts work_t041/ForgeRoot/packages/auditor/dist/index.d.ts
+--- orig_t041_2/ForgeRoot/packages/auditor/dist/index.d.ts	2026-04-19 09:01:08.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/dist/index.d.ts	2026-04-19 09:45:28.639451385 +0000
+@@ -1,2 +1,3 @@
+ export * from "./run.js";
+ export * from "./sarif.js";
++export * from "./security-gates.js";
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/dist/index.js work_t041/ForgeRoot/packages/auditor/dist/index.js
+--- orig_t041_2/ForgeRoot/packages/auditor/dist/index.js	2026-04-19 09:01:08.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/dist/index.js	2026-04-19 09:45:28.638069728 +0000
+@@ -1,2 +1,3 @@
+ export * from "./run.js";
+ export * from "./sarif.js";
++export * from "./security-gates.js";
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/dist/security-gates.d.ts work_t041/ForgeRoot/packages/auditor/dist/security-gates.d.ts
+--- orig_t041_2/ForgeRoot/packages/auditor/dist/security-gates.d.ts	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/dist/security-gates.d.ts	2026-04-19 09:45:28.639205915 +0000
+@@ -0,0 +1,27 @@
++export declare const SECURITY_GATES_SCHEMA_REF = "urn:forgeroot:security-gate-decision:v1";
++export declare const SECURITY_GATES_POLICY_SCHEMA_REF = "urn:forgeroot:security-gates-policy:v1";
++export declare const SECURITY_GATE_DECISION_SCHEMA_REF: typeof SECURITY_GATES_SCHEMA_REF;
++export declare const SECURITY_GATE_CONTRACT: typeof SECURITY_GATES_CONTRACT;
++export declare const SECURITY_GATES_CONTRACT: {
++  readonly consumes: readonly string[];
++  readonly produces: readonly string[];
++  readonly validates: readonly string[];
++  readonly decisions: readonly string[];
++  readonly forbids: readonly string[];
++  readonly manifestOnly: true;
++  readonly deterministic: true;
++};
++export declare const DEFAULT_SECURITY_GATES_POLICY: any;
++export declare const DEFAULT_SECURITY_GATE_POLICY: any;
++export declare function defaultSecurityGatePolicy(): any;
++export declare function evaluateSecurityGate(input?: any, options?: any): any;
++export declare const runSecurityGate: typeof evaluateSecurityGate;
++export declare const evaluateSecurityGates: typeof evaluateSecurityGate;
++export declare const createSecurityGateDecision: typeof evaluateSecurityGate;
++export declare const createSecurityGateManifest: typeof evaluateSecurityGate;
++export declare const evaluateSarifSecurityGate: typeof evaluateSecurityGate;
++export declare function validateSecurityGateInput(input?: any, options?: any): any;
++export declare function validateSecurityGatePolicy(policy?: any): any;
++export declare function validateSecurityGateDecision(value: any): any;
++export declare const validateSecurityGateManifest: typeof validateSecurityGateDecision;
++export declare const validateSecurityGateDecisionManifest: typeof validateSecurityGateDecision;
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/dist/security-gates.js work_t041/ForgeRoot/packages/auditor/dist/security-gates.js
+--- orig_t041_2/ForgeRoot/packages/auditor/dist/security-gates.js	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/dist/security-gates.js	2026-04-19 09:45:28.637352740 +0000
+@@ -0,0 +1,679 @@
++import crypto from "node:crypto";
++import { validateSarifLikeArtifact } from "./sarif.js";
++
++export const SECURITY_GATES_SCHEMA_REF = "urn:forgeroot:security-gate-decision:v1";
++export const SECURITY_GATES_POLICY_SCHEMA_REF = "urn:forgeroot:security-gates-policy:v1";
++
++export const SECURITY_GATES_CONTRACT = {
++  consumes: ["sarif_like_artifact", "runtime_gate_summary", "rate_governor_boundary", "approval_checkpoint_boundary"],
++  produces: ["security_gate_decision", "approval_checkpoint_gate_summary"],
++  validates: [
++    "sarif_like_artifact_validation",
++    "severity_thresholds",
++    "allowed_denied_rule_ids",
++    "immutable_path_violation",
++    "runtime_boundary_summary",
++    "rate_boundary_summary",
++    "deterministic_gate_decision",
++  ],
++  decisions: ["pass", "hold", "block", "quarantine", "invalid"],
++  forbids: [
++    "github_api_call",
++    "github_code_scanning_upload",
++    "branch_protection_mutation",
++    "ruleset_mutation",
++    "workflow_mutation",
++    "policy_mutation_in_runtime",
++    "dependency_review_live_api_integration",
++    "pull_request_creation",
++    "merge_operation",
++    "auto_merge",
++    "self_evolution",
++    "federation",
++    "memory_or_evaluation_updates",
++  ],
++  manifestOnly: true,
++  deterministic: true,
++};
++
++export const DEFAULT_SECURITY_GATES_POLICY = Object.freeze({
++  schema_ref: SECURITY_GATES_POLICY_SCHEMA_REF,
++  policy_id: "forge://hiroshitanaka-creator/ForgeRoot/policy/security-gates",
++  revision: "01KPF0T0417G5Y6B8C9D0E1F2B",
++  default_approval_class: "B",
++  severity_actions: {
++    high: "block",
++    medium: "hold",
++    low: "pass",
++    note: "pass",
++  },
++  critical_source_severities: ["critical", "fatal", "security_critical"],
++  denied_rule_ids: [
++    "forge.secret_scanning",
++    "forge.secret-scanning",
++    "forge.permission_drift",
++    "forge.permission-drift",
++    "forge.workflow_class_mismatch",
++    "forge.workflow-class-mismatch",
++    "forge.default_branch_write",
++    "forge.default-branch-write",
++    "security.secret",
++    "security.secret-scanning",
++    "security.credential-leak",
++  ],
++  allowed_rule_ids: [],
++  immutable_path_patterns: [
++    ".github/workflows/**",
++    ".github/actions/**",
++    ".forge/mind.forge",
++    ".forge/policies/**",
++    ".forge/network/**",
++    "apps/github-app/app-manifest.json",
++  ],
++  low_risk_path_patterns: [
++    "docs/**",
++    "**/*.md",
++    "**/*.mdx",
++    "tests/**",
++    "**/tests/**",
++    "**/*.test.mjs",
++    "**/*.test.js",
++    "**/*.test.ts",
++  ],
++  path_actions: {
++    immutable: "quarantine",
++  },
++  rule_actions: {
++    denied: "quarantine",
++    not_allowed: "block",
++  },
++  boundary_actions: {
++    runtime_halted_or_quarantined: "quarantine",
++    runtime_not_mutating_when_enforced: "hold",
++    rate_blocked: "block",
++    rate_delayed_or_cooldown: "hold",
++  },
++  approval_classes: {
++    pass: "B",
++    hold: "B",
++    block: "C",
++    quarantine: "C",
++  },
++});
++
++
++export const SECURITY_GATE_DECISION_SCHEMA_REF = SECURITY_GATES_SCHEMA_REF;
++export const SECURITY_GATE_CONTRACT = SECURITY_GATES_CONTRACT;
++export const DEFAULT_SECURITY_GATE_POLICY = DEFAULT_SECURITY_GATES_POLICY;
++export function defaultSecurityGatePolicy() { return clonePlain(DEFAULT_SECURITY_GATES_POLICY); }
++
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
++const DECISIONS = new Set(["pass", "hold", "block", "quarantine"]);
++const STATUSES = new Set(["passed", "held", "blocked", "quarantined", "invalid"]);
++const SEVERITIES = new Set(["high", "medium", "low", "note"]);
++const LEVELS = new Set(["error", "warning", "note", "none"]);
++const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
++const RUNTIME_MODES = new Set(["observe", "propose", "evolve", "federate", "quarantine", "halted", "unknown"]);
++const DECISION_RANK = { pass: 0, hold: 1, block: 2, quarantine: 3 };
++const SEVERITY_RANK = { note: 0, low: 1, medium: 2, high: 3 };
++const DEFAULT_GENERATED_AT = "1970-01-01T00:00:00Z";
++
++export function evaluateSecurityGate(input = {}, options = {}) {
++  const normalized = normalizeSecurityGateInput(input, options);
++  if (!normalized.ok) {
++    return {
++      status: "invalid",
++      decision: "invalid",
++      manifest: null,
++      issues: normalized.issues,
++      reasons: uniqueStrings(["invalid_security_gate_input", ...normalized.issues.map(formatIssue)]),
++      guards: boundaryGuards(),
++    };
++  }
++
++  const findingDecisions = normalized.results
++    .map((result, index) => evaluateSarifResult(result, index, normalized.policy))
++    .sort(compareFindingDecisions);
++  const boundaryFindings = evaluateBoundaryInputs(normalized);
++  const aggregate = aggregateDecision([...findingDecisions, ...boundaryFindings], normalized.policy);
++  const manifest = buildDecisionManifest(normalized, findingDecisions, boundaryFindings, aggregate);
++  const validation = validateSecurityGateDecision(manifest);
++  if (!validation.ok) {
++    return {
++      status: "invalid",
++      decision: "invalid",
++      manifest: null,
++      issues: validation.issues,
++      reasons: uniqueStrings(["generated_security_gate_decision_failed_validation", ...validation.issues.map(formatIssue)]),
++      guards: boundaryGuards(),
++    };
++  }
++
++  return {
++    status: manifest.status,
++    decision: manifest.decision,
++    manifest,
++    gateDecision: manifest,
++    gate: manifest,
++    issues: [],
++    reasons: manifest.reasons,
++    guards: boundaryGuards(),
++  };
++}
++
++export const runSecurityGate = evaluateSecurityGate;
++export const evaluateSecurityGates = evaluateSecurityGate;
++export const createSecurityGateDecision = evaluateSecurityGate;
++export const createSecurityGateManifest = evaluateSecurityGate;
++export const evaluateSarifSecurityGate = evaluateSecurityGate;
++
++export function validateSecurityGateInput(input = {}, options = {}) {
++  const normalized = normalizeSecurityGateInput(input, options);
++  return normalized.ok ? { ok: true, issues: [] } : { ok: false, issues: normalized.issues };
++}
++
++export function validateSecurityGatePolicy(policy = DEFAULT_SECURITY_GATES_POLICY) {
++  const issues = [];
++  const root = asRecord(policy);
++  if (!root) return invalid("/policy", "type", "security gate policy must be an object");
++  expectLiteral(root, "schema_ref", SECURITY_GATES_POLICY_SCHEMA_REF, issues, "/policy");
++  expectString(root, "policy_id", issues, "/policy", "forge://");
++  expectString(root, "revision", issues, "/policy");
++  expectOneOf(root, "default_approval_class", APPROVAL_CLASSES, issues, "/policy");
++
++  const severityActions = asRecord(root.severity_actions);
++  if (!severityActions) issues.push(issue("/policy/severity_actions", "required", "severity_actions is required"));
++  else for (const severity of SEVERITIES) expectOneOf(severityActions, severity, DECISIONS, issues, "/policy/severity_actions");
++
++  expectStringArray(root, "critical_source_severities", issues, "/policy", true);
++  expectStringArray(root, "denied_rule_ids", issues, "/policy", true);
++  expectStringArray(root, "allowed_rule_ids", issues, "/policy", true);
++  expectStringArray(root, "immutable_path_patterns", issues, "/policy", false);
++  expectStringArray(root, "low_risk_path_patterns", issues, "/policy", true);
++
++  const pathActions = asRecord(root.path_actions);
++  if (!pathActions) issues.push(issue("/policy/path_actions", "required", "path_actions is required"));
++  else expectOneOf(pathActions, "immutable", DECISIONS, issues, "/policy/path_actions");
++
++  const ruleActions = asRecord(root.rule_actions);
++  if (!ruleActions) issues.push(issue("/policy/rule_actions", "required", "rule_actions is required"));
++  else {
++    expectOneOf(ruleActions, "denied", DECISIONS, issues, "/policy/rule_actions");
++    expectOneOf(ruleActions, "not_allowed", DECISIONS, issues, "/policy/rule_actions");
++  }
++
++  const boundaryActions = asRecord(root.boundary_actions);
++  if (!boundaryActions) issues.push(issue("/policy/boundary_actions", "required", "boundary_actions is required"));
++  else for (const key of ["runtime_halted_or_quarantined", "runtime_not_mutating_when_enforced", "rate_blocked", "rate_delayed_or_cooldown"]) expectOneOf(boundaryActions, key, DECISIONS, issues, "/policy/boundary_actions");
++
++  const approvalClasses = asRecord(root.approval_classes);
++  if (!approvalClasses) issues.push(issue("/policy/approval_classes", "required", "approval_classes is required"));
++  else for (const decision of DECISIONS) expectOneOf(approvalClasses, decision, APPROVAL_CLASSES, issues, "/policy/approval_classes");
++
++  return { ok: issues.length === 0, issues };
++}
++
++export function validateSecurityGateDecision(value) {
++  const issues = [];
++  const root = asRecord(value);
++  if (!root) return invalid("/manifest", "type", "security gate decision manifest must be an object");
++  expectLiteral(root, "schema_ref", SECURITY_GATES_SCHEMA_REF, issues, "/manifest");
++  expectString(root, "decision_id", issues, "/manifest", "forge-security-gate://");
++  expectRfc3339(root, "generated_at", issues, "/manifest");
++  expectOneOf(root, "status", STATUSES, issues, "/manifest");
++  expectOneOf(root, "decision", DECISIONS, issues, "/manifest");
++  if (root.status !== statusForDecision(root.decision)) issues.push(issue("/manifest/status", "decision_status_mismatch", "status must match decision"));
++  validateDecisionSource(root.source, issues);
++  validatePolicySummary(root.policy, issues);
++  validateRuntimeSummary(root.runtime_gate, issues);
++  validateRateSummary(root.rate_gate, issues);
++  validateSummary(root.summary, issues);
++  validateApprovalCheckpointSummary(root.approval_checkpoint, issues);
++  validateFindings(root.finding_decisions, "/manifest/finding_decisions", issues);
++  validateFindings(root.boundary_decisions, "/manifest/boundary_decisions", issues);
++  if (!Array.isArray(root.reasons) || root.reasons.length === 0 || !root.reasons.every((item) => typeof item === "string" && item.length > 0)) issues.push(issue("/manifest/reasons", "string_array", "reasons must be a non-empty string array"));
++  const guards = asRecord(root.guards);
++  if (!guards) issues.push(issue("/manifest/guards", "required", "guards are required"));
++  else for (const key of Object.keys(boundaryGuards())) if (guards[key] !== true) issues.push(issue(`/manifest/guards/${key}`, "literal", `${key} must be true`));
++  const properties = asRecord(root.properties);
++  if (!properties) issues.push(issue("/manifest/properties", "required", "properties are required"));
++  else {
++    expectLiteral(properties, "forge_task", "T041", issues, "/manifest/properties");
++    expectLiteral(properties, "manifest_only", true, issues, "/manifest/properties");
++    expectLiteral(properties, "live_code_scanning_upload", false, issues, "/manifest/properties");
++    expectLiteral(properties, "ruleset_mutation", false, issues, "/manifest/properties");
++    expectLiteral(properties, "branch_protection_mutation", false, issues, "/manifest/properties");
++  }
++  return { ok: issues.length === 0, issues };
++}
++
++export const validateSecurityGateManifest = validateSecurityGateDecision;
++export const validateSecurityGateDecisionManifest = validateSecurityGateDecision;
++
++function normalizeSecurityGateInput(input, options = {}) {
++  const root = asRecord(input);
++  if (!root) return { ok: false, issues: [issue("/input", "type", "security gate input must be an object")] };
++  const issues = [];
++  const secretIssues = collectSecretLikeInputIssues(root, "/input");
++  if (secretIssues.length > 0) issues.push(...secretIssues);
++
++  const sarifArtifact = root.sarif ?? root.sarif_artifact ?? root.sarifArtifact ?? root.artifact ?? root.findings_artifact ?? root.findingsArtifact ?? asRecord(root.sarif_result)?.artifact ?? null;
++  if (!sarifArtifact) issues.push(issue("/input/sarif_artifact", "required", "sarif_artifact is required"));
++  else {
++    const sarifValidation = validateSarifLikeArtifact(sarifArtifact);
++    if (!sarifValidation.ok) issues.push(...sarifValidation.issues.map((item) => ({ ...item, path: `/input/sarif_artifact${item.path?.replace(/^\/artifact/, "") ?? ""}` })));
++  }
++
++  const generatedAt = root.generated_at ?? root.generatedAt ?? root.now ?? options.generatedAt ?? options.now ?? DEFAULT_GENERATED_AT;
++  if (typeof generatedAt !== "string" || !RFC3339_UTC.test(generatedAt)) issues.push(issue("/input/generated_at", "rfc3339", "generated_at must be RFC3339 UTC when supplied"));
++
++  const policy = normalizePolicy(root.policy ?? options.policy ?? DEFAULT_SECURITY_GATES_POLICY);
++  if (!policy.validation.ok) issues.push(...policy.validation.issues);
++
++  if (issues.length > 0) return { ok: false, issues };
++  const artifact = sarifArtifact;
++  return {
++    ok: true,
++    generatedAt,
++    artifact,
++    artifactHash: stableSha256(artifact),
++    results: arrayValue(artifact.runs?.[0]?.results),
++    source: normalizeSource(artifact, root, options),
++    policy: policy.policy,
++    runtime: normalizeRuntime(root.runtime_gate ?? root.runtimeGate ?? root.runtime ?? options.runtime),
++    rate: normalizeRate(root.rate_gate ?? root.rateGate ?? root.rate ?? root.rate_governor ?? root.rateGovernor ?? options.rate),
++    approval: normalizeApproval(root.approval_checkpoint ?? root.approvalCheckpoint ?? root.approval ?? root.review_gate ?? root.reviewGate ?? options.approval),
++    context: {
++      enforceRuntimeTransport: booleanValue(root.enforce_runtime_transport ?? root.enforceRuntimeTransport ?? options.enforceRuntimeTransport) === true,
++      liveTransportRequested: booleanValue(root.live_transport_requested ?? root.liveTransportRequested ?? options.liveTransportRequested) === true,
++    },
++  };
++}
++
++function normalizePolicy(value) {
++  const root = clonePlain(value ?? DEFAULT_SECURITY_GATES_POLICY);
++  const validation = validateSecurityGatePolicy(root);
++  if (!validation.ok) return { policy: root, validation: { ok: false, issues: validation.issues.map((item) => ({ ...item, path: item.path.replace(/^\/policy/, "/input/policy") })) } };
++  const normalizeIds = (items) => [...new Set(arrayValue(items).map((item) => normalizeRuleId(item)).filter(Boolean))].sort();
++  return {
++    policy: {
++      ...root,
++      critical_source_severities: arrayValue(root.critical_source_severities).map((item) => String(item).toLowerCase()).sort(),
++      denied_rule_ids: normalizeIds(root.denied_rule_ids),
++      allowed_rule_ids: normalizeIds(root.allowed_rule_ids),
++      immutable_path_patterns: [...arrayValue(root.immutable_path_patterns)].sort(),
++      low_risk_path_patterns: [...arrayValue(root.low_risk_path_patterns)].sort(),
++    },
++    validation,
++  };
++}
++
++function normalizeSource(artifact, root, options) {
++  const artifactSource = asRecord(artifact.source) ?? {};
++  const inputSource = asRecord(root.source) ?? {};
++  return {
++    repository: stringOrNull(inputSource.repository ?? artifactSource.repository ?? options.repository),
++    task_id: stringOrNull(inputSource.task_id ?? inputSource.taskId ?? artifactSource.task_id ?? artifactSource.taskId ?? options.taskId),
++    audit_id: stringOrNull(inputSource.audit_id ?? inputSource.auditId ?? artifactSource.audit_id ?? artifactSource.auditId),
++    plan_id: stringOrNull(inputSource.plan_id ?? inputSource.planId ?? artifactSource.plan_id ?? artifactSource.planId),
++    source_artifact_sha256: stringOrNull(inputSource.source_artifact_sha256 ?? inputSource.sourceArtifactSha256 ?? artifactSource.source_artifact_sha256 ?? artifactSource.sourceArtifactSha256),
++    sarif_artifact_sha256: stableSha256(artifact),
++    policy_id: stringOrNull(inputSource.policy_id ?? inputSource.policyId) ?? DEFAULT_SECURITY_GATES_POLICY.policy_id,
++  };
++}
++
++function normalizeRuntime(value) {
++  const root = asRecord(value) ?? {};
++  const mode = stringOrNull(root.mode ?? root.runtime_mode ?? root.runtimeMode) ?? "unknown";
++  return {
++    mode: RUNTIME_MODES.has(mode) ? mode : "unknown",
++    allowed: booleanOrNull(root.allowed),
++    mutating_lane_open: booleanOrNull(root.mutating_lane_open ?? root.mutatingLaneOpen),
++    kill_switch_engaged: booleanValue(root.kill_switch_engaged ?? root.killSwitchEngaged) === true,
++    live_transport_allowed: booleanOrNull(root.live_transport_allowed ?? root.liveTransportAllowed),
++    checked_at: stringOrNull(root.checked_at ?? root.checkedAt),
++  };
++}
++
++function normalizeRate(value) {
++  const root = asRecord(value) ?? {};
++  const status = stringOrNull(root.status ?? root.decision ?? root.state) ?? "unknown";
++  return {
++    status,
++    dispatch_status: stringOrNull(root.dispatch_status ?? root.dispatchStatus),
++    cooldown_active: booleanValue(root.cooldown_active ?? root.cooldownActive ?? asRecord(root.cooldown)?.active) === true,
++    cooldown_until: stringOrNull(root.cooldown_until ?? root.cooldownUntil ?? asRecord(root.cooldown)?.cooldown_until ?? asRecord(root.cooldown)?.cooldownUntil),
++    retry_after_seconds: numberOrNull(root.retry_after_seconds ?? root.retryAfterSeconds ?? asRecord(root.cooldown)?.retry_after_seconds ?? asRecord(root.cooldown)?.retryAfterSeconds),
++  };
++}
++
++function normalizeApproval(value) {
++  const root = asRecord(value) ?? {};
++  const approvalClass = stringOrNull(root.approval_class ?? root.approvalClass ?? root.class) ?? DEFAULT_SECURITY_GATES_POLICY.default_approval_class;
++  return {
++    approval_class: APPROVAL_CLASSES.has(approvalClass) ? approvalClass : DEFAULT_SECURITY_GATES_POLICY.default_approval_class,
++    risk: stringOrNull(root.risk) ?? "unknown",
++    human_review_required_before_merge: booleanOrNull(root.human_review_required_before_merge ?? root.humanReviewRequiredBeforeMerge),
++    min_human_approvals: numberOrNull(root.min_human_approvals ?? root.minHumanApprovals),
++  };
++}
++
++function evaluateSarifResult(result, index, policy) {
++  const ruleId = normalizeRuleId(result.ruleId) ?? String(result.ruleId ?? "unknown");
++  const location = asRecord(arrayValue(result.locations)[0]?.physicalLocation) ?? {};
++  const artifactLocation = asRecord(location.artifactLocation) ?? {};
++  const region = asRecord(location.region) ?? {};
++  const properties = asRecord(result.properties) ?? {};
++  const severity = normalizeSeverity(properties.forge_severity, result.level);
++  const sourceSeverity = stringOrNull(properties.source_severity) ?? severity;
++  const path = String(artifactLocation.uri ?? properties.normalized_path ?? "unknown");
++  const message = stringOrNull(asRecord(result.message)?.text) ?? "SARIF finding";
++  const fingerprint = stringOrNull(asRecord(result.partialFingerprints)?.forgeRootFingerprint) ?? `sha256:${"0".repeat(64)}`;
++  const candidates = [];
++
++  const critical = policy.critical_source_severities.includes(sourceSeverity.toLowerCase());
++  if (critical) candidates.push(candidate(policy.path_actions.immutable === "quarantine" ? "quarantine" : "block", "critical_source_severity", `source severity '${sourceSeverity}' is critical-equivalent`));
++
++  const denied = policy.denied_rule_ids.includes(ruleId);
++  if (denied) candidates.push(candidate(policy.rule_actions.denied, "denied_rule_id", `ruleId '${ruleId}' is denied by security gate policy`));
++
++  if (policy.allowed_rule_ids.length > 0 && !policy.allowed_rule_ids.includes(ruleId)) candidates.push(candidate(policy.rule_actions.not_allowed, "rule_id_not_allowed", `ruleId '${ruleId}' is not in the allowed rule set`));
++
++  const immutable = matchesAny(path, policy.immutable_path_patterns);
++  if (immutable) candidates.push(candidate(policy.path_actions.immutable, "immutable_path_violation", `path '${path}' matches an immutable governance surface`));
++
++  const severityAction = policy.severity_actions[severity] ?? "hold";
++  candidates.push(candidate(severityAction, `severity_${severity}`, `forge severity '${severity}' maps to '${severityAction}'`));
++
++  const selected = selectMaxDecision(candidates);
++  const pathClass = matchesAny(path, policy.low_risk_path_patterns) ? "low_risk_docs_or_tests" : immutable ? "immutable_governance" : "code_or_config";
++  return {
++    kind: "sarif_finding",
++    index,
++    ruleId,
++    level: stringOrNull(result.level) ?? levelFromSeverity(severity),
++    forge_severity: severity,
++    source_severity: sourceSeverity,
++    path,
++    path_class: pathClass,
++    startLine: positiveIntegerOrNull(region.startLine) ?? 1,
++    startColumn: positiveIntegerOrNull(region.startColumn) ?? 1,
++    fingerprint,
++    message,
++    decision: selected.decision,
++    policy_effect: policyEffectForDecision(selected.decision),
++    reasons: uniqueStrings(candidates.filter((item) => item.decision === selected.decision || DECISION_RANK[item.decision] > 0).map((item) => `${item.code}: ${item.message}`)),
++  };
++}
++
++function evaluateBoundaryInputs(normalized) {
++  const out = [];
++  const policy = normalized.policy;
++  const runtime = normalized.runtime;
++  if (runtime.kill_switch_engaged === true) out.push(boundaryDecision("runtime", policy.boundary_actions.runtime_halted_or_quarantined, "kill_switch_engaged", "runtime kill switch is engaged"));
++  if (["halted", "quarantine"].includes(runtime.mode)) out.push(boundaryDecision("runtime", policy.boundary_actions.runtime_halted_or_quarantined, "runtime_quarantine_or_halted", `runtime mode '${runtime.mode}' blocks transport`));
++  if ((normalized.context.enforceRuntimeTransport || normalized.context.liveTransportRequested) && !["evolve", "federate"].includes(runtime.mode)) out.push(boundaryDecision("runtime", policy.boundary_actions.runtime_not_mutating_when_enforced, "runtime_not_mutating", `runtime mode '${runtime.mode}' is not a mutating transport mode`));
++
++  const rateStatus = normalized.rate.status;
++  const dispatchStatus = normalized.rate.dispatch_status;
++  if (["blocked", "block", "denied", "invalid"].includes(rateStatus) || ["blocked", "block", "denied", "invalid"].includes(dispatchStatus)) out.push(boundaryDecision("rate", policy.boundary_actions.rate_blocked, "rate_governor_blocked", "rate governor boundary is blocked"));
++  if (normalized.rate.cooldown_active === true || ["delayed", "delay", "cooldown", "held", "queued_after_cooldown"].includes(rateStatus) || ["delayed", "delay", "cooldown", "held"].includes(dispatchStatus)) out.push(boundaryDecision("rate", policy.boundary_actions.rate_delayed_or_cooldown, "rate_governor_delay_or_cooldown", "rate governor boundary requires delay or cooldown"));
++  return out.sort(compareFindingDecisions);
++}
++
++function aggregateDecision(decisions, policy) {
++  const selected = selectMaxDecision(decisions.length > 0 ? decisions.map((item) => ({ decision: item.decision, code: item.kind ?? "decision", message: item.reasons?.[0] ?? item.reason ?? item.decision })) : [candidate("pass", "no_findings", "no security findings")]);
++  const summaryReason = selected.decision === "pass" ? "security_gate_passed" : selected.decision === "hold" ? "security_gate_held" : selected.decision === "block" ? "security_gate_blocked" : "security_gate_quarantined";
++  return {
++    decision: selected.decision,
++    status: statusForDecision(selected.decision),
++    transportAuthorization: transportAuthorizationForDecision(selected.decision),
++    approvalClass: policy.approval_classes[selected.decision] ?? policy.default_approval_class,
++    reasons: [summaryReason],
++  };
++}
++
++function buildDecisionManifest(normalized, findingDecisions, boundaryDecisions, aggregate) {
++  const summary = summarizeGate(findingDecisions, boundaryDecisions);
++  const canonicalInput = {
++    sarif_artifact_sha256: normalized.artifactHash,
++    generated_at: normalized.generatedAt,
++    policy_id: normalized.policy.policy_id,
++    policy_revision: normalized.policy.revision,
++    findings: findingDecisions.map((item) => ({ ruleId: item.ruleId, path: item.path, fingerprint: item.fingerprint, decision: item.decision })),
++    boundaries: boundaryDecisions.map((item) => ({ kind: item.kind, code: item.code, decision: item.decision })),
++  };
++  const decisionId = `forge-security-gate://${sha256(canonicalJson(canonicalInput)).slice(0, 32)}`;
++  const reasons = uniqueStrings([
++    ...aggregate.reasons,
++    ...findingDecisions.flatMap((item) => item.decision === "pass" ? [] : item.reasons),
++    ...boundaryDecisions.flatMap((item) => item.reasons),
++  ]);
++  return {
++    schema_ref: SECURITY_GATES_SCHEMA_REF,
++    decision_id: decisionId,
++    generated_at: normalized.generatedAt,
++    status: aggregate.status,
++    decision: aggregate.decision,
++    transport_authorization: aggregate.transportAuthorization,
++    source: {
++      ...normalized.source,
++      policy_id: normalized.policy.policy_id,
++      policy_revision: normalized.policy.revision,
++      sarif_artifact_sha256: normalized.artifactHash,
++    },
++    policy: {
++      policy_id: normalized.policy.policy_id,
++      revision: normalized.policy.revision,
++      severity_actions: normalized.policy.severity_actions,
++      denied_rule_ids: normalized.policy.denied_rule_ids,
++      allowed_rule_ids: normalized.policy.allowed_rule_ids,
++      immutable_path_patterns: normalized.policy.immutable_path_patterns,
++    },
++    runtime_gate: normalized.runtime,
++    rate_gate: normalized.rate,
++    approval_checkpoint: {
++      handoff_kind: "security_gate_summary_for_approval_checkpoint",
++      recommended_checkpoint_status: approvalCheckpointStatusForDecision(aggregate.decision),
++      approval_class: aggregate.approvalClass,
++      inherited_approval_class: normalized.approval.approval_class,
++      min_human_approvals: minApprovalsFor(aggregate.approvalClass),
++      codeowner_required: ["C", "D"].includes(aggregate.approvalClass),
++      self_approval_forbidden: ["C", "D"].includes(aggregate.approvalClass),
++      summary: `Security gate decision is ${aggregate.decision}.`,
++    },
++    summary,
++    finding_decisions: findingDecisions,
++    boundary_decisions: boundaryDecisions,
++    reasons: reasons.length > 0 ? reasons : ["security_gate_passed"],
++    guards: boundaryGuards(),
++    properties: {
++      forge_task: "T041",
++      manifest_only: true,
++      live_code_scanning_upload: false,
++      github_api_call: false,
++      ruleset_mutation: false,
++      branch_protection_mutation: false,
++      workflow_mutation: false,
++      dependency_review_live_api_integration: false,
++      memory_or_evaluation_update: false,
++      federation_or_self_evolution: false,
++    },
++  };
++}
++
++function summarizeGate(findingDecisions, boundaryDecisions) {
++  const severityCounts = { high: 0, medium: 0, low: 0, note: 0 };
++  const decisionCounts = { pass: 0, hold: 0, block: 0, quarantine: 0 };
++  const affectedPaths = new Set();
++  const blockedRuleIds = new Set();
++  const heldRuleIds = new Set();
++  const quarantinedRuleIds = new Set();
++  const immutablePaths = new Set();
++  for (const item of findingDecisions) {
++    severityCounts[item.forge_severity] += 1;
++    decisionCounts[item.decision] += 1;
++    affectedPaths.add(item.path);
++    if (item.decision === "block") blockedRuleIds.add(item.ruleId);
++    if (item.decision === "hold") heldRuleIds.add(item.ruleId);
++    if (item.decision === "quarantine") quarantinedRuleIds.add(item.ruleId);
++    if (item.reasons.some((reason) => reason.includes("immutable_path_violation"))) immutablePaths.add(item.path);
++  }
++  for (const item of boundaryDecisions) decisionCounts[item.decision] += 1;
++  const maxSeverity = findingDecisions.map((item) => item.forge_severity).sort((a, b) => SEVERITY_RANK[b] - SEVERITY_RANK[a])[0] ?? "note";
++  return {
++    result_count: findingDecisions.length,
++    boundary_decision_count: boundaryDecisions.length,
++    max_severity: maxSeverity,
++    severity_counts: severityCounts,
++    decision_counts: decisionCounts,
++    affected_paths: [...affectedPaths].sort(),
++    blocked_rule_ids: [...blockedRuleIds].sort(),
++    held_rule_ids: [...heldRuleIds].sort(),
++    quarantined_rule_ids: [...quarantinedRuleIds].sort(),
++    immutable_path_violations: [...immutablePaths].sort(),
++    pass_count: decisionCounts.pass,
++    hold_count: decisionCounts.hold,
++    block_count: decisionCounts.block,
++    quarantine_count: decisionCounts.quarantine,
++  };
++}
++
++function validateDecisionSource(source, issues) {
++  const root = asRecord(source);
++  if (!root) return issues.push(issue("/manifest/source", "required", "source is required"));
++  expectStringOrNull(root, "repository", issues, "/manifest/source");
++  expectStringOrNull(root, "task_id", issues, "/manifest/source");
++  expectStringOrNull(root, "audit_id", issues, "/manifest/source");
++  expectStringOrNull(root, "plan_id", issues, "/manifest/source");
++  expectStringOrNull(root, "source_artifact_sha256", issues, "/manifest/source");
++  expectString(root, "policy_id", issues, "/manifest/source", "forge://");
++  expectString(root, "policy_revision", issues, "/manifest/source");
++  expectString(root, "sarif_artifact_sha256", issues, "/manifest/source", "sha256:");
++  if (typeof root.sarif_artifact_sha256 === "string" && !SHA256_RE.test(root.sarif_artifact_sha256)) issues.push(issue("/manifest/source/sarif_artifact_sha256", "sha256", "sarif_artifact_sha256 must use sha256:<64 hex>"));
++}
++function validatePolicySummary(policy, issues) {
++  const root = asRecord(policy);
++  if (!root) return issues.push(issue("/manifest/policy", "required", "policy summary is required"));
++  else {
++    expectString(root, "policy_id", issues, "/manifest/policy", "forge://");
++    expectString(root, "revision", issues, "/manifest/policy");
++    if (!asRecord(root.severity_actions)) issues.push(issue("/manifest/policy/severity_actions", "required", "severity_actions is required"));
++    expectStringArray(root, "denied_rule_ids", issues, "/manifest/policy", true);
++    expectStringArray(root, "allowed_rule_ids", issues, "/manifest/policy", true);
++    expectStringArray(root, "immutable_path_patterns", issues, "/manifest/policy", false);
++  }
++}
++function validateRuntimeSummary(runtime, issues) {
++  const root = asRecord(runtime);
++  if (!root) return issues.push(issue("/manifest/runtime_gate", "required", "runtime gate summary is required"));
++  else {
++    expectOneOf(root, "mode", RUNTIME_MODES, issues, "/manifest/runtime_gate");
++    expectBooleanOrNull(root, "allowed", issues, "/manifest/runtime_gate");
++    expectBooleanOrNull(root, "mutating_lane_open", issues, "/manifest/runtime_gate");
++    expectBoolean(root, "kill_switch_engaged", issues, "/manifest/runtime_gate");
++    expectBooleanOrNull(root, "live_transport_allowed", issues, "/manifest/runtime_gate");
++    expectStringOrNull(root, "checked_at", issues, "/manifest/runtime_gate");
++  }
++}
++function validateRateSummary(rate, issues) {
++  const root = asRecord(rate);
++  if (!root) return issues.push(issue("/manifest/rate_gate", "required", "rate gate summary is required"));
++  else {
++    expectString(root, "status", issues, "/manifest/rate_gate");
++    expectStringOrNull(root, "dispatch_status", issues, "/manifest/rate_gate");
++    expectBoolean(root, "cooldown_active", issues, "/manifest/rate_gate");
++    expectStringOrNull(root, "cooldown_until", issues, "/manifest/rate_gate");
++  }
++}
++function validateSummary(summary, issues) {
++  const root = asRecord(summary);
++  if (!root) return issues.push(issue("/manifest/summary", "required", "summary is required"));
++  else {
++    for (const key of ["result_count", "boundary_decision_count", "pass_count", "hold_count", "block_count", "quarantine_count"]) expectNonnegativeInteger(root, key, issues, "/manifest/summary");
++    expectOneOf(root, "max_severity", SEVERITIES, issues, "/manifest/summary");
++    for (const key of ["affected_paths", "blocked_rule_ids", "held_rule_ids", "quarantined_rule_ids", "immutable_path_violations"]) expectStringArray(root, key, issues, "/manifest/summary", true);
++  }
++}
++function validateApprovalCheckpointSummary(summary, issues) {
++  const root = asRecord(summary);
++  if (!root) return issues.push(issue("/manifest/approval_checkpoint", "required", "approval checkpoint summary is required"));
++  else {
++    expectLiteral(root, "handoff_kind", "security_gate_summary_for_approval_checkpoint", issues, "/manifest/approval_checkpoint");
++    expectString(root, "recommended_checkpoint_status", issues, "/manifest/approval_checkpoint");
++    expectOneOf(root, "approval_class", APPROVAL_CLASSES, issues, "/manifest/approval_checkpoint");
++    expectOneOf(root, "inherited_approval_class", APPROVAL_CLASSES, issues, "/manifest/approval_checkpoint");
++    expectNonnegativeInteger(root, "min_human_approvals", issues, "/manifest/approval_checkpoint");
++    expectBoolean(root, "codeowner_required", issues, "/manifest/approval_checkpoint");
++    expectBoolean(root, "self_approval_forbidden", issues, "/manifest/approval_checkpoint");
++    expectString(root, "summary", issues, "/manifest/approval_checkpoint");
++  }
++}
++function validateFindings(findings, path, issues) {
++  if (!Array.isArray(findings)) return issues.push(issue(path, "array", "finding decisions must be an array"));
++  findings.forEach((item, index) => {
++    const root = asRecord(item);
++    const base = `${path}/${index}`;
++    if (!root) return issues.push(issue(base, "object", "finding decision must be an object"));
++    expectString(root, "kind", issues, base);
++    expectOneOf(root, "decision", DECISIONS, issues, base);
++    expectStringArray(root, "reasons", issues, base, false);
++    if (root.kind === "sarif_finding") {
++      expectString(root, "ruleId", issues, base);
++      expectOneOf(root, "level", LEVELS, issues, base);
++      expectOneOf(root, "forge_severity", SEVERITIES, issues, base);
++      expectString(root, "source_severity", issues, base);
++      expectString(root, "path", issues, base);
++      expectString(root, "fingerprint", issues, base, "sha256:");
++      expectString(root, "message", issues, base);
++    } else {
++      expectString(root, "code", issues, base);
++      expectString(root, "message", issues, base);
++    }
++  });
++}
++
++function boundaryDecision(kind, decision, code, message) {
++  return { kind, decision, code, message, reasons: [`${code}: ${message}`], policy_effect: policyEffectForDecision(decision) };
++}
++function candidate(decision, code, message) { return { decision, code, message }; }
++function selectMaxDecision(candidates) { return candidates.slice().sort((a, b) => DECISION_RANK[b.decision] - DECISION_RANK[a.decision] || String(a.code).localeCompare(String(b.code)) || String(a.message).localeCompare(String(b.message)))[0] ?? candidate("pass", "none", "no findings"); }
++function compareFindingDecisions(a, b) { return (DECISION_RANK[b.decision] - DECISION_RANK[a.decision]) || ((SEVERITY_RANK[b.forge_severity] ?? -1) - (SEVERITY_RANK[a.forge_severity] ?? -1)) || String(a.ruleId ?? a.code ?? "").localeCompare(String(b.ruleId ?? b.code ?? "")) || String(a.path ?? "").localeCompare(String(b.path ?? "")) || ((a.startLine ?? 0) - (b.startLine ?? 0)) || String(a.fingerprint ?? "").localeCompare(String(b.fingerprint ?? "")); }
++function normalizeSeverity(value, level) { const raw = String(value ?? "").toLowerCase(); if (SEVERITIES.has(raw)) return raw; const l = String(level ?? "").toLowerCase(); if (l === "error") return "high"; if (l === "warning") return "medium"; if (l === "note") return "low"; return "note"; }
++function levelFromSeverity(severity) { if (severity === "high") return "error"; if (severity === "medium") return "warning"; return "note"; }
++function policyEffectForDecision(decision) { return decision === "pass" ? "allow_checkpoint" : decision === "hold" ? "hold_before_transport" : decision === "block" ? "block_transport" : "quarantine_candidate"; }
++function statusForDecision(decision) { return decision === "pass" ? "passed" : decision === "hold" ? "held" : decision === "block" ? "blocked" : decision === "quarantine" ? "quarantined" : "invalid"; }
++function transportAuthorizationForDecision(decision) { return decision === "pass" ? "eligible_for_approval_checkpoint" : decision === "hold" ? "held_before_transport_authorization" : decision === "block" ? "blocked_before_transport_authorization" : "quarantined_before_transport_authorization"; }
++function approvalCheckpointStatusForDecision(decision) { return decision === "pass" ? "continue_to_approval_checkpoint" : decision === "hold" ? "hold_for_human_review" : decision === "block" ? "block_transport_authorization" : "quarantine_candidate"; }
++function minApprovalsFor(approvalClass) { return approvalClass === "A" ? 0 : approvalClass === "B" ? 1 : 2; }
++function normalizeRuleId(value) { const raw = stringOrNull(value); if (!raw) return null; return raw.trim().toLowerCase().replace(/[^a-z0-9_.\/-]+/g, "-").replace(/[\/]+/g, ".").replace(/\.{2,}/g, ".").replace(/^-+|-+$/g, "").slice(0, 160) || null; }
++function matchesAny(path, patterns) { return arrayValue(patterns).some((pattern) => globToRegExp(pattern).test(path)); }
++function globToRegExp(pattern) { let source = "^"; const value = String(pattern).replace(/\\/g, "/"); for (let i = 0; i < value.length; i++) { const c = value[i]; if (c === "*" && value[i + 1] === "*") { source += ".*"; i++; } else if (c === "*") source += "[^/]*"; else source += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); } return new RegExp(source + "$", "u"); }
++function boundaryGuards() { return { no_github_api_call: true, no_github_code_scanning_upload: true, no_branch_protection_mutation: true, no_ruleset_mutation: true, no_workflow_mutation: true, no_policy_mutation_in_runtime: true, no_dependency_review_live_api_integration: true, no_pull_request_creation: true, no_merge_operation: true, no_auto_merge: true, no_memory_or_evaluation_update: true, no_federation_or_self_evolution: true }; }
++function collectSecretLikeInputIssues(value, path) { const issues = []; const visit = (current, currentPath) => { if (Array.isArray(current)) { current.forEach((item, index) => visit(item, `${currentPath}/${index}`)); return; } if (!asRecord(current)) { if (typeof current === "string" && looksSecret(current)) issues.push(issue(currentPath, "secret_like_value", "input contains secret-looking material")); return; } for (const [key, item] of Object.entries(current)) { const nextPath = `${currentPath}/${key}`; const upper = key.toUpperCase(); if (["TOKEN", "SECRET", "PASSWORD", "PRIVATE_KEY", "CREDENTIAL"].some((part) => upper.includes(part)) && typeof item === "string" && item.length > 0) issues.push(issue(nextPath, "secret_like_field", "input contains a secret-like field")); visit(item, nextPath); } }; visit(value, path); return issues; }
++function looksSecret(value) { const lower = String(value).toLowerCase(); return lower.includes("github_pat_") || lower.includes("ghp_") || lower.includes("sk-") || lower.includes("-----begin private key-----"); }
++function stableSha256(value) { return `sha256:${sha256(canonicalJson(value))}`; }
++function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
++function canonicalJson(value) { if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`; if (asRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`; return JSON.stringify(value); }
++function clonePlain(value) { return JSON.parse(JSON.stringify(value)); }
++function arrayValue(value) { return Array.isArray(value) ? value : []; }
++function asRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null; }
++function stringOrNull(value) { return typeof value === "string" && value.trim().length > 0 ? value.trim() : null; }
++function numberOrNull(value) { const number = Number(value); return Number.isFinite(number) ? number : null; }
++function positiveIntegerOrNull(value) { const number = Number(value); return Number.isSafeInteger(number) && number > 0 ? number : null; }
++function booleanValue(value) { return typeof value === "boolean" ? value : null; }
++function booleanOrNull(value) { return typeof value === "boolean" ? value : null; }
++function issue(path, code, message) { return { path, code, message }; }
++function invalid(path, code, message) { return { ok: false, issues: [issue(path, code, message)] }; }
++function formatIssue(item) { return `${item.code}:${item.path}:${item.message}`; }
++function uniqueStrings(values) { return [...new Set(values.filter((value) => typeof value === "string" && value.length > 0))]; }
++function expectLiteral(record, key, expected, issues, path) { if (record[key] !== expected) issues.push(issue(`${path}/${key}`, "literal", `${key} must be ${JSON.stringify(expected)}`)); }
++function expectString(record, key, issues, path, prefix) { const value = record[key]; if (typeof value !== "string" || value.length === 0) { issues.push(issue(`${path}/${key}`, "string", `${key} must be a non-empty string`)); return null; } if (prefix && !value.startsWith(prefix)) issues.push(issue(`${path}/${key}`, "prefix", `${key} must start with '${prefix}'`)); return value; }
++function expectStringOrNull(record, key, issues, path) { const value = record[key]; if (!(typeof value === "string" || value === null)) issues.push(issue(`${path}/${key}`, "string_or_null", `${key} must be a string or null`)); }
++function expectStringArray(record, key, issues, path, allowEmpty) { const value = record[key]; if (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.length > 0)) { issues.push(issue(`${path}/${key}`, "string_array", `${key} must be an array of strings`)); return []; } if (!allowEmpty && value.length === 0) issues.push(issue(`${path}/${key}`, "non_empty", `${key} must not be empty`)); return value; }
++function expectOneOf(record, key, allowed, issues, path) { const value = record[key]; if (typeof value !== "string" || !allowed.has(value)) issues.push(issue(`${path}/${key}`, "enum", `${key} is not allowed`)); return value; }
++function expectRfc3339(record, key, issues, path) { const value = expectString(record, key, issues, path); if (value && !RFC3339_UTC.test(value)) issues.push(issue(`${path}/${key}`, "rfc3339", `${key} must be RFC3339 UTC`)); }
++function expectBoolean(record, key, issues, path) { const value = record[key]; if (typeof value !== "boolean") issues.push(issue(`${path}/${key}`, "boolean", `${key} must be boolean`)); return value; }
++function expectBooleanOrNull(record, key, issues, path) { const value = record[key]; if (!(typeof value === "boolean" || value === null)) issues.push(issue(`${path}/${key}`, "boolean_or_null", `${key} must be boolean or null`)); }
++function expectNonnegativeInteger(record, key, issues, path) { const value = record[key]; if (!Number.isSafeInteger(value) || value < 0) issues.push(issue(`${path}/${key}`, "nonnegative_integer", `${key} must be a non-negative integer`)); }
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/dist/security-gates.js.map work_t041/ForgeRoot/packages/auditor/dist/security-gates.js.map
+--- orig_t041_2/ForgeRoot/packages/auditor/dist/security-gates.js.map	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/dist/security-gates.js.map	2026-04-19 09:45:28.637716208 +0000
+@@ -0,0 +1 @@
++{"version":3,"file":"security-gates.js","sources":["../src/security-gates.ts"],"sourcesContent":[],"names":[],"mappings":""}
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/package.json work_t041/ForgeRoot/packages/auditor/package.json
+--- orig_t041_2/ForgeRoot/packages/auditor/package.json	2026-04-19 08:55:31.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/package.json	2026-04-19 09:38:02.844118478 +0000
+@@ -1,9 +1,9 @@
+ {
+   "name": "@forgeroot/auditor",
+-  "version": "0.0.0-t040",
++  "version": "0.0.0-t041",
+   "private": true,
+   "type": "module",
+-  "description": "ForgeRoot auditor runtime and T040 deterministic SARIF-like finding bridge.",
++  "description": "ForgeRoot auditor runtime, T040 SARIF bridge, and T041 deterministic security gate decision manifest.",
+   "scripts": {
+     "build": "node scripts/build.mjs",
+     "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/scripts/build.mjs work_t041/ForgeRoot/packages/auditor/scripts/build.mjs
+--- orig_t041_2/ForgeRoot/packages/auditor/scripts/build.mjs	2026-04-19 08:58:18.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/scripts/build.mjs	2026-04-19 09:42:06.116809546 +0000
+@@ -7,7 +7,7 @@
+ fs.rmSync(distDir, { recursive: true, force: true });
+ fs.mkdirSync(distDir, { recursive: true });
+ 
+-for (const [src, dest] of [["run.ts", "run.js"], ["sarif.ts", "sarif.js"], ["index.ts", "index.js"]]) {
++for (const [src, dest] of [["run.ts", "run.js"], ["sarif.ts", "sarif.js"], ["security-gates.ts", "security-gates.js"], ["index.ts", "index.js"]]) {
+   fs.writeFileSync(path.join(distDir, dest), fs.readFileSync(path.join(srcDir, src), "utf8"), "utf8");
+   fs.writeFileSync(path.join(distDir, `${dest}.map`), JSON.stringify({ version: 3, file: dest, sources: [`../src/${src}`], sourcesContent: [], names: [], mappings: "" }) + "\n", "utf8");
+ }
+@@ -53,4 +53,33 @@
+ export declare function normalizeSarifPath(value: any, workspaceRoot?: any): any;
+ `, "utf8");
+ 
+-fs.writeFileSync(path.join(distDir, "index.d.ts"), 'export * from "./run.js";\nexport * from "./sarif.js";\n', "utf8");
++fs.writeFileSync(path.join(distDir, "security-gates.d.ts"), `export declare const SECURITY_GATES_SCHEMA_REF = "urn:forgeroot:security-gate-decision:v1";
++export declare const SECURITY_GATES_POLICY_SCHEMA_REF = "urn:forgeroot:security-gates-policy:v1";
++export declare const SECURITY_GATE_DECISION_SCHEMA_REF: typeof SECURITY_GATES_SCHEMA_REF;
++export declare const SECURITY_GATE_CONTRACT: typeof SECURITY_GATES_CONTRACT;
++export declare const SECURITY_GATES_CONTRACT: {
++  readonly consumes: readonly string[];
++  readonly produces: readonly string[];
++  readonly validates: readonly string[];
++  readonly decisions: readonly string[];
++  readonly forbids: readonly string[];
++  readonly manifestOnly: true;
++  readonly deterministic: true;
++};
++export declare const DEFAULT_SECURITY_GATES_POLICY: any;
++export declare const DEFAULT_SECURITY_GATE_POLICY: any;
++export declare function defaultSecurityGatePolicy(): any;
++export declare function evaluateSecurityGate(input?: any, options?: any): any;
++export declare const runSecurityGate: typeof evaluateSecurityGate;
++export declare const evaluateSecurityGates: typeof evaluateSecurityGate;
++export declare const createSecurityGateDecision: typeof evaluateSecurityGate;
++export declare const createSecurityGateManifest: typeof evaluateSecurityGate;
++export declare const evaluateSarifSecurityGate: typeof evaluateSecurityGate;
++export declare function validateSecurityGateInput(input?: any, options?: any): any;
++export declare function validateSecurityGatePolicy(policy?: any): any;
++export declare function validateSecurityGateDecision(value: any): any;
++export declare const validateSecurityGateManifest: typeof validateSecurityGateDecision;
++export declare const validateSecurityGateDecisionManifest: typeof validateSecurityGateDecision;
++`, "utf8");
++
++fs.writeFileSync(path.join(distDir, "index.d.ts"), 'export * from "./run.js";\nexport * from "./sarif.js";\nexport * from "./security-gates.js";\n', "utf8");
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/src/index.ts work_t041/ForgeRoot/packages/auditor/src/index.ts
+--- orig_t041_2/ForgeRoot/packages/auditor/src/index.ts	2026-04-19 08:55:19.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/src/index.ts	2026-04-19 09:35:13.501439999 +0000
+@@ -1,2 +1,3 @@
+ export * from "./run.js";
+ export * from "./sarif.js";
++export * from "./security-gates.js";
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/src/security-gates.ts work_t041/ForgeRoot/packages/auditor/src/security-gates.ts
+--- orig_t041_2/ForgeRoot/packages/auditor/src/security-gates.ts	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/src/security-gates.ts	2026-04-19 09:38:04.032261526 +0000
+@@ -0,0 +1,679 @@
++import crypto from "node:crypto";
++import { validateSarifLikeArtifact } from "./sarif.js";
++
++export const SECURITY_GATES_SCHEMA_REF = "urn:forgeroot:security-gate-decision:v1";
++export const SECURITY_GATES_POLICY_SCHEMA_REF = "urn:forgeroot:security-gates-policy:v1";
++
++export const SECURITY_GATES_CONTRACT = {
++  consumes: ["sarif_like_artifact", "runtime_gate_summary", "rate_governor_boundary", "approval_checkpoint_boundary"],
++  produces: ["security_gate_decision", "approval_checkpoint_gate_summary"],
++  validates: [
++    "sarif_like_artifact_validation",
++    "severity_thresholds",
++    "allowed_denied_rule_ids",
++    "immutable_path_violation",
++    "runtime_boundary_summary",
++    "rate_boundary_summary",
++    "deterministic_gate_decision",
++  ],
++  decisions: ["pass", "hold", "block", "quarantine", "invalid"],
++  forbids: [
++    "github_api_call",
++    "github_code_scanning_upload",
++    "branch_protection_mutation",
++    "ruleset_mutation",
++    "workflow_mutation",
++    "policy_mutation_in_runtime",
++    "dependency_review_live_api_integration",
++    "pull_request_creation",
++    "merge_operation",
++    "auto_merge",
++    "self_evolution",
++    "federation",
++    "memory_or_evaluation_updates",
++  ],
++  manifestOnly: true,
++  deterministic: true,
++};
++
++export const DEFAULT_SECURITY_GATES_POLICY = Object.freeze({
++  schema_ref: SECURITY_GATES_POLICY_SCHEMA_REF,
++  policy_id: "forge://hiroshitanaka-creator/ForgeRoot/policy/security-gates",
++  revision: "01KPF0T0417G5Y6B8C9D0E1F2B",
++  default_approval_class: "B",
++  severity_actions: {
++    high: "block",
++    medium: "hold",
++    low: "pass",
++    note: "pass",
++  },
++  critical_source_severities: ["critical", "fatal", "security_critical"],
++  denied_rule_ids: [
++    "forge.secret_scanning",
++    "forge.secret-scanning",
++    "forge.permission_drift",
++    "forge.permission-drift",
++    "forge.workflow_class_mismatch",
++    "forge.workflow-class-mismatch",
++    "forge.default_branch_write",
++    "forge.default-branch-write",
++    "security.secret",
++    "security.secret-scanning",
++    "security.credential-leak",
++  ],
++  allowed_rule_ids: [],
++  immutable_path_patterns: [
++    ".github/workflows/**",
++    ".github/actions/**",
++    ".forge/mind.forge",
++    ".forge/policies/**",
++    ".forge/network/**",
++    "apps/github-app/app-manifest.json",
++  ],
++  low_risk_path_patterns: [
++    "docs/**",
++    "**/*.md",
++    "**/*.mdx",
++    "tests/**",
++    "**/tests/**",
++    "**/*.test.mjs",
++    "**/*.test.js",
++    "**/*.test.ts",
++  ],
++  path_actions: {
++    immutable: "quarantine",
++  },
++  rule_actions: {
++    denied: "quarantine",
++    not_allowed: "block",
++  },
++  boundary_actions: {
++    runtime_halted_or_quarantined: "quarantine",
++    runtime_not_mutating_when_enforced: "hold",
++    rate_blocked: "block",
++    rate_delayed_or_cooldown: "hold",
++  },
++  approval_classes: {
++    pass: "B",
++    hold: "B",
++    block: "C",
++    quarantine: "C",
++  },
++});
++
++
++export const SECURITY_GATE_DECISION_SCHEMA_REF = SECURITY_GATES_SCHEMA_REF;
++export const SECURITY_GATE_CONTRACT = SECURITY_GATES_CONTRACT;
++export const DEFAULT_SECURITY_GATE_POLICY = DEFAULT_SECURITY_GATES_POLICY;
++export function defaultSecurityGatePolicy() { return clonePlain(DEFAULT_SECURITY_GATES_POLICY); }
++
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
++const DECISIONS = new Set(["pass", "hold", "block", "quarantine"]);
++const STATUSES = new Set(["passed", "held", "blocked", "quarantined", "invalid"]);
++const SEVERITIES = new Set(["high", "medium", "low", "note"]);
++const LEVELS = new Set(["error", "warning", "note", "none"]);
++const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
++const RUNTIME_MODES = new Set(["observe", "propose", "evolve", "federate", "quarantine", "halted", "unknown"]);
++const DECISION_RANK = { pass: 0, hold: 1, block: 2, quarantine: 3 };
++const SEVERITY_RANK = { note: 0, low: 1, medium: 2, high: 3 };
++const DEFAULT_GENERATED_AT = "1970-01-01T00:00:00Z";
++
++export function evaluateSecurityGate(input = {}, options = {}) {
++  const normalized = normalizeSecurityGateInput(input, options);
++  if (!normalized.ok) {
++    return {
++      status: "invalid",
++      decision: "invalid",
++      manifest: null,
++      issues: normalized.issues,
++      reasons: uniqueStrings(["invalid_security_gate_input", ...normalized.issues.map(formatIssue)]),
++      guards: boundaryGuards(),
++    };
++  }
++
++  const findingDecisions = normalized.results
++    .map((result, index) => evaluateSarifResult(result, index, normalized.policy))
++    .sort(compareFindingDecisions);
++  const boundaryFindings = evaluateBoundaryInputs(normalized);
++  const aggregate = aggregateDecision([...findingDecisions, ...boundaryFindings], normalized.policy);
++  const manifest = buildDecisionManifest(normalized, findingDecisions, boundaryFindings, aggregate);
++  const validation = validateSecurityGateDecision(manifest);
++  if (!validation.ok) {
++    return {
++      status: "invalid",
++      decision: "invalid",
++      manifest: null,
++      issues: validation.issues,
++      reasons: uniqueStrings(["generated_security_gate_decision_failed_validation", ...validation.issues.map(formatIssue)]),
++      guards: boundaryGuards(),
++    };
++  }
++
++  return {
++    status: manifest.status,
++    decision: manifest.decision,
++    manifest,
++    gateDecision: manifest,
++    gate: manifest,
++    issues: [],
++    reasons: manifest.reasons,
++    guards: boundaryGuards(),
++  };
++}
++
++export const runSecurityGate = evaluateSecurityGate;
++export const evaluateSecurityGates = evaluateSecurityGate;
++export const createSecurityGateDecision = evaluateSecurityGate;
++export const createSecurityGateManifest = evaluateSecurityGate;
++export const evaluateSarifSecurityGate = evaluateSecurityGate;
++
++export function validateSecurityGateInput(input = {}, options = {}) {
++  const normalized = normalizeSecurityGateInput(input, options);
++  return normalized.ok ? { ok: true, issues: [] } : { ok: false, issues: normalized.issues };
++}
++
++export function validateSecurityGatePolicy(policy = DEFAULT_SECURITY_GATES_POLICY) {
++  const issues = [];
++  const root = asRecord(policy);
++  if (!root) return invalid("/policy", "type", "security gate policy must be an object");
++  expectLiteral(root, "schema_ref", SECURITY_GATES_POLICY_SCHEMA_REF, issues, "/policy");
++  expectString(root, "policy_id", issues, "/policy", "forge://");
++  expectString(root, "revision", issues, "/policy");
++  expectOneOf(root, "default_approval_class", APPROVAL_CLASSES, issues, "/policy");
++
++  const severityActions = asRecord(root.severity_actions);
++  if (!severityActions) issues.push(issue("/policy/severity_actions", "required", "severity_actions is required"));
++  else for (const severity of SEVERITIES) expectOneOf(severityActions, severity, DECISIONS, issues, "/policy/severity_actions");
++
++  expectStringArray(root, "critical_source_severities", issues, "/policy", true);
++  expectStringArray(root, "denied_rule_ids", issues, "/policy", true);
++  expectStringArray(root, "allowed_rule_ids", issues, "/policy", true);
++  expectStringArray(root, "immutable_path_patterns", issues, "/policy", false);
++  expectStringArray(root, "low_risk_path_patterns", issues, "/policy", true);
++
++  const pathActions = asRecord(root.path_actions);
++  if (!pathActions) issues.push(issue("/policy/path_actions", "required", "path_actions is required"));
++  else expectOneOf(pathActions, "immutable", DECISIONS, issues, "/policy/path_actions");
++
++  const ruleActions = asRecord(root.rule_actions);
++  if (!ruleActions) issues.push(issue("/policy/rule_actions", "required", "rule_actions is required"));
++  else {
++    expectOneOf(ruleActions, "denied", DECISIONS, issues, "/policy/rule_actions");
++    expectOneOf(ruleActions, "not_allowed", DECISIONS, issues, "/policy/rule_actions");
++  }
++
++  const boundaryActions = asRecord(root.boundary_actions);
++  if (!boundaryActions) issues.push(issue("/policy/boundary_actions", "required", "boundary_actions is required"));
++  else for (const key of ["runtime_halted_or_quarantined", "runtime_not_mutating_when_enforced", "rate_blocked", "rate_delayed_or_cooldown"]) expectOneOf(boundaryActions, key, DECISIONS, issues, "/policy/boundary_actions");
++
++  const approvalClasses = asRecord(root.approval_classes);
++  if (!approvalClasses) issues.push(issue("/policy/approval_classes", "required", "approval_classes is required"));
++  else for (const decision of DECISIONS) expectOneOf(approvalClasses, decision, APPROVAL_CLASSES, issues, "/policy/approval_classes");
++
++  return { ok: issues.length === 0, issues };
++}
++
++export function validateSecurityGateDecision(value) {
++  const issues = [];
++  const root = asRecord(value);
++  if (!root) return invalid("/manifest", "type", "security gate decision manifest must be an object");
++  expectLiteral(root, "schema_ref", SECURITY_GATES_SCHEMA_REF, issues, "/manifest");
++  expectString(root, "decision_id", issues, "/manifest", "forge-security-gate://");
++  expectRfc3339(root, "generated_at", issues, "/manifest");
++  expectOneOf(root, "status", STATUSES, issues, "/manifest");
++  expectOneOf(root, "decision", DECISIONS, issues, "/manifest");
++  if (root.status !== statusForDecision(root.decision)) issues.push(issue("/manifest/status", "decision_status_mismatch", "status must match decision"));
++  validateDecisionSource(root.source, issues);
++  validatePolicySummary(root.policy, issues);
++  validateRuntimeSummary(root.runtime_gate, issues);
++  validateRateSummary(root.rate_gate, issues);
++  validateSummary(root.summary, issues);
++  validateApprovalCheckpointSummary(root.approval_checkpoint, issues);
++  validateFindings(root.finding_decisions, "/manifest/finding_decisions", issues);
++  validateFindings(root.boundary_decisions, "/manifest/boundary_decisions", issues);
++  if (!Array.isArray(root.reasons) || root.reasons.length === 0 || !root.reasons.every((item) => typeof item === "string" && item.length > 0)) issues.push(issue("/manifest/reasons", "string_array", "reasons must be a non-empty string array"));
++  const guards = asRecord(root.guards);
++  if (!guards) issues.push(issue("/manifest/guards", "required", "guards are required"));
++  else for (const key of Object.keys(boundaryGuards())) if (guards[key] !== true) issues.push(issue(`/manifest/guards/${key}`, "literal", `${key} must be true`));
++  const properties = asRecord(root.properties);
++  if (!properties) issues.push(issue("/manifest/properties", "required", "properties are required"));
++  else {
++    expectLiteral(properties, "forge_task", "T041", issues, "/manifest/properties");
++    expectLiteral(properties, "manifest_only", true, issues, "/manifest/properties");
++    expectLiteral(properties, "live_code_scanning_upload", false, issues, "/manifest/properties");
++    expectLiteral(properties, "ruleset_mutation", false, issues, "/manifest/properties");
++    expectLiteral(properties, "branch_protection_mutation", false, issues, "/manifest/properties");
++  }
++  return { ok: issues.length === 0, issues };
++}
++
++export const validateSecurityGateManifest = validateSecurityGateDecision;
++export const validateSecurityGateDecisionManifest = validateSecurityGateDecision;
++
++function normalizeSecurityGateInput(input, options = {}) {
++  const root = asRecord(input);
++  if (!root) return { ok: false, issues: [issue("/input", "type", "security gate input must be an object")] };
++  const issues = [];
++  const secretIssues = collectSecretLikeInputIssues(root, "/input");
++  if (secretIssues.length > 0) issues.push(...secretIssues);
++
++  const sarifArtifact = root.sarif ?? root.sarif_artifact ?? root.sarifArtifact ?? root.artifact ?? root.findings_artifact ?? root.findingsArtifact ?? asRecord(root.sarif_result)?.artifact ?? null;
++  if (!sarifArtifact) issues.push(issue("/input/sarif_artifact", "required", "sarif_artifact is required"));
++  else {
++    const sarifValidation = validateSarifLikeArtifact(sarifArtifact);
++    if (!sarifValidation.ok) issues.push(...sarifValidation.issues.map((item) => ({ ...item, path: `/input/sarif_artifact${item.path?.replace(/^\/artifact/, "") ?? ""}` })));
++  }
++
++  const generatedAt = root.generated_at ?? root.generatedAt ?? root.now ?? options.generatedAt ?? options.now ?? DEFAULT_GENERATED_AT;
++  if (typeof generatedAt !== "string" || !RFC3339_UTC.test(generatedAt)) issues.push(issue("/input/generated_at", "rfc3339", "generated_at must be RFC3339 UTC when supplied"));
++
++  const policy = normalizePolicy(root.policy ?? options.policy ?? DEFAULT_SECURITY_GATES_POLICY);
++  if (!policy.validation.ok) issues.push(...policy.validation.issues);
++
++  if (issues.length > 0) return { ok: false, issues };
++  const artifact = sarifArtifact;
++  return {
++    ok: true,
++    generatedAt,
++    artifact,
++    artifactHash: stableSha256(artifact),
++    results: arrayValue(artifact.runs?.[0]?.results),
++    source: normalizeSource(artifact, root, options),
++    policy: policy.policy,
++    runtime: normalizeRuntime(root.runtime_gate ?? root.runtimeGate ?? root.runtime ?? options.runtime),
++    rate: normalizeRate(root.rate_gate ?? root.rateGate ?? root.rate ?? root.rate_governor ?? root.rateGovernor ?? options.rate),
++    approval: normalizeApproval(root.approval_checkpoint ?? root.approvalCheckpoint ?? root.approval ?? root.review_gate ?? root.reviewGate ?? options.approval),
++    context: {
++      enforceRuntimeTransport: booleanValue(root.enforce_runtime_transport ?? root.enforceRuntimeTransport ?? options.enforceRuntimeTransport) === true,
++      liveTransportRequested: booleanValue(root.live_transport_requested ?? root.liveTransportRequested ?? options.liveTransportRequested) === true,
++    },
++  };
++}
++
++function normalizePolicy(value) {
++  const root = clonePlain(value ?? DEFAULT_SECURITY_GATES_POLICY);
++  const validation = validateSecurityGatePolicy(root);
++  if (!validation.ok) return { policy: root, validation: { ok: false, issues: validation.issues.map((item) => ({ ...item, path: item.path.replace(/^\/policy/, "/input/policy") })) } };
++  const normalizeIds = (items) => [...new Set(arrayValue(items).map((item) => normalizeRuleId(item)).filter(Boolean))].sort();
++  return {
++    policy: {
++      ...root,
++      critical_source_severities: arrayValue(root.critical_source_severities).map((item) => String(item).toLowerCase()).sort(),
++      denied_rule_ids: normalizeIds(root.denied_rule_ids),
++      allowed_rule_ids: normalizeIds(root.allowed_rule_ids),
++      immutable_path_patterns: [...arrayValue(root.immutable_path_patterns)].sort(),
++      low_risk_path_patterns: [...arrayValue(root.low_risk_path_patterns)].sort(),
++    },
++    validation,
++  };
++}
++
++function normalizeSource(artifact, root, options) {
++  const artifactSource = asRecord(artifact.source) ?? {};
++  const inputSource = asRecord(root.source) ?? {};
++  return {
++    repository: stringOrNull(inputSource.repository ?? artifactSource.repository ?? options.repository),
++    task_id: stringOrNull(inputSource.task_id ?? inputSource.taskId ?? artifactSource.task_id ?? artifactSource.taskId ?? options.taskId),
++    audit_id: stringOrNull(inputSource.audit_id ?? inputSource.auditId ?? artifactSource.audit_id ?? artifactSource.auditId),
++    plan_id: stringOrNull(inputSource.plan_id ?? inputSource.planId ?? artifactSource.plan_id ?? artifactSource.planId),
++    source_artifact_sha256: stringOrNull(inputSource.source_artifact_sha256 ?? inputSource.sourceArtifactSha256 ?? artifactSource.source_artifact_sha256 ?? artifactSource.sourceArtifactSha256),
++    sarif_artifact_sha256: stableSha256(artifact),
++    policy_id: stringOrNull(inputSource.policy_id ?? inputSource.policyId) ?? DEFAULT_SECURITY_GATES_POLICY.policy_id,
++  };
++}
++
++function normalizeRuntime(value) {
++  const root = asRecord(value) ?? {};
++  const mode = stringOrNull(root.mode ?? root.runtime_mode ?? root.runtimeMode) ?? "unknown";
++  return {
++    mode: RUNTIME_MODES.has(mode) ? mode : "unknown",
++    allowed: booleanOrNull(root.allowed),
++    mutating_lane_open: booleanOrNull(root.mutating_lane_open ?? root.mutatingLaneOpen),
++    kill_switch_engaged: booleanValue(root.kill_switch_engaged ?? root.killSwitchEngaged) === true,
++    live_transport_allowed: booleanOrNull(root.live_transport_allowed ?? root.liveTransportAllowed),
++    checked_at: stringOrNull(root.checked_at ?? root.checkedAt),
++  };
++}
++
++function normalizeRate(value) {
++  const root = asRecord(value) ?? {};
++  const status = stringOrNull(root.status ?? root.decision ?? root.state) ?? "unknown";
++  return {
++    status,
++    dispatch_status: stringOrNull(root.dispatch_status ?? root.dispatchStatus),
++    cooldown_active: booleanValue(root.cooldown_active ?? root.cooldownActive ?? asRecord(root.cooldown)?.active) === true,
++    cooldown_until: stringOrNull(root.cooldown_until ?? root.cooldownUntil ?? asRecord(root.cooldown)?.cooldown_until ?? asRecord(root.cooldown)?.cooldownUntil),
++    retry_after_seconds: numberOrNull(root.retry_after_seconds ?? root.retryAfterSeconds ?? asRecord(root.cooldown)?.retry_after_seconds ?? asRecord(root.cooldown)?.retryAfterSeconds),
++  };
++}
++
++function normalizeApproval(value) {
++  const root = asRecord(value) ?? {};
++  const approvalClass = stringOrNull(root.approval_class ?? root.approvalClass ?? root.class) ?? DEFAULT_SECURITY_GATES_POLICY.default_approval_class;
++  return {
++    approval_class: APPROVAL_CLASSES.has(approvalClass) ? approvalClass : DEFAULT_SECURITY_GATES_POLICY.default_approval_class,
++    risk: stringOrNull(root.risk) ?? "unknown",
++    human_review_required_before_merge: booleanOrNull(root.human_review_required_before_merge ?? root.humanReviewRequiredBeforeMerge),
++    min_human_approvals: numberOrNull(root.min_human_approvals ?? root.minHumanApprovals),
++  };
++}
++
++function evaluateSarifResult(result, index, policy) {
++  const ruleId = normalizeRuleId(result.ruleId) ?? String(result.ruleId ?? "unknown");
++  const location = asRecord(arrayValue(result.locations)[0]?.physicalLocation) ?? {};
++  const artifactLocation = asRecord(location.artifactLocation) ?? {};
++  const region = asRecord(location.region) ?? {};
++  const properties = asRecord(result.properties) ?? {};
++  const severity = normalizeSeverity(properties.forge_severity, result.level);
++  const sourceSeverity = stringOrNull(properties.source_severity) ?? severity;
++  const path = String(artifactLocation.uri ?? properties.normalized_path ?? "unknown");
++  const message = stringOrNull(asRecord(result.message)?.text) ?? "SARIF finding";
++  const fingerprint = stringOrNull(asRecord(result.partialFingerprints)?.forgeRootFingerprint) ?? `sha256:${"0".repeat(64)}`;
++  const candidates = [];
++
++  const critical = policy.critical_source_severities.includes(sourceSeverity.toLowerCase());
++  if (critical) candidates.push(candidate(policy.path_actions.immutable === "quarantine" ? "quarantine" : "block", "critical_source_severity", `source severity '${sourceSeverity}' is critical-equivalent`));
++
++  const denied = policy.denied_rule_ids.includes(ruleId);
++  if (denied) candidates.push(candidate(policy.rule_actions.denied, "denied_rule_id", `ruleId '${ruleId}' is denied by security gate policy`));
++
++  if (policy.allowed_rule_ids.length > 0 && !policy.allowed_rule_ids.includes(ruleId)) candidates.push(candidate(policy.rule_actions.not_allowed, "rule_id_not_allowed", `ruleId '${ruleId}' is not in the allowed rule set`));
++
++  const immutable = matchesAny(path, policy.immutable_path_patterns);
++  if (immutable) candidates.push(candidate(policy.path_actions.immutable, "immutable_path_violation", `path '${path}' matches an immutable governance surface`));
++
++  const severityAction = policy.severity_actions[severity] ?? "hold";
++  candidates.push(candidate(severityAction, `severity_${severity}`, `forge severity '${severity}' maps to '${severityAction}'`));
++
++  const selected = selectMaxDecision(candidates);
++  const pathClass = matchesAny(path, policy.low_risk_path_patterns) ? "low_risk_docs_or_tests" : immutable ? "immutable_governance" : "code_or_config";
++  return {
++    kind: "sarif_finding",
++    index,
++    ruleId,
++    level: stringOrNull(result.level) ?? levelFromSeverity(severity),
++    forge_severity: severity,
++    source_severity: sourceSeverity,
++    path,
++    path_class: pathClass,
++    startLine: positiveIntegerOrNull(region.startLine) ?? 1,
++    startColumn: positiveIntegerOrNull(region.startColumn) ?? 1,
++    fingerprint,
++    message,
++    decision: selected.decision,
++    policy_effect: policyEffectForDecision(selected.decision),
++    reasons: uniqueStrings(candidates.filter((item) => item.decision === selected.decision || DECISION_RANK[item.decision] > 0).map((item) => `${item.code}: ${item.message}`)),
++  };
++}
++
++function evaluateBoundaryInputs(normalized) {
++  const out = [];
++  const policy = normalized.policy;
++  const runtime = normalized.runtime;
++  if (runtime.kill_switch_engaged === true) out.push(boundaryDecision("runtime", policy.boundary_actions.runtime_halted_or_quarantined, "kill_switch_engaged", "runtime kill switch is engaged"));
++  if (["halted", "quarantine"].includes(runtime.mode)) out.push(boundaryDecision("runtime", policy.boundary_actions.runtime_halted_or_quarantined, "runtime_quarantine_or_halted", `runtime mode '${runtime.mode}' blocks transport`));
++  if ((normalized.context.enforceRuntimeTransport || normalized.context.liveTransportRequested) && !["evolve", "federate"].includes(runtime.mode)) out.push(boundaryDecision("runtime", policy.boundary_actions.runtime_not_mutating_when_enforced, "runtime_not_mutating", `runtime mode '${runtime.mode}' is not a mutating transport mode`));
++
++  const rateStatus = normalized.rate.status;
++  const dispatchStatus = normalized.rate.dispatch_status;
++  if (["blocked", "block", "denied", "invalid"].includes(rateStatus) || ["blocked", "block", "denied", "invalid"].includes(dispatchStatus)) out.push(boundaryDecision("rate", policy.boundary_actions.rate_blocked, "rate_governor_blocked", "rate governor boundary is blocked"));
++  if (normalized.rate.cooldown_active === true || ["delayed", "delay", "cooldown", "held", "queued_after_cooldown"].includes(rateStatus) || ["delayed", "delay", "cooldown", "held"].includes(dispatchStatus)) out.push(boundaryDecision("rate", policy.boundary_actions.rate_delayed_or_cooldown, "rate_governor_delay_or_cooldown", "rate governor boundary requires delay or cooldown"));
++  return out.sort(compareFindingDecisions);
++}
++
++function aggregateDecision(decisions, policy) {
++  const selected = selectMaxDecision(decisions.length > 0 ? decisions.map((item) => ({ decision: item.decision, code: item.kind ?? "decision", message: item.reasons?.[0] ?? item.reason ?? item.decision })) : [candidate("pass", "no_findings", "no security findings")]);
++  const summaryReason = selected.decision === "pass" ? "security_gate_passed" : selected.decision === "hold" ? "security_gate_held" : selected.decision === "block" ? "security_gate_blocked" : "security_gate_quarantined";
++  return {
++    decision: selected.decision,
++    status: statusForDecision(selected.decision),
++    transportAuthorization: transportAuthorizationForDecision(selected.decision),
++    approvalClass: policy.approval_classes[selected.decision] ?? policy.default_approval_class,
++    reasons: [summaryReason],
++  };
++}
++
++function buildDecisionManifest(normalized, findingDecisions, boundaryDecisions, aggregate) {
++  const summary = summarizeGate(findingDecisions, boundaryDecisions);
++  const canonicalInput = {
++    sarif_artifact_sha256: normalized.artifactHash,
++    generated_at: normalized.generatedAt,
++    policy_id: normalized.policy.policy_id,
++    policy_revision: normalized.policy.revision,
++    findings: findingDecisions.map((item) => ({ ruleId: item.ruleId, path: item.path, fingerprint: item.fingerprint, decision: item.decision })),
++    boundaries: boundaryDecisions.map((item) => ({ kind: item.kind, code: item.code, decision: item.decision })),
++  };
++  const decisionId = `forge-security-gate://${sha256(canonicalJson(canonicalInput)).slice(0, 32)}`;
++  const reasons = uniqueStrings([
++    ...aggregate.reasons,
++    ...findingDecisions.flatMap((item) => item.decision === "pass" ? [] : item.reasons),
++    ...boundaryDecisions.flatMap((item) => item.reasons),
++  ]);
++  return {
++    schema_ref: SECURITY_GATES_SCHEMA_REF,
++    decision_id: decisionId,
++    generated_at: normalized.generatedAt,
++    status: aggregate.status,
++    decision: aggregate.decision,
++    transport_authorization: aggregate.transportAuthorization,
++    source: {
++      ...normalized.source,
++      policy_id: normalized.policy.policy_id,
++      policy_revision: normalized.policy.revision,
++      sarif_artifact_sha256: normalized.artifactHash,
++    },
++    policy: {
++      policy_id: normalized.policy.policy_id,
++      revision: normalized.policy.revision,
++      severity_actions: normalized.policy.severity_actions,
++      denied_rule_ids: normalized.policy.denied_rule_ids,
++      allowed_rule_ids: normalized.policy.allowed_rule_ids,
++      immutable_path_patterns: normalized.policy.immutable_path_patterns,
++    },
++    runtime_gate: normalized.runtime,
++    rate_gate: normalized.rate,
++    approval_checkpoint: {
++      handoff_kind: "security_gate_summary_for_approval_checkpoint",
++      recommended_checkpoint_status: approvalCheckpointStatusForDecision(aggregate.decision),
++      approval_class: aggregate.approvalClass,
++      inherited_approval_class: normalized.approval.approval_class,
++      min_human_approvals: minApprovalsFor(aggregate.approvalClass),
++      codeowner_required: ["C", "D"].includes(aggregate.approvalClass),
++      self_approval_forbidden: ["C", "D"].includes(aggregate.approvalClass),
++      summary: `Security gate decision is ${aggregate.decision}.`,
++    },
++    summary,
++    finding_decisions: findingDecisions,
++    boundary_decisions: boundaryDecisions,
++    reasons: reasons.length > 0 ? reasons : ["security_gate_passed"],
++    guards: boundaryGuards(),
++    properties: {
++      forge_task: "T041",
++      manifest_only: true,
++      live_code_scanning_upload: false,
++      github_api_call: false,
++      ruleset_mutation: false,
++      branch_protection_mutation: false,
++      workflow_mutation: false,
++      dependency_review_live_api_integration: false,
++      memory_or_evaluation_update: false,
++      federation_or_self_evolution: false,
++    },
++  };
++}
++
++function summarizeGate(findingDecisions, boundaryDecisions) {
++  const severityCounts = { high: 0, medium: 0, low: 0, note: 0 };
++  const decisionCounts = { pass: 0, hold: 0, block: 0, quarantine: 0 };
++  const affectedPaths = new Set();
++  const blockedRuleIds = new Set();
++  const heldRuleIds = new Set();
++  const quarantinedRuleIds = new Set();
++  const immutablePaths = new Set();
++  for (const item of findingDecisions) {
++    severityCounts[item.forge_severity] += 1;
++    decisionCounts[item.decision] += 1;
++    affectedPaths.add(item.path);
++    if (item.decision === "block") blockedRuleIds.add(item.ruleId);
++    if (item.decision === "hold") heldRuleIds.add(item.ruleId);
++    if (item.decision === "quarantine") quarantinedRuleIds.add(item.ruleId);
++    if (item.reasons.some((reason) => reason.includes("immutable_path_violation"))) immutablePaths.add(item.path);
++  }
++  for (const item of boundaryDecisions) decisionCounts[item.decision] += 1;
++  const maxSeverity = findingDecisions.map((item) => item.forge_severity).sort((a, b) => SEVERITY_RANK[b] - SEVERITY_RANK[a])[0] ?? "note";
++  return {
++    result_count: findingDecisions.length,
++    boundary_decision_count: boundaryDecisions.length,
++    max_severity: maxSeverity,
++    severity_counts: severityCounts,
++    decision_counts: decisionCounts,
++    affected_paths: [...affectedPaths].sort(),
++    blocked_rule_ids: [...blockedRuleIds].sort(),
++    held_rule_ids: [...heldRuleIds].sort(),
++    quarantined_rule_ids: [...quarantinedRuleIds].sort(),
++    immutable_path_violations: [...immutablePaths].sort(),
++    pass_count: decisionCounts.pass,
++    hold_count: decisionCounts.hold,
++    block_count: decisionCounts.block,
++    quarantine_count: decisionCounts.quarantine,
++  };
++}
++
++function validateDecisionSource(source, issues) {
++  const root = asRecord(source);
++  if (!root) return issues.push(issue("/manifest/source", "required", "source is required"));
++  expectStringOrNull(root, "repository", issues, "/manifest/source");
++  expectStringOrNull(root, "task_id", issues, "/manifest/source");
++  expectStringOrNull(root, "audit_id", issues, "/manifest/source");
++  expectStringOrNull(root, "plan_id", issues, "/manifest/source");
++  expectStringOrNull(root, "source_artifact_sha256", issues, "/manifest/source");
++  expectString(root, "policy_id", issues, "/manifest/source", "forge://");
++  expectString(root, "policy_revision", issues, "/manifest/source");
++  expectString(root, "sarif_artifact_sha256", issues, "/manifest/source", "sha256:");
++  if (typeof root.sarif_artifact_sha256 === "string" && !SHA256_RE.test(root.sarif_artifact_sha256)) issues.push(issue("/manifest/source/sarif_artifact_sha256", "sha256", "sarif_artifact_sha256 must use sha256:<64 hex>"));
++}
++function validatePolicySummary(policy, issues) {
++  const root = asRecord(policy);
++  if (!root) return issues.push(issue("/manifest/policy", "required", "policy summary is required"));
++  else {
++    expectString(root, "policy_id", issues, "/manifest/policy", "forge://");
++    expectString(root, "revision", issues, "/manifest/policy");
++    if (!asRecord(root.severity_actions)) issues.push(issue("/manifest/policy/severity_actions", "required", "severity_actions is required"));
++    expectStringArray(root, "denied_rule_ids", issues, "/manifest/policy", true);
++    expectStringArray(root, "allowed_rule_ids", issues, "/manifest/policy", true);
++    expectStringArray(root, "immutable_path_patterns", issues, "/manifest/policy", false);
++  }
++}
++function validateRuntimeSummary(runtime, issues) {
++  const root = asRecord(runtime);
++  if (!root) return issues.push(issue("/manifest/runtime_gate", "required", "runtime gate summary is required"));
++  else {
++    expectOneOf(root, "mode", RUNTIME_MODES, issues, "/manifest/runtime_gate");
++    expectBooleanOrNull(root, "allowed", issues, "/manifest/runtime_gate");
++    expectBooleanOrNull(root, "mutating_lane_open", issues, "/manifest/runtime_gate");
++    expectBoolean(root, "kill_switch_engaged", issues, "/manifest/runtime_gate");
++    expectBooleanOrNull(root, "live_transport_allowed", issues, "/manifest/runtime_gate");
++    expectStringOrNull(root, "checked_at", issues, "/manifest/runtime_gate");
++  }
++}
++function validateRateSummary(rate, issues) {
++  const root = asRecord(rate);
++  if (!root) return issues.push(issue("/manifest/rate_gate", "required", "rate gate summary is required"));
++  else {
++    expectString(root, "status", issues, "/manifest/rate_gate");
++    expectStringOrNull(root, "dispatch_status", issues, "/manifest/rate_gate");
++    expectBoolean(root, "cooldown_active", issues, "/manifest/rate_gate");
++    expectStringOrNull(root, "cooldown_until", issues, "/manifest/rate_gate");
++  }
++}
++function validateSummary(summary, issues) {
++  const root = asRecord(summary);
++  if (!root) return issues.push(issue("/manifest/summary", "required", "summary is required"));
++  else {
++    for (const key of ["result_count", "boundary_decision_count", "pass_count", "hold_count", "block_count", "quarantine_count"]) expectNonnegativeInteger(root, key, issues, "/manifest/summary");
++    expectOneOf(root, "max_severity", SEVERITIES, issues, "/manifest/summary");
++    for (const key of ["affected_paths", "blocked_rule_ids", "held_rule_ids", "quarantined_rule_ids", "immutable_path_violations"]) expectStringArray(root, key, issues, "/manifest/summary", true);
++  }
++}
++function validateApprovalCheckpointSummary(summary, issues) {
++  const root = asRecord(summary);
++  if (!root) return issues.push(issue("/manifest/approval_checkpoint", "required", "approval checkpoint summary is required"));
++  else {
++    expectLiteral(root, "handoff_kind", "security_gate_summary_for_approval_checkpoint", issues, "/manifest/approval_checkpoint");
++    expectString(root, "recommended_checkpoint_status", issues, "/manifest/approval_checkpoint");
++    expectOneOf(root, "approval_class", APPROVAL_CLASSES, issues, "/manifest/approval_checkpoint");
++    expectOneOf(root, "inherited_approval_class", APPROVAL_CLASSES, issues, "/manifest/approval_checkpoint");
++    expectNonnegativeInteger(root, "min_human_approvals", issues, "/manifest/approval_checkpoint");
++    expectBoolean(root, "codeowner_required", issues, "/manifest/approval_checkpoint");
++    expectBoolean(root, "self_approval_forbidden", issues, "/manifest/approval_checkpoint");
++    expectString(root, "summary", issues, "/manifest/approval_checkpoint");
++  }
++}
++function validateFindings(findings, path, issues) {
++  if (!Array.isArray(findings)) return issues.push(issue(path, "array", "finding decisions must be an array"));
++  findings.forEach((item, index) => {
++    const root = asRecord(item);
++    const base = `${path}/${index}`;
++    if (!root) return issues.push(issue(base, "object", "finding decision must be an object"));
++    expectString(root, "kind", issues, base);
++    expectOneOf(root, "decision", DECISIONS, issues, base);
++    expectStringArray(root, "reasons", issues, base, false);
++    if (root.kind === "sarif_finding") {
++      expectString(root, "ruleId", issues, base);
++      expectOneOf(root, "level", LEVELS, issues, base);
++      expectOneOf(root, "forge_severity", SEVERITIES, issues, base);
++      expectString(root, "source_severity", issues, base);
++      expectString(root, "path", issues, base);
++      expectString(root, "fingerprint", issues, base, "sha256:");
++      expectString(root, "message", issues, base);
++    } else {
++      expectString(root, "code", issues, base);
++      expectString(root, "message", issues, base);
++    }
++  });
++}
++
++function boundaryDecision(kind, decision, code, message) {
++  return { kind, decision, code, message, reasons: [`${code}: ${message}`], policy_effect: policyEffectForDecision(decision) };
++}
++function candidate(decision, code, message) { return { decision, code, message }; }
++function selectMaxDecision(candidates) { return candidates.slice().sort((a, b) => DECISION_RANK[b.decision] - DECISION_RANK[a.decision] || String(a.code).localeCompare(String(b.code)) || String(a.message).localeCompare(String(b.message)))[0] ?? candidate("pass", "none", "no findings"); }
++function compareFindingDecisions(a, b) { return (DECISION_RANK[b.decision] - DECISION_RANK[a.decision]) || ((SEVERITY_RANK[b.forge_severity] ?? -1) - (SEVERITY_RANK[a.forge_severity] ?? -1)) || String(a.ruleId ?? a.code ?? "").localeCompare(String(b.ruleId ?? b.code ?? "")) || String(a.path ?? "").localeCompare(String(b.path ?? "")) || ((a.startLine ?? 0) - (b.startLine ?? 0)) || String(a.fingerprint ?? "").localeCompare(String(b.fingerprint ?? "")); }
++function normalizeSeverity(value, level) { const raw = String(value ?? "").toLowerCase(); if (SEVERITIES.has(raw)) return raw; const l = String(level ?? "").toLowerCase(); if (l === "error") return "high"; if (l === "warning") return "medium"; if (l === "note") return "low"; return "note"; }
++function levelFromSeverity(severity) { if (severity === "high") return "error"; if (severity === "medium") return "warning"; return "note"; }
++function policyEffectForDecision(decision) { return decision === "pass" ? "allow_checkpoint" : decision === "hold" ? "hold_before_transport" : decision === "block" ? "block_transport" : "quarantine_candidate"; }
++function statusForDecision(decision) { return decision === "pass" ? "passed" : decision === "hold" ? "held" : decision === "block" ? "blocked" : decision === "quarantine" ? "quarantined" : "invalid"; }
++function transportAuthorizationForDecision(decision) { return decision === "pass" ? "eligible_for_approval_checkpoint" : decision === "hold" ? "held_before_transport_authorization" : decision === "block" ? "blocked_before_transport_authorization" : "quarantined_before_transport_authorization"; }
++function approvalCheckpointStatusForDecision(decision) { return decision === "pass" ? "continue_to_approval_checkpoint" : decision === "hold" ? "hold_for_human_review" : decision === "block" ? "block_transport_authorization" : "quarantine_candidate"; }
++function minApprovalsFor(approvalClass) { return approvalClass === "A" ? 0 : approvalClass === "B" ? 1 : 2; }
++function normalizeRuleId(value) { const raw = stringOrNull(value); if (!raw) return null; return raw.trim().toLowerCase().replace(/[^a-z0-9_.\/-]+/g, "-").replace(/[\/]+/g, ".").replace(/\.{2,}/g, ".").replace(/^-+|-+$/g, "").slice(0, 160) || null; }
++function matchesAny(path, patterns) { return arrayValue(patterns).some((pattern) => globToRegExp(pattern).test(path)); }
++function globToRegExp(pattern) { let source = "^"; const value = String(pattern).replace(/\\/g, "/"); for (let i = 0; i < value.length; i++) { const c = value[i]; if (c === "*" && value[i + 1] === "*") { source += ".*"; i++; } else if (c === "*") source += "[^/]*"; else source += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); } return new RegExp(source + "$", "u"); }
++function boundaryGuards() { return { no_github_api_call: true, no_github_code_scanning_upload: true, no_branch_protection_mutation: true, no_ruleset_mutation: true, no_workflow_mutation: true, no_policy_mutation_in_runtime: true, no_dependency_review_live_api_integration: true, no_pull_request_creation: true, no_merge_operation: true, no_auto_merge: true, no_memory_or_evaluation_update: true, no_federation_or_self_evolution: true }; }
++function collectSecretLikeInputIssues(value, path) { const issues = []; const visit = (current, currentPath) => { if (Array.isArray(current)) { current.forEach((item, index) => visit(item, `${currentPath}/${index}`)); return; } if (!asRecord(current)) { if (typeof current === "string" && looksSecret(current)) issues.push(issue(currentPath, "secret_like_value", "input contains secret-looking material")); return; } for (const [key, item] of Object.entries(current)) { const nextPath = `${currentPath}/${key}`; const upper = key.toUpperCase(); if (["TOKEN", "SECRET", "PASSWORD", "PRIVATE_KEY", "CREDENTIAL"].some((part) => upper.includes(part)) && typeof item === "string" && item.length > 0) issues.push(issue(nextPath, "secret_like_field", "input contains a secret-like field")); visit(item, nextPath); } }; visit(value, path); return issues; }
++function looksSecret(value) { const lower = String(value).toLowerCase(); return lower.includes("github_pat_") || lower.includes("ghp_") || lower.includes("sk-") || lower.includes("-----begin private key-----"); }
++function stableSha256(value) { return `sha256:${sha256(canonicalJson(value))}`; }
++function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
++function canonicalJson(value) { if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`; if (asRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`; return JSON.stringify(value); }
++function clonePlain(value) { return JSON.parse(JSON.stringify(value)); }
++function arrayValue(value) { return Array.isArray(value) ? value : []; }
++function asRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null; }
++function stringOrNull(value) { return typeof value === "string" && value.trim().length > 0 ? value.trim() : null; }
++function numberOrNull(value) { const number = Number(value); return Number.isFinite(number) ? number : null; }
++function positiveIntegerOrNull(value) { const number = Number(value); return Number.isSafeInteger(number) && number > 0 ? number : null; }
++function booleanValue(value) { return typeof value === "boolean" ? value : null; }
++function booleanOrNull(value) { return typeof value === "boolean" ? value : null; }
++function issue(path, code, message) { return { path, code, message }; }
++function invalid(path, code, message) { return { ok: false, issues: [issue(path, code, message)] }; }
++function formatIssue(item) { return `${item.code}:${item.path}:${item.message}`; }
++function uniqueStrings(values) { return [...new Set(values.filter((value) => typeof value === "string" && value.length > 0))]; }
++function expectLiteral(record, key, expected, issues, path) { if (record[key] !== expected) issues.push(issue(`${path}/${key}`, "literal", `${key} must be ${JSON.stringify(expected)}`)); }
++function expectString(record, key, issues, path, prefix) { const value = record[key]; if (typeof value !== "string" || value.length === 0) { issues.push(issue(`${path}/${key}`, "string", `${key} must be a non-empty string`)); return null; } if (prefix && !value.startsWith(prefix)) issues.push(issue(`${path}/${key}`, "prefix", `${key} must start with '${prefix}'`)); return value; }
++function expectStringOrNull(record, key, issues, path) { const value = record[key]; if (!(typeof value === "string" || value === null)) issues.push(issue(`${path}/${key}`, "string_or_null", `${key} must be a string or null`)); }
++function expectStringArray(record, key, issues, path, allowEmpty) { const value = record[key]; if (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.length > 0)) { issues.push(issue(`${path}/${key}`, "string_array", `${key} must be an array of strings`)); return []; } if (!allowEmpty && value.length === 0) issues.push(issue(`${path}/${key}`, "non_empty", `${key} must not be empty`)); return value; }
++function expectOneOf(record, key, allowed, issues, path) { const value = record[key]; if (typeof value !== "string" || !allowed.has(value)) issues.push(issue(`${path}/${key}`, "enum", `${key} is not allowed`)); return value; }
++function expectRfc3339(record, key, issues, path) { const value = expectString(record, key, issues, path); if (value && !RFC3339_UTC.test(value)) issues.push(issue(`${path}/${key}`, "rfc3339", `${key} must be RFC3339 UTC`)); }
++function expectBoolean(record, key, issues, path) { const value = record[key]; if (typeof value !== "boolean") issues.push(issue(`${path}/${key}`, "boolean", `${key} must be boolean`)); return value; }
++function expectBooleanOrNull(record, key, issues, path) { const value = record[key]; if (!(typeof value === "boolean" || value === null)) issues.push(issue(`${path}/${key}`, "boolean_or_null", `${key} must be boolean or null`)); }
++function expectNonnegativeInteger(record, key, issues, path) { const value = record[key]; if (!Number.isSafeInteger(value) || value < 0) issues.push(issue(`${path}/${key}`, "nonnegative_integer", `${key} must be a non-negative integer`)); }
+diff -ruN orig_t041_2/ForgeRoot/packages/auditor/tests/security-gates.test.mjs work_t041/ForgeRoot/packages/auditor/tests/security-gates.test.mjs
+--- orig_t041_2/ForgeRoot/packages/auditor/tests/security-gates.test.mjs	1970-01-01 00:00:00.000000000 +0000
++++ work_t041/ForgeRoot/packages/auditor/tests/security-gates.test.mjs	2026-04-19 09:41:22.712069919 +0000
+@@ -0,0 +1,157 @@
++import fs from "node:fs";
++import test from "node:test";
++import assert from "node:assert/strict";
++import {
++  DEFAULT_SECURITY_GATES_POLICY,
++  DEFAULT_SECURITY_GATE_POLICY,
++  SECURITY_GATES_CONTRACT,
++  evaluateSecurityGate,
++  runSecurityGate,
++  validateSecurityGateDecision,
++  validateSecurityGateInput,
++  validateSecurityGateManifest,
++  validateSecurityGatePolicy,
++} from "../dist/index.js";
++
++function fixture(path) {
++  return JSON.parse(fs.readFileSync(new URL(`../../../docs/specs/fixtures/security-gates/${path}`, import.meta.url), "utf8"));
++}
++
++test("T041 contract remains manifest-only and forbids live GitHub/security-surface mutation", () => {
++  assert.equal(SECURITY_GATES_CONTRACT.manifestOnly, true);
++  assert.equal(SECURITY_GATES_CONTRACT.deterministic, true);
++  assert.ok(SECURITY_GATES_CONTRACT.consumes.includes("sarif_like_artifact"));
++  assert.ok(SECURITY_GATES_CONTRACT.produces.includes("security_gate_decision"));
++  for (const forbidden of [
++    "github_api_call",
++    "github_code_scanning_upload",
++    "branch_protection_mutation",
++    "ruleset_mutation",
++    "workflow_mutation",
++    "dependency_review_live_api_integration",
++    "pull_request_creation",
++    "auto_merge",
++    "self_evolution",
++    "federation",
++    "memory_or_evaluation_updates",
++  ]) {
++    assert.ok(SECURITY_GATES_CONTRACT.forbids.includes(forbidden), forbidden);
++  }
++});
++
++test("default security gate policy validates and holds medium findings by default", () => {
++  assert.deepEqual(validateSecurityGatePolicy(DEFAULT_SECURITY_GATES_POLICY), { ok: true, issues: [] });
++  assert.deepEqual(validateSecurityGatePolicy(DEFAULT_SECURITY_GATE_POLICY), { ok: true, issues: [] });
++  assert.equal(DEFAULT_SECURITY_GATES_POLICY.severity_actions.high, "block");
++  assert.equal(DEFAULT_SECURITY_GATES_POLICY.severity_actions.medium, "hold");
++});
++
++test("blocks high severity SARIF-like findings before trusted transport", () => {
++  const input = fixture("valid/high-block.json");
++  const first = evaluateSecurityGate(input);
++  const second = runSecurityGate(input);
++
++  assert.equal(first.status, "blocked", JSON.stringify(first, null, 2));
++  assert.equal(first.decision, "block");
++  assert.deepEqual(second, first);
++  assert.equal(first.manifest.schema_ref, "urn:forgeroot:security-gate-decision:v1");
++  assert.equal(first.manifest.summary.max_severity, "high");
++  assert.equal(first.manifest.summary.severity_counts.high, 1);
++  assert.equal(first.manifest.summary.block_count, 1);
++  assert.equal(first.manifest.approval_checkpoint.recommended_checkpoint_status, "block_transport_authorization");
++  assert.equal(first.manifest.guards.no_github_api_call, true);
++  assert.equal(first.manifest.guards.no_github_code_scanning_upload, true);
++  assert.equal(first.manifest.guards.no_ruleset_mutation, true);
++  assert.deepEqual(validateSecurityGateDecision(first.manifest), { ok: true, issues: [] });
++  assert.deepEqual(validateSecurityGateManifest(first.manifest), { ok: true, issues: [] });
++});
++
++test("quarantines critical-equivalent source severities", () => {
++  const result = evaluateSecurityGate(fixture("valid/critical-quarantine.json"));
++  assert.equal(result.status, "quarantined", JSON.stringify(result, null, 2));
++  assert.equal(result.decision, "quarantine");
++  assert.equal(result.manifest.summary.quarantine_count, 1);
++  assert.ok(result.manifest.finding_decisions[0].reasons.some((reason) => reason.includes("critical_source_severity")));
++});
++
++test("holds medium severity findings for approval policy instead of passing transport", () => {
++  const result = evaluateSecurityGate(fixture("valid/medium-hold.json"));
++  assert.equal(result.status, "held", JSON.stringify(result, null, 2));
++  assert.equal(result.decision, "hold");
++  assert.equal(result.manifest.summary.hold_count, 1);
++  assert.equal(result.manifest.approval_checkpoint.recommended_checkpoint_status, "hold_for_human_review");
++});
++
++test("passes docs-only low severity findings without guessing missing scores", () => {
++  const result = evaluateSecurityGate(fixture("valid/low-docs-pass.json"));
++  assert.equal(result.status, "passed", JSON.stringify(result, null, 2));
++  assert.equal(result.decision, "pass");
++  assert.equal(result.manifest.summary.pass_count, 1);
++  assert.equal(result.manifest.summary.affected_paths[0], "docs/specs/security-gates.md");
++  assert.equal(result.manifest.finding_decisions[0].path_class, "low_risk_docs_or_tests");
++  assert.equal(result.manifest.approval_checkpoint.recommended_checkpoint_status, "continue_to_approval_checkpoint");
++});
++
++test("quarantines denied rule IDs even when severity is low", () => {
++  const result = evaluateSecurityGate(fixture("valid/denied-rule-quarantine.json"));
++  assert.equal(result.status, "quarantined", JSON.stringify(result, null, 2));
++  assert.equal(result.decision, "quarantine");
++  assert.ok(result.manifest.finding_decisions[0].reasons.some((reason) => reason.includes("denied_rule_id")));
++});
++
++test("connects immutable path violations to quarantine", () => {
++  const result = evaluateSecurityGate(fixture("valid/immutable-path-quarantine.json"));
++  assert.equal(result.status, "quarantined", JSON.stringify(result, null, 2));
++  assert.equal(result.decision, "quarantine");
++  assert.deepEqual(result.manifest.summary.immutable_path_violations, [".forge/policies/runtime-mode.forge"]);
++});
++
++test("connects runtime and rate boundaries as summaries only", () => {
++  const runtimeResult = evaluateSecurityGate(fixture("valid/runtime-quarantine.json"));
++  assert.equal(runtimeResult.status, "quarantined", JSON.stringify(runtimeResult, null, 2));
++  assert.equal(runtimeResult.manifest.boundary_decisions.some((item) => item.code === "kill_switch_engaged"), true);
++  assert.equal(runtimeResult.manifest.boundary_decisions.some((item) => item.code === "runtime_quarantine_or_halted"), true);
++
++  const input = fixture("valid/low-docs-pass.json");
++  const rateResult = evaluateSecurityGate({ ...input, rate_gate: { status: "delayed", cooldown_active: true, retry_after_seconds: 60 } });
++  assert.equal(rateResult.status, "held", JSON.stringify(rateResult, null, 2));
++  assert.equal(rateResult.manifest.boundary_decisions.some((item) => item.code === "rate_governor_delay_or_cooldown"), true);
++});
++
++test("security gate output is deterministic for equivalent input", () => {
++  const input = fixture("valid/high-block.json");
++  const first = evaluateSecurityGate(input);
++  const second = evaluateSecurityGate(structuredClone(input));
++  assert.equal(first.status, "blocked");
++  assert.deepEqual(first.manifest, second.manifest);
++});
++
++test("rejects malformed SARIF-like artifacts, secret input, and invalid policy", () => {
++  for (const name of ["invalid/missing-sarif-artifact.json", "invalid/tampered-sarif-artifact.json", "invalid/bad-policy-action.json", "invalid/secret-field.json"]) {
++    const result = evaluateSecurityGate(fixture(name));
++    assert.equal(result.status, "invalid", name + JSON.stringify(result, null, 2));
++    assert.equal(result.manifest, null);
++    assert.equal(validateSecurityGateInput(fixture(name)).ok, false);
++  }
++});
++
++test("security-gates.forge has the required Forge policy surface", () => {
++  const source = fs.readFileSync(new URL("../../../.forge/policies/security-gates.forge", import.meta.url), "utf8");
++  assert.ok(source.startsWith("#!forge/v1\n"));
++  assert.equal(source.includes("\t"), false);
++  assert.ok(source.includes("schema_ref: urn:forgeroot:forge:policy:v1"));
++  assert.ok(source.includes("kind: policy"));
++  assert.ok(source.includes("policy_type: security-gates"));
++  assert.ok(source.includes("sarif-high-blocks-transport"));
++  assert.ok(source.includes("no-live-github-mutation"));
++  assert.ok(source.includes("github_api_call: false"));
++});
++
++test("tampered decision guards fail validation", () => {
++  const result = evaluateSecurityGate(fixture("valid/low-docs-pass.json"));
++  const tampered = structuredClone(result.manifest);
++  tampered.guards.no_github_api_call = false;
++  const validation = validateSecurityGateDecision(tampered);
++  assert.equal(validation.ok, false);
++  assert.ok(validation.issues.some((item) => item.path === "/manifest/guards/no_github_api_call"));
++});
