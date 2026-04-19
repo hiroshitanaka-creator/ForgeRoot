@@ -1,0 +1,1608 @@
+diff -ruN orig_t040/ForgeRoot/.forge/README.md work_t041_2/ForgeRoot/.forge/README.md
+--- orig_t040/ForgeRoot/.forge/README.md	2026-04-19 01:39:57.000000000 +0000
++++ work_t041_2/ForgeRoot/.forge/README.md	2026-04-19 09:22:18.549236782 +0000
+@@ -22,6 +22,8 @@
+ - `packages/approval-checkpoint/src/run.ts` defines the T026 trusted transport authorization schema and approval checkpoint runtime.
+ - `packages/rate-governor/src/run.ts` defines the T027 rate-governed dispatch decision schema and queue runtime.
+ - `packages/forge-demo/src/run.ts` defines the T028 end-to-end forged PR demo manifest chain.
++- `packages/auditor/src/sarif.ts` defines the T040 SARIF bridge manifest boundary.
++- `docs/specs/t041-2-dependency-resolution.md` defines the T041-2 dependency-resolution boundary for T042.
+ - `docs/specs/t003-validation-fixture.yaml` records the minimum assertions that later schema and parser work should validate.
+ 
+ Current safety boundary:
+@@ -38,6 +40,8 @@
+ - T026 may authorize, hold, quarantine, or invalidate trusted transport only; it must not call GitHub, create PRs, approve, merge, self-approve, persist tokens, mutate policies/workflows, update memory, or federate.
+ - T027 may queue, delay, block, or invalidate trusted transport dispatch only; it must not call GitHub, create PRs, approve, merge, persist tokens, bypass rate limits, update memory, or federate.
+ - T028 may validate and package the Phase 1 manifest chain only; it must not call GitHub, create PRs, execute commands, approve, merge, persist tokens, update memory, or federate.
++- T040 may normalize findings into a SARIF-like artifact only; it must not upload to GitHub Code Scanning, call GitHub APIs, make gate decisions, update memory/eval state, or federate.
++- T041-2 resolves task-source dependencies for T042 only; it must not implement T041 security gates, T042 reporting, live transport, memory/eval writes, federation, or self-evolution.
+ 
+ Still intentionally deferred:
+ 
+diff -ruN orig_t040/ForgeRoot/docs/README.md work_t041_2/ForgeRoot/docs/README.md
+--- orig_t040/ForgeRoot/docs/README.md	2026-04-19 01:43:15.000000000 +0000
++++ work_t041_2/ForgeRoot/docs/README.md	2026-04-19 09:22:17.225781398 +0000
+@@ -43,3 +43,11 @@
+ - `specs/t027-validation-report.md` — T027 rate governor queue report
+ - `specs/t028-validation-report.md` — T028 end-to-end forged PR demo report
+ - `specs/fixtures/forge-demo/valid/t028-demo-manifest.json` — compact valid T028 demo fixture
++- `ops/thread-handoff-after-t041-2.md` — handoff summary after T041-2 T042 dependency resolution
++- `specs/t041-2-dependency-resolution.md` — T041-2 dependency-resolution contract for T042
++- `specs/t029-t039-canonical-task-source.md` — canonical task source for T029-T039
++- `specs/t041-2-repo-map.md` — Phase 2 repo map supplement needed for T042
++- `specs/t041-2-interface-registry.md` — Phase 2 interface registry supplement needed for T042
++- `specs/t041-2-validation-report.md` — T041-2 dependency-resolution validation report
++- `specs/fixtures/task-source/t029-t039-canonical.json` — machine-readable T029-T039 task source fixture
++- `specs/fixtures/task-source/t042-readiness.json` — machine-readable T042 readiness fixture
+diff -ruN orig_t040/ForgeRoot/docs/ops/thread-handoff-after-t041-2.md work_t041_2/ForgeRoot/docs/ops/thread-handoff-after-t041-2.md
+--- orig_t040/ForgeRoot/docs/ops/thread-handoff-after-t041-2.md	1970-01-01 00:00:00.000000000 +0000
++++ work_t041_2/ForgeRoot/docs/ops/thread-handoff-after-t041-2.md	2026-04-19 09:22:15.764729199 +0000
+@@ -0,0 +1,50 @@
++# Thread handoff after T041-2 dependency resolution
++
++Date: 2026-04-19 JST
++
++Recommended next target after T041-2: **T041 security gates**, if it has not already been implemented. After T041 is complete, **T042 memory/eval/security dashboard source** may proceed without the previous T029-T039 canonical-source blocker.
++
++## Completed in T041-2
++
++T041-2 added canonical task-source definitions for:
++
++```text
++T029 memory partition contract
++T030 working memory writer
++T031 episodic digest generator
++T032 archive packer
++T033 semantic retrieval adapter
++T034 eval suite DSL
++T035 benchmark fixture seeds
++T036 merge outcome collector
++T037 fitness calculator
++T038 memory compaction engine
++T039 provenance/signature writer
++```
++
++It also added:
++
++```text
++docs/specs/t041-2-dependency-resolution.md
++docs/specs/t041-2-repo-map.md
++docs/specs/t041-2-interface-registry.md
++docs/specs/fixtures/task-source/t029-t039-canonical.json
++docs/specs/fixtures/task-source/t042-readiness.json
++packages/planner/tests/task-source.test.mjs
++```
++
++## Boundary
++
++T041-2 is documentation, fixture, and deterministic validation only. It does not implement T029-T039 runtime modules, T041 security gates, or T042 reporting.
++
++## T042 readiness
++
++T042's memory/eval/provenance canonical-source dependency is resolved by T041-2. T042 still requires T041 security gates to be complete.
++
++T042 must render missing memory/eval/provenance values as `unknown` and must not infer missing scores or provenance.
++
++## Known unresolved items
++
++- T041 security gates may still be pending depending on the current thread state.
++- T025 numbering/name conflict remains documented as a project-level issue; T041-2 does not rewrite existing blueprint text.
++- T029-T039 task sources are canonicalized for dependency resolution, but their runtime implementations remain future work.
+diff -ruN orig_t040/ForgeRoot/docs/specs/fixtures/task-source/t029-t039-canonical.json work_t041_2/ForgeRoot/docs/specs/fixtures/task-source/t029-t039-canonical.json
+--- orig_t040/ForgeRoot/docs/specs/fixtures/task-source/t029-t039-canonical.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041_2/ForgeRoot/docs/specs/fixtures/task-source/t029-t039-canonical.json	2026-04-19 09:22:15.763931120 +0000
+@@ -0,0 +1,560 @@
++{
++  "schema_ref": "urn:forgeroot:task-source:t029-t039:v1",
++  "generated_by_task": "T041-2",
++  "status": "canonicalized_for_t042_dependency_resolution",
++  "purpose": "Resolve T042's P2 memory/eval/provenance task-source dependency without implementing T029-T039 runtime modules.",
++  "tasks": [
++    {
++      "task_id": "T029",
++      "phase": "P2",
++      "title": "memory partition contract",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:medium"
++      ],
++      "goal": "Working Memory / Episodic Heads / Episodic Packs / Semantic Digests の責務境界を固定する。",
++      "why_now": "T042 が memory state を report する前に、memory の層・権威・更新責務を task source として固定する必要があるため。",
++      "scope": [
++        "memory layer 定義",
++        "inline memory と pack memory の境界",
++        "forget rule",
++        "memory update approval class",
++        "memory artifact schema"
++      ],
++      "out_of_scope": [
++        "実際の memory 書き込み",
++        "pack 圧縮実装",
++        "eval score 算出",
++        "self-evolution"
++      ],
++      "dependencies": [
++        "T004",
++        "T028"
++      ],
++      "deliverables": [
++        "docs/specs/memory-model.md",
++        ".forge/policies/memory.forge",
++        "docs/specs/t029-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "4層 memory model が定義されている",
++        "runtime DB が memory source of truth ではないことが明記される",
++        "curated memory update は PR 経由である",
++        "memory と eval の責務が分離されている"
++      ],
++      "risks": [
++        "memory と eval の責務が混ざる",
++        "runtime DB を source of truth として扱う"
++      ]
++    },
++    {
++      "task_id": "T030",
++      "phase": "P2",
++      "title": "working memory writer",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:medium"
++      ],
++      "goal": "短期 working memory update manifest を deterministic に生成・検証する。",
++      "why_now": "T042 が working memory の状態を表示するとき、短期 memory update の形が未定義だと missing/unknown と実データを区別できないため。",
++      "scope": [
++        "working memory update schema",
++        "max_items enforcement",
++        "TTL metadata",
++        "source task reference",
++        "deterministic ordering"
++      ],
++      "out_of_scope": [
++        "`.forge` への直接書き込み",
++        "episodic digest",
++        "semantic retrieval",
++        "eval score update"
++      ],
++      "dependencies": [
++        "T029"
++      ],
++      "deliverables": [
++        "packages/memory/src/working.ts",
++        "packages/memory/tests/working.test.mjs",
++        "docs/specs/t030-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "max_items を超える update を reject できる",
++        "source task / source artifact が必須",
++        "同じ input から同じ update manifest が出る",
++        "GitHub API を呼ばない"
++      ],
++      "risks": [
++        "source refs のない memory を書ける",
++        "短期 memory が無制限に肥大する"
++      ]
++    },
++    {
++      "task_id": "T031",
++      "phase": "P2",
++      "title": "episodic digest generator",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:medium"
++      ],
++      "goal": "PR / audit / rejection / failure を episode digest として要約する manifest を作る。",
++      "why_now": "T042 で recent episode や rejected/blocked 結果を report するには、episode digest の source refs と reliability を先に定義する必要があるため。",
++      "scope": [
++        "episode digest schema",
++        "accepted / rejected / blocked / quarantined event type",
++        "source artifact hash",
++        "reliability field",
++        "digest length limit"
++      ],
++      "out_of_scope": [
++        "pack compression",
++        "semantic search",
++        "fitness calculation",
++        "mutation proposal"
++      ],
++      "dependencies": [
++        "T029",
++        "T030",
++        "T023",
++        "T028"
++      ],
++      "deliverables": [
++        "packages/memory/src/digest.ts",
++        "packages/memory/tests/digest.test.mjs",
++        "docs/specs/t031-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "episode digest に source refs / task id / decision / reliability が含まれる",
++        "rejected / blocked episode も保存対象になる",
++        "digest は deterministic に生成される",
++        "memory の捏造を防ぐため source artifact が必須"
++      ],
++      "risks": [
++        "失敗 episode が保存されず同じ失敗を繰り返す",
++        "source artifact なしの digest で記憶汚染する"
++      ]
++    },
++    {
++      "task_id": "T032",
++      "phase": "P2",
++      "title": "archive packer",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:high"
++      ],
++      "goal": "episode / mutation / eval artifact を `.jsonl.zst` pack へ格納する deterministic packer を設計・実装する。",
++      "why_now": "T042 以降で source artifact hash を report に載せるには、pack manifest と hash の責務を先に canonical 化する必要があるため。",
++      "scope": [
++        "canonical JSONL record",
++        "pack header",
++        "raw hash / zstd hash",
++        "deterministic record ordering",
++        "pack verification"
++      ],
++      "out_of_scope": [
++        "live memory compaction scheduler",
++        "semantic retrieval",
++        "external object storage",
++        "federation lineage exchange"
++      ],
++      "dependencies": [
++        "T005",
++        "T031"
++      ],
++      "deliverables": [
++        "packages/memory/src/packer.ts",
++        "packages/memory/tests/packer.test.mjs",
++        ".forge/packs/README.md",
++        "docs/specs/t032-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "同じ records から同じ pack manifest が生成される",
++        "raw hash / compressed hash が検証可能",
++        "invalid header / record_count mismatch を reject できる",
++        "`.forge` inline size と pack の責務境界が明確"
++      ],
++      "risks": [
++        "非決定的な record ordering で hash が揺れる",
++        "pack を external storage の権威として扱う"
++      ]
++    },
++    {
++      "task_id": "T033",
++      "phase": "P2",
++      "title": "semantic retrieval adapter",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:medium"
++      ],
++      "goal": "episode / digest / semantic pattern を token budget 内で取得する retrieval adapter を作る。",
++      "why_now": "T042 の report source は memory context を表示できるが、retrieval が source refs と budget を保持しなければ推測補完になるため。",
++      "scope": [
++        "retrieval request schema",
++        "relevance score",
++        "token budget cap",
++        "deterministic fallback",
++        "source refs preservation"
++      ],
++      "out_of_scope": [
++        "embedding provider integration",
++        "vector DB as source of truth",
++        "memory mutation",
++        "self-evolution"
++      ],
++      "dependencies": [
++        "T029",
++        "T031",
++        "T032"
++      ],
++      "deliverables": [
++        "packages/memory/src/retrieval.ts",
++        "packages/memory/tests/retrieval.test.mjs",
++        "docs/specs/t033-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "retrieved item は source refs を保持する",
++        "budget 超過時に deterministic trimming される",
++        "missing memory を推測で補わない",
++        "vector index は派生物として扱う"
++      ],
++      "risks": [
++        "retrieval が source refs を落とす",
++        "vector DB を `.forge` より上位の正本として扱う"
++      ]
++    },
++    {
++      "task_id": "T034",
++      "phase": "P2",
++      "title": "eval suite DSL",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:medium"
++      ],
++      "goal": "ForgeRoot の benchmark / grader / score input を eval suite として定義する。",
++      "why_now": "T042 が fitness / trust / risk を report するとき、score の出所である eval suite と grader が未定義だと評価値を説明できないため。",
++      "scope": [
++        "eval suite schema",
++        "task fixture schema",
++        "grader definition",
++        "risk class",
++        "shadow_only flag"
++      ],
++      "out_of_scope": [
++        "actual benchmark runner",
++        "fitness calculation",
++        "mutation selection",
++        "live CI integration"
++      ],
++      "dependencies": [
++        "T004",
++        "T028"
++      ],
++      "deliverables": [
++        ".forge/evals/core.eval.forge",
++        "docs/specs/eval-suite.md",
++        "packages/eval/src/eval-suite.ts",
++        "packages/eval/tests/eval-suite.test.mjs",
++        "docs/specs/t034-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "eval suite が schema validation 可能",
++        "benchmark task と grader が分離されている",
++        "risk class が明示される",
++        "shadow_only を表現できる"
++      ],
++      "risks": [
++        "grader と benchmark fixture が一体化して再利用不能になる",
++        "eval が live CI integration と混ざる"
++      ]
++    },
++    {
++      "task_id": "T035",
++      "phase": "P2",
++      "title": "benchmark fixture seeds",
++      "suggested_labels": [
++        "forge:auto",
++        "phase:P2",
++        "class:B",
++        "risk:medium"
++      ],
++      "goal": "ForgeRoot の planner / auditor / security / memory 評価に使う初期 benchmark fixtures を作る。",
++      "why_now": "T037 fitness calculator と T042 report source は、score の根拠となる fixture set がなければ unknown と実測値を区別できないため。",
++      "scope": [
++        "docs-only task fixture",
++        "tests-only task fixture",
++        "invalid scope fixture",
++        "security finding fixture",
++        "rejection fixture"
++      ],
++      "out_of_scope": [
++        "live benchmark execution",
++        "model evaluation",
++        "score calculation",
++        "self-evolution"
++      ],
++      "dependencies": [
++        "T034"
++      ],
++      "deliverables": [
++        "labs/benchmarks/README.md",
++        "labs/benchmarks/fixtures/*.json",
++        "docs/specs/t035-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "最低30件の fixture がある",
++        "pass / fail / blocked / quarantined の代表例を含む",
++        "fixture は deterministic に読める",
++        "real GitHub API を呼ばない"
++      ],
++      "risks": [
++        "fixture が成功例に偏る",
++        "fixture generation が live repo mutation を伴う"
++      ]
++    },
++    {
++      "task_id": "T036",
++      "phase": "P2",
++      "title": "merge outcome collector",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:medium"
++      ],
++      "goal": "PR outcome を merge / reject / stale / revert / quarantined として収集する manifest を定義する。",
++      "why_now": "T037 と T042 が merge 結果を扱うには、outcome を推測ではなく source PR metadata に基づく manifest として定義する必要があるため。",
++      "scope": [
++        "merge outcome schema",
++        "review outcome",
++        "CI outcome",
++        "revert linkage",
++        "source PR metadata reference"
++      ],
++      "out_of_scope": [
++        "GitHub API polling",
++        "score calculation",
++        "memory update write",
++        "auto rollback"
++      ],
++      "dependencies": [
++        "T024",
++        "T026",
++        "T031",
++        "T034"
++      ],
++      "deliverables": [
++        "packages/eval/src/outcomes.ts",
++        "packages/eval/tests/outcomes.test.mjs",
++        "docs/specs/t036-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "merged / rejected / reverted / quarantined を区別できる",
++        "source PR / task / commit trailer refs を持つ",
++        "missing outcome を推測しない",
++        "GitHub API を呼ばない"
++      ],
++      "risks": [
++        "missing outcome を成功または失敗として補完する",
++        "outcome collection が GitHub polling 実装と混ざる"
++      ]
++    },
++    {
++      "task_id": "T037",
++      "phase": "P2",
++      "title": "fitness calculator",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:high"
++      ],
++      "goal": "fitness / trust / risk / stability / novelty を deterministic に算出する。",
++      "why_now": "T042 の report で score を出すか unknown とするかを決めるには、score schema と missing value handling が先に必要なため。",
++      "scope": [
++        "score input schema",
++        "fitness formula",
++        "trust formula",
++        "risk formula",
++        "score explanation",
++        "missing value handling"
++      ],
++      "out_of_scope": [
++        "score に基づく mutation execution",
++        "self-evolution",
++        "federation reputation",
++        "UI dashboard"
++      ],
++      "dependencies": [
++        "T034",
++        "T035",
++        "T036"
++      ],
++      "deliverables": [
++        "packages/eval/src/fitness.ts",
++        "packages/eval/tests/fitness.test.mjs",
++        ".forge/lineage/fitness.forge",
++        "docs/specs/t037-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "同じ input から同じ score が出る",
++        "missing value は unknown として扱い、勝手に補完しない",
++        "risk は max-risk 原則を守る",
++        "score explanation が reviewer に読める"
++      ],
++      "risks": [
++        "missing value を推測して評価汚染する",
++        "score を mutation execution と直結する"
++      ]
++    },
++    {
++      "task_id": "T038",
++      "phase": "P2",
++      "title": "memory compaction engine",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:high"
++      ],
++      "goal": "inline memory を pack 化し、`.forge` の肥大化を防ぐ compaction manifest を作る。",
++      "why_now": "T042 以降で memory health を表示するには、inline size と compaction candidate の判断基準を source refs 付きで定義する必要があるため。",
++      "scope": [
++        "compaction request schema",
++        "inline size threshold",
++        "keep_recent accepted/rejected policy",
++        "pack reference update",
++        "dry-run report"
++      ],
++      "out_of_scope": [
++        "actual PR creation",
++        "scheduler",
++        "semantic deletion",
++        "mutation generation"
++      ],
++      "dependencies": [
++        "T030",
++        "T031",
++        "T032",
++        "T033",
++        "T037"
++      ],
++      "deliverables": [
++        "packages/memory/src/compact.ts",
++        "packages/memory/tests/compact.test.mjs",
++        "docs/specs/t038-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "inline size 上限を超える場合に compaction candidate を出せる",
++        "accepted / rejected の保持数ルールが守られる",
++        "source refs を失わない",
++        "destructive delete を直接行わない"
++      ],
++      "risks": [
++        "compaction が destructive delete になる",
++        "accepted/rejected の保持数ルールを破る"
++      ]
++    },
++    {
++      "task_id": "T039",
++      "phase": "P2",
++      "title": "provenance/signature writer",
++      "suggested_labels": [
++        "forge:plan",
++        "phase:P2",
++        "class:B",
++        "risk:high"
++      ],
++      "goal": "PR composition / audit / pack / `.forge` artifact に provenance manifest と署名対象 hash を付与する。",
++      "why_now": "T042 report が source artifact hash / task id / approval class を表示するには、provenance manifest と署名対象 hash の形を先に定義する必要があるため。",
++      "scope": [
++        "provenance manifest schema",
++        "source task / PR / commit / artifact refs",
++        "canonical hash reference",
++        "signature placeholder",
++        "verification report"
++      ],
++      "out_of_scope": [
++        "production key management",
++        "live signing service",
++        "GitHub attestation API",
++        "release artifact attestation"
++      ],
++      "dependencies": [
++        "T005",
++        "T024",
++        "T032"
++      ],
++      "deliverables": [
++        "packages/auditor/src/provenance.ts",
++        "packages/auditor/tests/provenance.test.mjs",
++        "docs/specs/provenance.md",
++        "docs/specs/t039-validation-report.md"
++      ],
++      "acceptance_criteria": [
++        "provenance に source refs / artifact hashes / runtime profile が含まれる",
++        "signature field はあるが secret material を扱わない",
++        "hash mismatch を検出できる",
++        "GitHub API を呼ばない"
++      ],
++      "risks": [
++        "signature placeholder が secret material を要求する",
++        "hash mismatch を report から隠す"
++      ]
++    }
++  ],
++  "t042_readiness": {
++    "schema_ref": "urn:forgeroot:t041-2:t042-readiness:v1",
++    "task_name": "T041-2",
++    "status": "ready_after_t041",
++    "canonicalized_task_source": [
++      "T029",
++      "T030",
++      "T031",
++      "T032",
++      "T033",
++      "T034",
++      "T035",
++      "T036",
++      "T037",
++      "T038",
++      "T039"
++    ],
++    "resolved_dependency_kind": "P2 memory/eval/provenance task definitions",
++    "t042_requires_before_implementation": [
++      "T040",
++      "T041",
++      "T041-2"
++    ],
++    "t042_blockers_cleared_by_t041_2": [
++      "T029-T039 canonical task source exists",
++      "Phase 2 memory/eval/provenance dependency DAG exists",
++      "Repo map placeholders for memory/eval/reporting/auditor provenance are documented",
++      "Interface registry placeholders for T029-T042 are documented",
++      "Missing score/memory values remain unknown rather than guessed"
++    ],
++    "t042_blockers_not_cleared_by_t041_2": [
++      "T041 security gates implementation and validation must still be completed before T042"
++    ],
++    "manifest_only_guards": {
++      "no_github_api_call": true,
++      "no_workflow_mutation": true,
++      "no_policy_mutation": true,
++      "no_ruleset_mutation": true,
++      "no_branch_protection_mutation": true,
++      "no_memory_or_evaluation_state_update": true,
++      "no_federation_or_self_evolution": true
++    }
++  }
++}
+diff -ruN orig_t040/ForgeRoot/docs/specs/fixtures/task-source/t042-readiness.json work_t041_2/ForgeRoot/docs/specs/fixtures/task-source/t042-readiness.json
+--- orig_t040/ForgeRoot/docs/specs/fixtures/task-source/t042-readiness.json	1970-01-01 00:00:00.000000000 +0000
++++ work_t041_2/ForgeRoot/docs/specs/fixtures/task-source/t042-readiness.json	2026-04-19 09:22:15.764260328 +0000
+@@ -0,0 +1,43 @@
++{
++  "schema_ref": "urn:forgeroot:t041-2:t042-readiness:v1",
++  "task_name": "T041-2",
++  "status": "ready_after_t041",
++  "canonicalized_task_source": [
++    "T029",
++    "T030",
++    "T031",
++    "T032",
++    "T033",
++    "T034",
++    "T035",
++    "T036",
++    "T037",
++    "T038",
++    "T039"
++  ],
++  "resolved_dependency_kind": "P2 memory/eval/provenance task definitions",
++  "t042_requires_before_implementation": [
++    "T040",
++    "T041",
++    "T041-2"
++  ],
++  "t042_blockers_cleared_by_t041_2": [
++    "T029-T039 canonical task source exists",
++    "Phase 2 memory/eval/provenance dependency DAG exists",
++    "Repo map placeholders for memory/eval/reporting/auditor provenance are documented",
++    "Interface registry placeholders for T029-T042 are documented",
++    "Missing score/memory values remain unknown rather than guessed"
++  ],
++  "t042_blockers_not_cleared_by_t041_2": [
++    "T041 security gates implementation and validation must still be completed before T042"
++  ],
++  "manifest_only_guards": {
++    "no_github_api_call": true,
++    "no_workflow_mutation": true,
++    "no_policy_mutation": true,
++    "no_ruleset_mutation": true,
++    "no_branch_protection_mutation": true,
++    "no_memory_or_evaluation_state_update": true,
++    "no_federation_or_self_evolution": true
++  }
++}
+diff -ruN orig_t040/ForgeRoot/docs/specs/t029-t039-canonical-task-source.md work_t041_2/ForgeRoot/docs/specs/t029-t039-canonical-task-source.md
+--- orig_t040/ForgeRoot/docs/specs/t029-t039-canonical-task-source.md	1970-01-01 00:00:00.000000000 +0000
++++ work_t041_2/ForgeRoot/docs/specs/t029-t039-canonical-task-source.md	2026-04-19 09:22:15.764501242 +0000
+@@ -0,0 +1,534 @@
++# T041-2 canonical source for T029-T039
++
++Task name: `T041-2`
++
++This document integrates the missing T029-T039 task source needed before T042 can consume memory / eval / provenance artifacts. It does not implement the T029-T039 runtime modules.
++
++## Boundary
++
++- Adds canonical task source for T029-T039 only.
++- Keeps every task as `1 issue = 1 bounded PR scope`.
++- Does not call GitHub APIs.
++- Does not mutate workflows, policies, rulesets, or branch protection.
++- Does not write memory or evaluation state.
++- Does not perform self-evolution or federation.
++
++## [P2][T029] memory partition contract
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:medium`
++
++### Goal
++Working Memory / Episodic Heads / Episodic Packs / Semantic Digests の責務境界を固定する。
++
++### Why now
++T042 が memory state を report する前に、memory の層・権威・更新責務を task source として固定する必要があるため。
++
++### Scope
++- memory layer 定義
++- inline memory と pack memory の境界
++- forget rule
++- memory update approval class
++- memory artifact schema
++
++### Out of scope
++- 実際の memory 書き込み
++- pack 圧縮実装
++- eval score 算出
++- self-evolution
++
++### Dependencies
++- T004
++- T028
++
++### Deliverables
++- `docs/specs/memory-model.md`
++- `.forge/policies/memory.forge`
++- `docs/specs/t029-validation-report.md`
++
++### Acceptance criteria
++- 4層 memory model が定義されている
++- runtime DB が memory source of truth ではないことが明記される
++- curated memory update は PR 経由である
++- memory と eval の責務が分離されている
++
++### Risks
++- memory と eval の責務が混ざる
++- runtime DB を source of truth として扱う
++
++## [P2][T030] working memory writer
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:medium`
++
++### Goal
++短期 working memory update manifest を deterministic に生成・検証する。
++
++### Why now
++T042 が working memory の状態を表示するとき、短期 memory update の形が未定義だと missing/unknown と実データを区別できないため。
++
++### Scope
++- working memory update schema
++- max_items enforcement
++- TTL metadata
++- source task reference
++- deterministic ordering
++
++### Out of scope
++- `.forge` への直接書き込み
++- episodic digest
++- semantic retrieval
++- eval score update
++
++### Dependencies
++- T029
++
++### Deliverables
++- `packages/memory/src/working.ts`
++- `packages/memory/tests/working.test.mjs`
++- `docs/specs/t030-validation-report.md`
++
++### Acceptance criteria
++- max_items を超える update を reject できる
++- source task / source artifact が必須
++- 同じ input から同じ update manifest が出る
++- GitHub API を呼ばない
++
++### Risks
++- source refs のない memory を書ける
++- 短期 memory が無制限に肥大する
++
++## [P2][T031] episodic digest generator
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:medium`
++
++### Goal
++PR / audit / rejection / failure を episode digest として要約する manifest を作る。
++
++### Why now
++T042 で recent episode や rejected/blocked 結果を report するには、episode digest の source refs と reliability を先に定義する必要があるため。
++
++### Scope
++- episode digest schema
++- accepted / rejected / blocked / quarantined event type
++- source artifact hash
++- reliability field
++- digest length limit
++
++### Out of scope
++- pack compression
++- semantic search
++- fitness calculation
++- mutation proposal
++
++### Dependencies
++- T029
++- T030
++- T023
++- T028
++
++### Deliverables
++- `packages/memory/src/digest.ts`
++- `packages/memory/tests/digest.test.mjs`
++- `docs/specs/t031-validation-report.md`
++
++### Acceptance criteria
++- episode digest に source refs / task id / decision / reliability が含まれる
++- rejected / blocked episode も保存対象になる
++- digest は deterministic に生成される
++- memory の捏造を防ぐため source artifact が必須
++
++### Risks
++- 失敗 episode が保存されず同じ失敗を繰り返す
++- source artifact なしの digest で記憶汚染する
++
++## [P2][T032] archive packer
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:high`
++
++### Goal
++episode / mutation / eval artifact を `.jsonl.zst` pack へ格納する deterministic packer を設計・実装する。
++
++### Why now
++T042 以降で source artifact hash を report に載せるには、pack manifest と hash の責務を先に canonical 化する必要があるため。
++
++### Scope
++- canonical JSONL record
++- pack header
++- raw hash / zstd hash
++- deterministic record ordering
++- pack verification
++
++### Out of scope
++- live memory compaction scheduler
++- semantic retrieval
++- external object storage
++- federation lineage exchange
++
++### Dependencies
++- T005
++- T031
++
++### Deliverables
++- `packages/memory/src/packer.ts`
++- `packages/memory/tests/packer.test.mjs`
++- `.forge/packs/README.md`
++- `docs/specs/t032-validation-report.md`
++
++### Acceptance criteria
++- 同じ records から同じ pack manifest が生成される
++- raw hash / compressed hash が検証可能
++- invalid header / record_count mismatch を reject できる
++- `.forge` inline size と pack の責務境界が明確
++
++### Risks
++- 非決定的な record ordering で hash が揺れる
++- pack を external storage の権威として扱う
++
++## [P2][T033] semantic retrieval adapter
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:medium`
++
++### Goal
++episode / digest / semantic pattern を token budget 内で取得する retrieval adapter を作る。
++
++### Why now
++T042 の report source は memory context を表示できるが、retrieval が source refs と budget を保持しなければ推測補完になるため。
++
++### Scope
++- retrieval request schema
++- relevance score
++- token budget cap
++- deterministic fallback
++- source refs preservation
++
++### Out of scope
++- embedding provider integration
++- vector DB as source of truth
++- memory mutation
++- self-evolution
++
++### Dependencies
++- T029
++- T031
++- T032
++
++### Deliverables
++- `packages/memory/src/retrieval.ts`
++- `packages/memory/tests/retrieval.test.mjs`
++- `docs/specs/t033-validation-report.md`
++
++### Acceptance criteria
++- retrieved item は source refs を保持する
++- budget 超過時に deterministic trimming される
++- missing memory を推測で補わない
++- vector index は派生物として扱う
++
++### Risks
++- retrieval が source refs を落とす
++- vector DB を `.forge` より上位の正本として扱う
++
++## [P2][T034] eval suite DSL
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:medium`
++
++### Goal
++ForgeRoot の benchmark / grader / score input を eval suite として定義する。
++
++### Why now
++T042 が fitness / trust / risk を report するとき、score の出所である eval suite と grader が未定義だと評価値を説明できないため。
++
++### Scope
++- eval suite schema
++- task fixture schema
++- grader definition
++- risk class
++- shadow_only flag
++
++### Out of scope
++- actual benchmark runner
++- fitness calculation
++- mutation selection
++- live CI integration
++
++### Dependencies
++- T004
++- T028
++
++### Deliverables
++- `.forge/evals/core.eval.forge`
++- `docs/specs/eval-suite.md`
++- `packages/eval/src/eval-suite.ts`
++- `packages/eval/tests/eval-suite.test.mjs`
++- `docs/specs/t034-validation-report.md`
++
++### Acceptance criteria
++- eval suite が schema validation 可能
++- benchmark task と grader が分離されている
++- risk class が明示される
++- shadow_only を表現できる
++
++### Risks
++- grader と benchmark fixture が一体化して再利用不能になる
++- eval が live CI integration と混ざる
++
++## [P2][T035] benchmark fixture seeds
++
++### Suggested labels
++- `forge:auto`
++- `phase:P2`
++- `class:B`
++- `risk:medium`
++
++### Goal
++ForgeRoot の planner / auditor / security / memory 評価に使う初期 benchmark fixtures を作る。
++
++### Why now
++T037 fitness calculator と T042 report source は、score の根拠となる fixture set がなければ unknown と実測値を区別できないため。
++
++### Scope
++- docs-only task fixture
++- tests-only task fixture
++- invalid scope fixture
++- security finding fixture
++- rejection fixture
++
++### Out of scope
++- live benchmark execution
++- model evaluation
++- score calculation
++- self-evolution
++
++### Dependencies
++- T034
++
++### Deliverables
++- `labs/benchmarks/README.md`
++- `labs/benchmarks/fixtures/*.json`
++- `docs/specs/t035-validation-report.md`
++
++### Acceptance criteria
++- 最低30件の fixture がある
++- pass / fail / blocked / quarantined の代表例を含む
++- fixture は deterministic に読める
++- real GitHub API を呼ばない
++
++### Risks
++- fixture が成功例に偏る
++- fixture generation が live repo mutation を伴う
++
++## [P2][T036] merge outcome collector
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:medium`
++
++### Goal
++PR outcome を merge / reject / stale / revert / quarantined として収集する manifest を定義する。
++
++### Why now
++T037 と T042 が merge 結果を扱うには、outcome を推測ではなく source PR metadata に基づく manifest として定義する必要があるため。
++
++### Scope
++- merge outcome schema
++- review outcome
++- CI outcome
++- revert linkage
++- source PR metadata reference
++
++### Out of scope
++- GitHub API polling
++- score calculation
++- memory update write
++- auto rollback
++
++### Dependencies
++- T024
++- T026
++- T031
++- T034
++
++### Deliverables
++- `packages/eval/src/outcomes.ts`
++- `packages/eval/tests/outcomes.test.mjs`
++- `docs/specs/t036-validation-report.md`
++
++### Acceptance criteria
++- merged / rejected / reverted / quarantined を区別できる
++- source PR / task / commit trailer refs を持つ
++- missing outcome を推測しない
++- GitHub API を呼ばない
++
++### Risks
++- missing outcome を成功または失敗として補完する
++- outcome collection が GitHub polling 実装と混ざる
++
++## [P2][T037] fitness calculator
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:high`
++
++### Goal
++fitness / trust / risk / stability / novelty を deterministic に算出する。
++
++### Why now
++T042 の report で score を出すか unknown とするかを決めるには、score schema と missing value handling が先に必要なため。
++
++### Scope
++- score input schema
++- fitness formula
++- trust formula
++- risk formula
++- score explanation
++- missing value handling
++
++### Out of scope
++- score に基づく mutation execution
++- self-evolution
++- federation reputation
++- UI dashboard
++
++### Dependencies
++- T034
++- T035
++- T036
++
++### Deliverables
++- `packages/eval/src/fitness.ts`
++- `packages/eval/tests/fitness.test.mjs`
++- `.forge/lineage/fitness.forge`
++- `docs/specs/t037-validation-report.md`
++
++### Acceptance criteria
++- 同じ input から同じ score が出る
++- missing value は unknown として扱い、勝手に補完しない
++- risk は max-risk 原則を守る
++- score explanation が reviewer に読める
++
++### Risks
++- missing value を推測して評価汚染する
++- score を mutation execution と直結する
++
++## [P2][T038] memory compaction engine
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:high`
++
++### Goal
++inline memory を pack 化し、`.forge` の肥大化を防ぐ compaction manifest を作る。
++
++### Why now
++T042 以降で memory health を表示するには、inline size と compaction candidate の判断基準を source refs 付きで定義する必要があるため。
++
++### Scope
++- compaction request schema
++- inline size threshold
++- keep_recent accepted/rejected policy
++- pack reference update
++- dry-run report
++
++### Out of scope
++- actual PR creation
++- scheduler
++- semantic deletion
++- mutation generation
++
++### Dependencies
++- T030
++- T031
++- T032
++- T033
++- T037
++
++### Deliverables
++- `packages/memory/src/compact.ts`
++- `packages/memory/tests/compact.test.mjs`
++- `docs/specs/t038-validation-report.md`
++
++### Acceptance criteria
++- inline size 上限を超える場合に compaction candidate を出せる
++- accepted / rejected の保持数ルールが守られる
++- source refs を失わない
++- destructive delete を直接行わない
++
++### Risks
++- compaction が destructive delete になる
++- accepted/rejected の保持数ルールを破る
++
++## [P2][T039] provenance/signature writer
++
++### Suggested labels
++- `forge:plan`
++- `phase:P2`
++- `class:B`
++- `risk:high`
++
++### Goal
++PR composition / audit / pack / `.forge` artifact に provenance manifest と署名対象 hash を付与する。
++
++### Why now
++T042 report が source artifact hash / task id / approval class を表示するには、provenance manifest と署名対象 hash の形を先に定義する必要があるため。
++
++### Scope
++- provenance manifest schema
++- source task / PR / commit / artifact refs
++- canonical hash reference
++- signature placeholder
++- verification report
++
++### Out of scope
++- production key management
++- live signing service
++- GitHub attestation API
++- release artifact attestation
++
++### Dependencies
++- T005
++- T024
++- T032
++
++### Deliverables
++- `packages/auditor/src/provenance.ts`
++- `packages/auditor/tests/provenance.test.mjs`
++- `docs/specs/provenance.md`
++- `docs/specs/t039-validation-report.md`
++
++### Acceptance criteria
++- provenance に source refs / artifact hashes / runtime profile が含まれる
++- signature field はあるが secret material を扱わない
++- hash mismatch を検出できる
++- GitHub API を呼ばない
++
++### Risks
++- signature placeholder が secret material を要求する
++- hash mismatch を report から隠す
+diff -ruN orig_t040/ForgeRoot/docs/specs/t041-2-dependency-resolution.md work_t041_2/ForgeRoot/docs/specs/t041-2-dependency-resolution.md
+--- orig_t040/ForgeRoot/docs/specs/t041-2-dependency-resolution.md	1970-01-01 00:00:00.000000000 +0000
++++ work_t041_2/ForgeRoot/docs/specs/t041-2-dependency-resolution.md	2026-04-19 09:22:15.764569413 +0000
+@@ -0,0 +1,74 @@
++# T041-2 dependency resolution for T042
++
++Task name: `T041-2`
++
++## Purpose
++
++T041-2 resolves the non-runtime dependency that blocked T042: T029-T039 did not yet exist as a canonical memory / eval / provenance task source.
++
++T041-2 does not implement T029-T039. It fixes the dependency at the task-source, repo-map, and interface-boundary level so that T042 can be implemented after T041 security gates are complete.
++
++## Position in the task graph
++
++`T041-2` is an interstitial bridge label requested for this dependency-resolution work. It is not a replacement for any fixed three-digit task ID and does not reuse T041 or T042.
++
++```text
++T040 SARIF bridge
++  -> T041 security gates
++      -> T041-2 dependency resolution for T042
++          -> T042 memory/eval/security dashboard source
++```
++
++## Resolved dependency
++
++T042 originally depended on:
++
++```text
++- T040 SARIF bridge
++- T041 security gates
++- P2 memory / evaluator task definitions once canonicalized
++```
++
++T041-2 resolves the third item by adding:
++
++```text
++- docs/specs/t029-t039-canonical-task-source.md
++- docs/specs/fixtures/task-source/t029-t039-canonical.json
++- docs/specs/fixtures/task-source/t042-readiness.json
++- docs/specs/t041-2-repo-map.md
++- docs/specs/t041-2-interface-registry.md
++```
++
++## Remaining T042 blocker
++
++T041-2 does not implement T041. If T041 is not complete, T042 remains blocked by T041 security gates.
++
++After T041 is complete, T042 can proceed without the previous T029-T039 canonical-source gap.
++
++## T042 readiness rule
++
++T042 may consume memory / eval / provenance artifacts only as declared manifest inputs. It must not invent missing memory, score, gate, or provenance data.
++
++T042 must render missing values as `unknown` and include source artifact references when present.
++
++## Manifest-only guards
++
++T041-2 does not perform:
++
++- GitHub API calls
++- live Code Scanning upload
++- `.github/workflows/*` mutation
++- policy mutation
++- ruleset or branch protection mutation
++- memory/evaluation state writes
++- self-evolution
++- federation
++
++## Acceptance criteria
++
++- T029-T039 are present with bounded Goal / Scope / Out of scope / Dependencies / Deliverables / Acceptance criteria.
++- T029-T039 dependencies form an acyclic graph using only completed prior tasks or earlier T029-T039 tasks.
++- T042 readiness fixture states that the canonical-source dependency is resolved.
++- T042 remains blocked by T041 until T041 is implemented.
++- Repo map and interface registry placeholders exist for the modules T042 will rely on.
++- Node validation confirms no malformed task IDs, missing sections, or accidental live-operation permissions.
+diff -ruN orig_t040/ForgeRoot/docs/specs/t041-2-interface-registry.md work_t041_2/ForgeRoot/docs/specs/t041-2-interface-registry.md
+--- orig_t040/ForgeRoot/docs/specs/t041-2-interface-registry.md	1970-01-01 00:00:00.000000000 +0000
++++ work_t041_2/ForgeRoot/docs/specs/t041-2-interface-registry.md	2026-04-19 09:22:15.764680613 +0000
+@@ -0,0 +1,46 @@
++# T041-2 interface registry supplement
++
++Task name: `T041-2`
++
++This supplement registers the interfaces needed to make T042 dependency interpretation unambiguous. Future tasks must implement these names or explicitly update this registry through a bounded PR.
++
++## `packages/memory`
++
++| API | Task | Input | Output | Forbidden |
++|---|---:|---|---|---|
++| `createWorkingMemoryUpdate(input)` | T030 | task refs / facts | working memory update manifest | `.forge` direct write |
++| `validateWorkingMemoryUpdate(update)` | T030 | update manifest | validation result | guessed source refs |
++| `createEpisodeDigest(input)` | T031 | PR/audit/outcome refs | episode digest | source-less digest |
++| `packMemoryRecords(input)` | T032 | canonical records | pack manifest | nondeterministic ordering |
++| `retrieveMemoryContext(input)` | T033 | query + token budget | bounded context refs | vector DB as source of truth |
++| `createMemoryCompactionPlan(input)` | T038 | inline memory state | compaction proposal | destructive delete |
++
++## `packages/eval`
++
++| API | Task | Input | Output | Forbidden |
++|---|---:|---|---|---|
++| `validateEvalSuite(input)` | T034 | eval suite | validation result | benchmark execution |
++| `loadBenchmarkFixtures(input)` | T035 | fixture path | fixture set | live repo mutation |
++| `collectMergeOutcome(input)` | T036 | PR metadata refs | outcome manifest | outcome guessing |
++| `calculateFitness(input)` | T037 | outcome/eval inputs | score manifest | score mutation side effects |
++
++## `packages/auditor`
++
++| API | Task | Input | Output | Forbidden |
++|---|---:|---|---|---|
++| `createProvenanceManifest(input)` | T039 | artifact refs | provenance manifest | secret signing key handling |
++| `verifyProvenanceManifest(input)` | T039 | manifest + artifact refs | verification result | live attestation API |
++| `convertAuditFindingsToSarif(input)` | T040 | audit findings | SARIF-like artifact | GitHub Code Scanning upload |
++| `evaluateSecurityGate(input)` | T041 | SARIF-like artifact + policy | gate decision manifest | ruleset mutation |
++
++## `packages/reporting`
++
++| API | Task | Input | Output | Forbidden |
++|---|---:|---|---|---|
++| `renderSecurityReport(input)` | T042 | T041 gate decision + T040 SARIF summary | Markdown / JSON report | GitHub Checks API write |
++| `renderFitnessReport(input)` | T042 | T037 score manifest or unknown placeholder | Markdown / JSON report | missing score guessing |
++| `renderForgeReport(input)` | T042 | memory/eval/security/provenance refs | Markdown / JSON report | source-of-truth replacement |
++
++## T042 input handling rule
++
++T042 accepts missing memory/eval/provenance values only when they are explicitly represented as `unknown`. It must not synthesize score, memory, or provenance evidence.
+diff -ruN orig_t040/ForgeRoot/docs/specs/t041-2-repo-map.md work_t041_2/ForgeRoot/docs/specs/t041-2-repo-map.md
+--- orig_t040/ForgeRoot/docs/specs/t041-2-repo-map.md	1970-01-01 00:00:00.000000000 +0000
++++ work_t041_2/ForgeRoot/docs/specs/t041-2-repo-map.md	2026-04-19 09:22:15.764629025 +0000
+@@ -0,0 +1,62 @@
++# T041-2 repo map supplement
++
++Task name: `T041-2`
++
++This supplement records the Phase 2 placement needed for T042 dependency resolution. It does not create the future runtime packages.
++
++## Existing implemented surface
++
++```text
++packages/planner              # T015-T017
++packages/executor             # T018-T019
++packages/auditor              # T023 and T040
++packages/pr-composer          # T024
++packages/github-pr-adapter    # T025
++packages/approval-checkpoint  # T026
++packages/rate-governor        # T027
++packages/forge-demo           # T028
++```
++
++## Reserved Phase 2 placement
++
++```text
++packages/memory/
++  src/working.ts        # T030
++  src/digest.ts         # T031
++  src/packer.ts         # T032
++  src/retrieval.ts      # T033
++  src/compact.ts        # T038
++
++packages/eval/
++  src/eval-suite.ts     # T034
++  src/outcomes.ts       # T036
++  src/fitness.ts        # T037
++
++packages/auditor/
++  src/provenance.ts     # T039
++  src/sarif.ts          # T040 implemented
++  src/security-gates.ts # T041
++
++packages/reporting/
++  src/security-report.ts # T042
++  src/fitness-report.ts  # T042
++```
++
++## Placement rationale
++
++- `packages/memory` owns curated memory manifests, pack boundaries, retrieval manifests, and compaction proposals.
++- `packages/eval` owns eval suite validation, outcome manifests, and score calculation.
++- `packages/auditor` keeps provenance, SARIF, and security gate decisions near audit evidence.
++- `packages/reporting` renders derived JSON / Markdown reports and must not become a source of truth.
++
++## Dependency direction
++
++```text
++packages/reporting
++  consumes packages/auditor artifact shapes
++  consumes packages/eval score artifact shapes
++  consumes packages/memory manifest shapes
++  must not mutate memory, eval, security policies, or GitHub state
++```
++
++T042 reporting may depend on manifest schemas and validators. It must not trigger live memory writes, score calculation side effects, GitHub Checks API calls, or security policy mutation.
+diff -ruN orig_t040/ForgeRoot/docs/specs/t041-2-validation-report.md work_t041_2/ForgeRoot/docs/specs/t041-2-validation-report.md
+--- orig_t040/ForgeRoot/docs/specs/t041-2-validation-report.md	1970-01-01 00:00:00.000000000 +0000
++++ work_t041_2/ForgeRoot/docs/specs/t041-2-validation-report.md	2026-04-19 09:22:41.121101284 +0000
+@@ -0,0 +1,72 @@
++# T041-2 validation report — T042 dependency resolution
++
++Date: 2026-04-19 JST
++
++## Scope
++
++T041-2 resolves the missing canonical-source dependency that blocked T042 by adding T029-T039 task definitions and the repo-map / interface-registry supplements needed for T042 interpretation.
++
++T041-2 does not implement T029-T039 runtime modules, T041 security gates, or T042 reporting.
++
++## Added artifacts
++
++- `docs/specs/t041-2-dependency-resolution.md`
++- `docs/specs/t029-t039-canonical-task-source.md`
++- `docs/specs/t041-2-repo-map.md`
++- `docs/specs/t041-2-interface-registry.md`
++- `docs/specs/fixtures/task-source/t029-t039-canonical.json`
++- `docs/specs/fixtures/task-source/t042-readiness.json`
++- `packages/planner/tests/task-source.test.mjs`
++- `docs/ops/thread-handoff-after-t041-2.md`
++- `docs/specs/t041-2-validation-report.md`
++
++## Acceptance coverage
++
++| Requirement | Coverage |
++|---|---|
++| T029-T039 canonical task source exists | `docs/specs/t029-t039-canonical-task-source.md` and JSON fixture |
++| T042 dependency gap is explicitly resolved | `docs/specs/t041-2-dependency-resolution.md` and `t042-readiness.json` |
++| Repo placement is defined before implementation | `docs/specs/t041-2-repo-map.md` |
++| Interface boundaries are defined before implementation | `docs/specs/t041-2-interface-registry.md` |
++| Missing values are not guessed | T042 readiness and interface rules require `unknown` |
++| No live operation is added | T041-2 artifacts are docs/fixtures/tests only |
++
++## Boundary confirmation
++
++T041-2 did not add:
++
++- GitHub API transport
++- GitHub Code Scanning upload
++- `.github/workflows/*` mutation
++- branch protection or ruleset mutation
++- memory/evaluation state writes
++- T041 security gate implementation
++- T042 reporting implementation
++- federation or self-evolution behavior
++
++## Commands run
++
++```bash
++node --test --test-force-exit packages/planner/tests/*.test.mjs
++node --test --test-force-exit packages/auditor/tests/*.test.mjs
++node --test --test-force-exit packages/forge-demo/tests/run.test.mjs
++node --test --test-force-exit packages/rate-governor/tests/run.test.mjs
++node --test --test-force-exit packages/approval-checkpoint/tests/run.test.mjs
++node --test --test-force-exit packages/github-pr-adapter/tests/run.test.mjs
++node --test --test-force-exit packages/pr-composer/tests/run.test.mjs
++node --test --test-force-exit packages/executor/tests/*.test.mjs
++node --check packages/planner/tests/task-source.test.mjs
++```
++
++## Result summary
++
++- T041-2 task-source validation tests: 5 pass / 0 fail
++- Planner regression tests including T041-2: 28 pass / 0 fail
++- Auditor regression tests including T040 SARIF bridge: 32 pass / 0 fail
++- Forge demo regression tests: 8 pass / 0 fail
++- Rate governor regression tests: 10 pass / 0 fail
++- Approval checkpoint regression tests: 10 pass / 0 fail
++- GitHub PR adapter regression tests: 10 pass / 0 fail
++- PR composer regression tests: 8 pass / 0 fail
++- Executor regression tests: 21 pass / 0 fail
++- Node syntax check for the new T041-2 test: pass
+diff -ruN orig_t040/ForgeRoot/packages/planner/tests/task-source.test.mjs work_t041_2/ForgeRoot/packages/planner/tests/task-source.test.mjs
+--- orig_t040/ForgeRoot/packages/planner/tests/task-source.test.mjs	1970-01-01 00:00:00.000000000 +0000
++++ work_t041_2/ForgeRoot/packages/planner/tests/task-source.test.mjs	2026-04-19 09:22:18.664847526 +0000
+@@ -0,0 +1,95 @@
++import fs from "node:fs";
++import test from "node:test";
++import assert from "node:assert/strict";
++
++function readJson(relativePath) {
++  return JSON.parse(fs.readFileSync(new URL(relativePath, import.meta.url), "utf8"));
++}
++
++const fixture = readJson("../../../docs/specs/fixtures/task-source/t029-t039-canonical.json");
++const readiness = readJson("../../../docs/specs/fixtures/task-source/t042-readiness.json");
++
++const completedPriorTasks = new Set([
++  "T004",
++  "T005",
++  "T023",
++  "T024",
++  "T026",
++  "T028",
++]);
++
++function numericTaskId(taskId) {
++  const match = /^T(\d{3})$/.exec(taskId);
++  return match ? Number(match[1]) : null;
++}
++
++test("T041-2 canonicalizes exactly the T029-T039 task-source gap", () => {
++  assert.equal(fixture.schema_ref, "urn:forgeroot:task-source:t029-t039:v1");
++  assert.equal(fixture.generated_by_task, "T041-2");
++  const ids = fixture.tasks.map((task) => task.task_id);
++  assert.deepEqual(ids, ["T029", "T030", "T031", "T032", "T033", "T034", "T035", "T036", "T037", "T038", "T039"]);
++  assert.equal(new Set(ids).size, 11);
++});
++
++test("T029-T039 task definitions keep one bounded issue shape", () => {
++  for (const task of fixture.tasks) {
++    assert.match(task.task_id, /^T\d{3}$/);
++    assert.equal(task.phase, "P2");
++    assert.equal(typeof task.title, "string");
++    assert.ok(task.title.length > 0);
++    for (const field of ["goal", "why_now"]) {
++      assert.equal(typeof task[field], "string", `${task.task_id}:${field}`);
++      assert.ok(task[field].length > 0, `${task.task_id}:${field}`);
++    }
++    for (const field of ["suggested_labels", "scope", "out_of_scope", "dependencies", "deliverables", "acceptance_criteria", "risks"]) {
++      assert.ok(Array.isArray(task[field]), `${task.task_id}:${field}`);
++      assert.ok(task[field].length > 0, `${task.task_id}:${field}`);
++    }
++    assert.ok(task.suggested_labels.includes("phase:P2"));
++    assert.ok(task.suggested_labels.some((label) => /^class:[ABCD]$/.test(label)));
++    assert.ok(task.suggested_labels.some((label) => /^risk:(low|medium|high|critical)$/.test(label)));
++    assert.ok(task.deliverables.includes(`docs/specs/${task.task_id.toLowerCase()}-validation-report.md`));
++  }
++});
++
++test("T029-T039 dependencies are acyclic and point only to prior known task sources", () => {
++  const seen = new Set();
++  for (const task of fixture.tasks) {
++    const current = numericTaskId(task.task_id);
++    assert.ok(current !== null);
++    for (const dependency of task.dependencies) {
++      assert.match(dependency, /^T\d{3}$/);
++      const depNumber = numericTaskId(dependency);
++      assert.ok(depNumber !== null);
++      assert.ok(
++        completedPriorTasks.has(dependency) || seen.has(dependency),
++        `${task.task_id} depends on noncanonical or later task ${dependency}`,
++      );
++      assert.ok(depNumber < current || completedPriorTasks.has(dependency), `${task.task_id} has a forward dependency on ${dependency}`);
++    }
++    seen.add(task.task_id);
++  }
++});
++
++test("T041-2 readiness clears only the T029-T039 canonical-source blocker for T042", () => {
++  assert.equal(readiness.schema_ref, "urn:forgeroot:t041-2:t042-readiness:v1");
++  assert.equal(readiness.task_name, "T041-2");
++  assert.deepEqual(readiness.canonicalized_task_source, fixture.tasks.map((task) => task.task_id));
++  assert.equal(readiness.resolved_dependency_kind, "P2 memory/eval/provenance task definitions");
++  assert.ok(readiness.t042_requires_before_implementation.includes("T040"));
++  assert.ok(readiness.t042_requires_before_implementation.includes("T041"));
++  assert.ok(readiness.t042_requires_before_implementation.includes("T041-2"));
++  assert.ok(readiness.t042_blockers_cleared_by_t041_2.includes("T029-T039 canonical task source exists"));
++  assert.ok(readiness.t042_blockers_not_cleared_by_t041_2.some((item) => item.includes("T041 security gates")));
++});
++
++test("T041-2 remains manifest-only and does not authorize live mutation", () => {
++  const guards = readiness.manifest_only_guards;
++  assert.equal(guards.no_github_api_call, true);
++  assert.equal(guards.no_workflow_mutation, true);
++  assert.equal(guards.no_policy_mutation, true);
++  assert.equal(guards.no_ruleset_mutation, true);
++  assert.equal(guards.no_branch_protection_mutation, true);
++  assert.equal(guards.no_memory_or_evaluation_state_update, true);
++  assert.equal(guards.no_federation_or_self_evolution, true);
++});
