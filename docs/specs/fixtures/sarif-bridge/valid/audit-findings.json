@@ -1,0 +1,26 @@
+{
+  "now": "2026-04-18T00:00:00Z",
+  "repository": "hiroshitanaka-creator/ForgeRoot",
+  "task_id": "T040",
+  "audit_id": "forge-audit://fixture",
+  "findings": [
+    {
+      "id": "missing-artifact",
+      "severity": "error",
+      "category": "artifact",
+      "message": "required artifact patch.diff is missing",
+      "path": "packages/auditor/src/run.ts",
+      "line": 12,
+      "column": 3
+    },
+    {
+      "id": "doc-note",
+      "severity": "note",
+      "category": "documentation",
+      "message": "documentation evidence is present",
+      "path": "docs/specs/sarif-bridge.md",
+      "line": 1,
+      "column": 1
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-04-19T00:00:00Z",
+  "findings": [
+    {
+      "id": "BAD-0002",
+      "severity": "maybe-bad",
+      "ruleId": "unsafe.unknown-severity",
+      "message": "unknown severity must not be guessed",
+      "path": "packages/auditor/src/run.ts",
+      "line": 1,
+      "column": 1
+    }
+  ]
+}

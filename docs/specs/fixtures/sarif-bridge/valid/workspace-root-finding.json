@@ -1,0 +1,14 @@
+{
+  "now": "2026-04-18T00:00:00Z",
+  "workspace_root": "/tmp/forgeroot-worktree",
+  "findings": [
+    {
+      "ruleId": "scope.path",
+      "level": "warning",
+      "message": "changed path is outside mutable scope",
+      "path": "/tmp/forgeroot-worktree/packages/auditor/src/sarif.ts",
+      "line": 8,
+      "column": 1
+    }
+  ]
+}

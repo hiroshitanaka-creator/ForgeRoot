@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-04-19T00:00:00Z",
+  "source": {
+    "repository": "hiroshitanaka-creator/ForgeRoot",
+    "task_id": "T040",
+    "audit_id": "forge-audit://fixture-t040",
+    "plan_id": "forge-plan://fixture-t040",
+    "tool_name": "ForgeRoot Auditor",
+    "source_artifact_sha256": null
+  },
+  "findings": [
+    {
+      "id": "AUD-0001",
+      "severity": "error",
+      "category": "scope",
+      "message": "changed path touches immutable scope",
+      "path": ".github/workflows/ci.yml",
+      "line": 4,
+      "column": 1
+    },
+    {
+      "id": "SCAN-0002",
+      "severity": "medium",
+      "ruleId": "scan.dependency-warning",
+      "message": "dependency scan reported a medium finding",
+      "location": {
+        "path": "packages/auditor/src/run.ts",
+        "line": 88,
+        "column": 3
+      }
+    }
+  ]
+}
