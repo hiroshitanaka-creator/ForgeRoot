@@ -1,0 +1,1799 @@
+diff -ruN /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/absolute-path.json /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/absolute-path.json
+--- /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/absolute-path.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/absolute-path.json	2026-04-19 08:55:56.581503978 +0000
+@@ -0,0 +1,14 @@
++{
++  "generated_at": "2026-04-19T00:00:00Z",
++  "findings": [
++    {
++      "id": "BAD-0001",
++      "severity": "high",
++      "ruleId": "unsafe.absolute-path",
++      "message": "absolute workspace path leaked into finding evidence",
++      "path": "/home/runner/work/ForgeRoot/secret.txt",
++      "line": 1,
++      "column": 1
++    }
++  ]
++}
+diff -ruN /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/secret-field.json /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/secret-field.json
+--- /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/secret-field.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/secret-field.json	2026-04-19 08:55:36.194835842 +0000
+@@ -0,0 +1,13 @@
++{
++  "token": "ghp_this_must_not_be_embedded",
++  "findings": [
++    {
++      "ruleId": "secret.exposure",
++      "severity": "high",
++      "message": "secret-looking material is present",
++      "path": "packages/auditor/src/sarif.ts",
++      "line": 1,
++      "column": 1
++    }
++  ]
++}
+diff -ruN /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/unknown-severity.json /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/unknown-severity.json
+--- /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/unknown-severity.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/invalid/unknown-severity.json	2026-04-19 08:55:56.593053477 +0000
+@@ -0,0 +1,14 @@
++{
++  "generated_at": "2026-04-19T00:00:00Z",
++  "findings": [
++    {
++      "id": "BAD-0002",
++      "severity": "maybe-bad",
++      "ruleId": "unsafe.unknown-severity",
++      "message": "unknown severity must not be guessed",
++      "path": "packages/auditor/src/run.ts",
++      "line": 1,
++      "column": 1
++    }
++  ]
++}
+diff -ruN /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/audit-findings.json /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/audit-findings.json
+--- /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/audit-findings.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/audit-findings.json	2026-04-19 08:59:23.877806057 +0000
+@@ -0,0 +1,26 @@
++{
++  "now": "2026-04-18T00:00:00Z",
++  "repository": "hiroshitanaka-creator/ForgeRoot",
++  "task_id": "T040",
++  "audit_id": "forge-audit://fixture",
++  "findings": [
++    {
++      "id": "missing-artifact",
++      "severity": "error",
++      "category": "artifact",
++      "message": "required artifact patch.diff is missing",
++      "path": "packages/auditor/src/run.ts",
++      "line": 12,
++      "column": 3
++    },
++    {
++      "id": "doc-note",
++      "severity": "note",
++      "category": "documentation",
++      "message": "documentation evidence is present",
++      "path": "docs/specs/sarif-bridge.md",
++      "line": 1,
++      "column": 1
++    }
++  ]
++}
+diff -ruN /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/basic-audit-findings.json /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/basic-audit-findings.json
+--- /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/basic-audit-findings.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/basic-audit-findings.json	2026-04-19 08:55:56.569744445 +0000
+@@ -0,0 +1,33 @@
++{
++  "generated_at": "2026-04-19T00:00:00Z",
++  "source": {
++    "repository": "hiroshitanaka-creator/ForgeRoot",
++    "task_id": "T040",
++    "audit_id": "forge-audit://fixture-t040",
++    "plan_id": "forge-plan://fixture-t040",
++    "tool_name": "ForgeRoot Auditor",
++    "source_artifact_sha256": null
++  },
++  "findings": [
++    {
++      "id": "AUD-0001",
++      "severity": "error",
++      "category": "scope",
++      "message": "changed path touches immutable scope",
++      "path": ".github/workflows/ci.yml",
++      "line": 4,
++      "column": 1
++    },
++    {
++      "id": "SCAN-0002",
++      "severity": "medium",
++      "ruleId": "scan.dependency-warning",
++      "message": "dependency scan reported a medium finding",
++      "location": {
++        "path": "packages/auditor/src/run.ts",
++        "line": 88,
++        "column": 3
++      }
++    }
++  ]
++}
+diff -ruN /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/workspace-root-finding.json /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/workspace-root-finding.json
+--- /tmp/forgeroot_base/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/workspace-root-finding.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/docs/specs/fixtures/sarif-bridge/valid/workspace-root-finding.json	2026-04-19 08:55:36.173900976 +0000
+@@ -0,0 +1,14 @@
++{
++  "now": "2026-04-18T00:00:00Z",
++  "workspace_root": "/tmp/forgeroot-worktree",
++  "findings": [
++    {
++      "ruleId": "scope.path",
++      "level": "warning",
++      "message": "changed path is outside mutable scope",
++      "path": "/tmp/forgeroot-worktree/packages/auditor/src/sarif.ts",
++      "line": 8,
++      "column": 1
++    }
++  ]
++}
+diff -ruN /tmp/forgeroot_base/ForgeRoot/docs/specs/sarif-bridge.md /mnt/data/repo_t028/ForgeRoot/docs/specs/sarif-bridge.md
+--- /tmp/forgeroot_base/ForgeRoot/docs/specs/sarif-bridge.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/docs/specs/sarif-bridge.md	2026-04-19 09:01:02.935005804 +0000
+@@ -0,0 +1,208 @@
++# T040 SARIF bridge
++
++T040 defines a deterministic, manifest-only bridge from ForgeRoot audit or scan findings into a SARIF-compatible finding artifact.
++
++The bridge is intentionally not a GitHub Code Scanning uploader. It produces a reviewable artifact that later security gates can consume.
++
++## Scope
++
++The bridge accepts already-observed evidence, such as Auditor findings, scan findings, or sandbox evidence summaries, and normalizes them into one SARIF-like artifact.
++
++The bridge covers:
++
++- severity normalization
++- SARIF level normalization
++- rule ID normalization
++- safe repository-relative path normalization
++- line and column normalization
++- stable fingerprint generation
++- deterministic result and rule ordering
++- malformed finding rejection
++
++## Out of scope
++
++T040 does not perform:
++
++- GitHub API calls
++- GitHub Code Scanning upload
++- `.github/workflows/*` creation or mutation
++- branch protection or ruleset mutation
++- security gate decisions
++- memory or evaluation state updates
++- federation or self-evolution behavior
++
++## API
++
++```ts
++convertAuditFindingsToSarif(input, options?)
++createSarifBridgeArtifact(input, options?)
++convertFindingsToSarif(input, options?)
++validateSarifBridgeInput(input, options?)
++validateSarifLikeArtifact(artifact)
++validateSarifBridgeArtifact(artifact)
++normalizeSarifSeverity(value)
++normalizeSarifPath(value, workspaceRoot?)
++SARIF_BRIDGE_CONTRACT
++```
++
++`createSarifBridgeArtifact` and `convertFindingsToSarif` are compatibility aliases for `convertAuditFindingsToSarif`.
++
++## Input contract
++
++The input may be either an object with a `findings` array or a direct findings array.
++
++```json
++{
++  "generated_at": "2026-04-19T00:00:00Z",
++  "source": {
++    "repository": "hiroshitanaka-creator/ForgeRoot",
++    "task_id": "T040",
++    "audit_id": "forge-audit://example",
++    "plan_id": "forge-plan://example",
++    "tool_name": "ForgeRoot Auditor",
++    "source_artifact_sha256": null
++  },
++  "findings": [
++    {
++      "id": "AUD-0001",
++      "severity": "error",
++      "category": "scope",
++      "message": "changed path touches immutable scope",
++      "path": ".github/workflows/ci.yml",
++      "line": 4,
++      "column": 1
++    }
++  ]
++}
++```
++
++Each finding must resolve to:
++
++- a message
++- a supported severity or level
++- a rule ID, category, or code
++- a safe repository-relative path
++- positive integer line and column values, or omitted values that default to `1`
++
++## Severity and SARIF level mapping
++
++| Source values | Forge severity | SARIF level |
++|---|---|---|
++| `critical`, `high`, `error`, `fatal` | `high` | `error` |
++| `medium`, `moderate`, `warning`, `warn` | `medium` | `warning` |
++| `low`, `minor`, `info`, `informational`, `notice` | `low` | `note` |
++| `note`, `none`, `pass`, `passed` | `note` | `note` |
++
++Unsupported severity values are rejected. The bridge does not guess a severity.
++
++## Path normalization
++
++Paths are normalized to safe repository-relative URIs by:
++
++- stripping an explicit `workspace_root` prefix when supplied by the input
++- converting backslashes to slashes
++- removing a leading `./`
++- collapsing repeated slashes
++- removing trailing slashes
++
++The bridge rejects:
++
++- absolute paths
++- drive-letter paths
++- URL or URI schemes
++- home-relative paths beginning with `~`
++- null bytes
++- `.` or `..` path segments
++- secret-looking path strings such as GitHub tokens or private key markers
++
++The bridge also rejects input objects that contain secret-looking field names or values such as raw tokens. This prevents workspace path or credential leakage and ensures later gates compare stable repository paths.
++
++## Fingerprints
++
++Each SARIF-like result receives a `partialFingerprints.forgeRootFingerprint` value.
++
++The fingerprint is a SHA-256 hash over a canonical JSON object containing:
++
++- rule ID
++- normalized path
++- line
++- column
++- message
++- Forge severity
++- category
++
++The same normalized finding always receives the same fingerprint.
++
++## Output artifact
++
++The bridge returns:
++
++```json
++{
++  "status": "ready",
++  "artifact": {
++    "schema_ref": "urn:forgeroot:sarif-bridge:v1",
++    "sarif_version": "2.1.0",
++    "generated_at": "2026-04-19T00:00:00Z",
++    "source": {},
++    "runs": [
++      {
++        "tool": { "driver": { "name": "ForgeRoot Auditor", "rules": [] } },
++        "results": []
++      }
++    ],
++    "summary": {},
++    "guards": {}
++  },
++  "issues": [],
++  "reasons": ["sarif_bridge_ready"]
++}
++```
++
++Invalid input returns `status: "invalid"` and no artifact.
++
++## Boundary guards
++
++Every generated artifact asserts that T040 did not perform live or policy-changing actions:
++
++```json
++{
++  "no_github_code_scanning_upload": true,
++  "no_github_api_call": true,
++  "no_workflow_mutation": true,
++  "no_policy_mutation": true,
++  "no_ruleset_mutation": true,
++  "no_branch_protection_mutation": true,
++  "no_security_gate_decision": true,
++  "no_memory_or_evaluation_update": true,
++  "no_federation_or_self_evolution": true
++}
++```
++
++## Determinism
++
++The bridge sorts results by:
++
++1. Forge severity rank, descending
++2. rule ID
++3. normalized path
++4. start line
++5. start column
++6. message
++7. source finding ID
++
++Rules, summary rule IDs, and summary paths are also sorted.
++
++## Fixtures
++
++Valid fixtures are stored in:
++
++```text
++docs/specs/fixtures/sarif-bridge/valid/
++```
++
++Invalid fixtures are stored in:
++
++```text
++docs/specs/fixtures/sarif-bridge/invalid/
++```
+diff -ruN /tmp/forgeroot_base/ForgeRoot/docs/specs/t040-validation-report.md /mnt/data/repo_t028/ForgeRoot/docs/specs/t040-validation-report.md
+--- /tmp/forgeroot_base/ForgeRoot/docs/specs/t040-validation-report.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/docs/specs/t040-validation-report.md	2026-04-19 09:01:02.935615760 +0000
+@@ -0,0 +1,142 @@
++# T040 validation report — SARIF bridge
++
++Date: 2026-04-19 JST
++
++## Scope
++
++T040 adds a deterministic, manifest-only SARIF bridge inside `packages/auditor`.
++
++The bridge converts internal Auditor / scan / sandbox evidence findings into a SARIF-compatible finding artifact for later security gates. It does not upload to GitHub Code Scanning, call GitHub APIs, mutate workflows, mutate policies, mutate rulesets, update memory/evaluation state, or perform federation/self-evolution behavior.
++
++## Added artifacts
++
++Implemented paths:
++
++- `docs/specs/sarif-bridge.md`
++- `packages/auditor/src/sarif.ts`
++- `packages/auditor/tests/sarif.test.mjs`
++- `docs/specs/fixtures/sarif-bridge/valid/audit-findings.json`
++- `docs/specs/fixtures/sarif-bridge/valid/workspace-root-finding.json`
++- `docs/specs/fixtures/sarif-bridge/valid/basic-audit-findings.json`
++- `docs/specs/fixtures/sarif-bridge/invalid/absolute-path.json`
++- `docs/specs/fixtures/sarif-bridge/invalid/secret-field.json`
++- `docs/specs/fixtures/sarif-bridge/invalid/unknown-severity.json`
++- `docs/specs/t040-validation-report.md`
++
++Updated support paths:
++
++- `packages/auditor/src/index.ts`
++- `packages/auditor/scripts/build.mjs`
++- `packages/auditor/package.json`
++- `packages/auditor/dist/index.js`
++- `packages/auditor/dist/index.d.ts`
++- `packages/auditor/dist/sarif.js`
++- `packages/auditor/dist/sarif.d.ts`
++
++## API surface
++
++```ts
++convertAuditFindingsToSarif(input, options?)
++createSarifBridgeArtifact(input, options?)
++convertFindingsToSarif(input, options?)
++validateSarifBridgeInput(input, options?)
++validateSarifLikeArtifact(artifact)
++validateSarifBridgeArtifact(artifact)
++normalizeSarifSeverity(value)
++normalizeSarifPath(value, workspaceRoot?)
++SARIF_BRIDGE_CONTRACT
++```
++
++Compatibility aliases:
++
++```ts
++createSarifBridgeArtifact(input, options?)
++convertFindingsToSarif(input, options?)
++normalizeFindingsToSarif(input, options?)
++normalizeAuditFindingsToSarif(input, options?)
++validateSarifBridgeArtifact(artifact)
++validateSarifArtifact(artifact)
++validateSarifFindingsArtifact(artifact)
++```
++
++## Contract
++
++The T040 bridge consumes already-observed findings and emits one SARIF-like artifact with:
++
++- `schema_ref: urn:forgeroot:sarif-bridge:v1`
++- `sarif_version: 2.1.0`
++- one deterministic `runs[0]` entry
++- normalized tool rules
++- normalized results
++- stable SHA-256 `partialFingerprints.forgeRootFingerprint`
++- summary counts for severity, level, rule IDs, and paths
++- boundary guards proving the bridge did not perform live or policy-changing actions
++
++## Acceptance coverage
++
++| Requirement | Coverage |
++|---|---|
++| Same input produces same SARIF-like artifact | `sarif.test.mjs` compares normal and reversed input ordering and expects identical artifacts. |
++| Severity mapping is documented | `docs/specs/sarif-bridge.md` defines high / medium / low / note mappings. |
++| Severity mapping is tested | `normalizeSarifSeverity` tests cover critical/high/error, warning, info, none, and unknown rejection. |
++| File path normalization is stable | `normalizeSarifPath` tests cover backslash conversion, leading `./`, repeated slash collapse, and workspace-root stripping through fixture coverage. |
++| Unsafe path leakage is rejected | Tests and invalid fixtures reject absolute paths, drive-letter paths, URI schemes, `..` traversal, and secret-looking paths. |
++| Rule ID is stable | Missing `ruleId` can derive from `category` / `code`; normalized IDs are deterministic and tested. |
++| Fingerprint is stable | Fingerprints use SHA-256 over canonical normalized finding fields and are tested. |
++| Malformed input is rejected | Tests cover missing message, unknown severity, unsafe path, top-level secret-like field, and invalid fixtures. |
++| GitHub API is not called | Contract and artifact guards assert `no_github_api_call` and `no_github_code_scanning_upload`. |
++| Workflow / policy / ruleset mutation is not performed | Contract and artifact guards assert no workflow, policy, ruleset, or branch protection mutation. |
++| Security gate decision is not performed | Contract and artifact guards assert `no_security_gate_decision`; T041 remains responsible for gate decisions. |
++
++## Commands run
++
++```bash
++node packages/auditor/scripts/build.mjs
++node --check packages/auditor/dist/sarif.js
++node --check packages/auditor/dist/index.js
++node --check packages/auditor/dist/run.js
++node --test --test-force-exit packages/auditor/tests/*.test.mjs
++node --test --test-force-exit packages/rate-governor/tests/run.test.mjs
++node --test --test-force-exit packages/approval-checkpoint/tests/run.test.mjs
++node --test --test-force-exit packages/github-pr-adapter/tests/run.test.mjs
++node --test --test-force-exit packages/pr-composer/tests/run.test.mjs
++node --test --test-force-exit packages/executor/tests/*.test.mjs
++node --test --test-force-exit packages/planner/tests/*.test.mjs
++node --test --test-force-exit packages/forge-demo/tests/run.test.mjs
++node --check packages/forge-demo/dist/run.js
++node --check packages/rate-governor/dist/run.js
++node --check packages/approval-checkpoint/dist/run.js
++node --check packages/github-pr-adapter/dist/run.js
++node --check packages/pr-composer/dist/run.js
++node --check packages/executor/dist/index.js
++node --check packages/planner/dist/run.js
++```
++
++## Result summary
++
++- Auditor build script: pass
++- Auditor tests including T040 SARIF bridge: 32 pass / 0 fail
++  - T040 SARIF bridge tests: 10 pass / 0 fail
++- Rate governor regression tests: 10 pass / 0 fail
++- Approval checkpoint regression tests: 10 pass / 0 fail
++- GitHub PR adapter regression tests: 10 pass / 0 fail
++- PR composer regression tests: 8 pass / 0 fail
++- Executor regression tests: 21 pass / 0 fail
++- Planner regression tests: 23 pass / 0 fail
++- Forge demo regression tests: 8 pass / 0 fail
++- Node syntax checks: pass
++
++## Boundary confirmation
++
++T040 did not add:
++
++- GitHub Code Scanning upload
++- live GitHub API transport
++- real PR creation
++- merge or approval execution
++- `.github/workflows/*` mutation
++- branch protection or ruleset mutation
++- security gate decision logic
++- memory/evaluation state updates
++- federation behavior
++- self-evolution behavior
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/index.d.ts /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/index.d.ts
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/index.d.ts	2026-04-18 17:35:22.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/index.d.ts	2026-04-19 09:01:08.636637826 +0000
+@@ -1 +1,2 @@
+ export * from "./run.js";
++export * from "./sarif.js";
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/index.js /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/index.js
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/index.js	2026-04-18 17:35:22.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/index.js	2026-04-19 09:01:08.636175871 +0000
+@@ -1 +1,2 @@
+ export * from "./run.js";
++export * from "./sarif.js";
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/sarif.d.ts /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/sarif.d.ts
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/sarif.d.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/sarif.d.ts	2026-04-19 09:01:08.636574667 +0000
+@@ -0,0 +1,22 @@
++export declare const SARIF_BRIDGE_SCHEMA_REF = "urn:forgeroot:sarif-bridge:v1";
++export declare const SARIF_BRIDGE_SARIF_VERSION = "2.1.0";
++export declare const SARIF_BRIDGE_CONTRACT: {
++  readonly consumes: readonly string[];
++  readonly produces: readonly string[];
++  readonly validates: readonly string[];
++  readonly forbids: readonly string[];
++  readonly manifestOnly: true;
++  readonly deterministic: true;
++};
++export declare function convertAuditFindingsToSarif(input: any, options?: any): any;
++export declare const createSarifBridgeArtifact: typeof convertAuditFindingsToSarif;
++export declare const convertFindingsToSarif: typeof convertAuditFindingsToSarif;
++export declare const normalizeFindingsToSarif: typeof convertAuditFindingsToSarif;
++export declare const normalizeAuditFindingsToSarif: typeof convertAuditFindingsToSarif;
++export declare function validateSarifBridgeInput(input: any, options?: any): any;
++export declare function validateSarifLikeArtifact(artifact: any): any;
++export declare const validateSarifBridgeArtifact: typeof validateSarifLikeArtifact;
++export declare const validateSarifArtifact: typeof validateSarifLikeArtifact;
++export declare const validateSarifFindingsArtifact: typeof validateSarifLikeArtifact;
++export declare function normalizeSarifSeverity(value: any): any;
++export declare function normalizeSarifPath(value: any, workspaceRoot?: any): any;
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/sarif.js /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/sarif.js
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/sarif.js	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/sarif.js	2026-04-19 09:01:08.635826579 +0000
+@@ -0,0 +1,520 @@
++import crypto from "node:crypto";
++
++export const SARIF_BRIDGE_SCHEMA_REF = "urn:forgeroot:sarif-bridge:v1";
++export const SARIF_BRIDGE_SARIF_VERSION = "2.1.0";
++
++export const SARIF_BRIDGE_CONTRACT = {
++  consumes: ["audit_findings", "scan_findings", "sandbox_evidence"],
++  produces: ["sarif_like_artifact"],
++  validates: [
++    "severity_mapping",
++    "sarif_level_mapping",
++    "rule_id_normalization",
++    "location_normalization",
++    "fingerprint_stability",
++    "deterministic_ordering",
++    "malformed_finding_rejection",
++  ],
++  forbids: [
++    "github_code_scanning_upload",
++    "github_api_call",
++    "workflow_mutation",
++    "policy_mutation",
++    "ruleset_mutation",
++    "branch_protection_mutation",
++    "security_gate_decision",
++    "memory_or_evaluation_updates",
++    "network_or_federation_behavior",
++    "self_evolution",
++  ],
++  manifestOnly: true,
++  deterministic: true,
++};
++
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
++const SARIF_LEVELS = new Set(["error", "warning", "note", "none"]);
++const FORGE_SEVERITIES = new Set(["high", "medium", "low", "note"]);
++const FORGE_SEVERITY_RANK = { high: 3, medium: 2, low: 1, note: 0 };
++const LEVEL_RANK = { error: 3, warning: 2, note: 1, none: 0 };
++const DEFAULT_GENERATED_AT = "1970-01-01T00:00:00Z";
++
++export function convertAuditFindingsToSarif(input, options = {}) {
++  const normalized = normalizeSarifBridgeInput(input, options);
++  if (!normalized.ok) {
++    return {
++      status: "invalid",
++      artifact: null,
++      issues: normalized.issues,
++      reasons: uniqueStrings(["invalid_sarif_bridge_input", ...normalized.issues.map((item) => item.code)]),
++      guards: boundaryGuards(),
++    };
++  }
++
++  const results = normalized.findings
++    .map((finding) => toSarifResult(finding))
++    .sort(compareSarifResults);
++  const rules = buildRules(results);
++  const summary = summarizeResults(results, normalized.rejectedInputCount);
++  const artifact = {
++    schema_ref: SARIF_BRIDGE_SCHEMA_REF,
++    sarif_version: SARIF_BRIDGE_SARIF_VERSION,
++    generated_at: normalized.generatedAt,
++    source: normalized.source,
++    runs: [
++      {
++        tool: {
++          driver: {
++            name: normalized.source.tool_name,
++            semanticVersion: "0.0.0-t040",
++            rules,
++          },
++        },
++        results,
++      },
++    ],
++    summary,
++    guards: boundaryGuards(),
++    properties: {
++      forge_task: "T040",
++      bridge_kind: "sarif-like-deterministic-artifact",
++      live_code_scanning_upload: false,
++      security_gate_decision: false,
++    },
++  };
++
++  const validation = validateSarifLikeArtifact(artifact);
++  if (!validation.ok) {
++    return {
++      status: "invalid",
++      artifact: null,
++      issues: validation.issues,
++      reasons: uniqueStrings(["generated_sarif_artifact_failed_validation", ...validation.issues.map((item) => item.code)]),
++      guards: boundaryGuards(),
++    };
++  }
++
++  return {
++    status: "ready",
++    artifact,
++    issues: [],
++    reasons: ["sarif_bridge_ready"],
++    guards: boundaryGuards(),
++  };
++}
++
++export const createSarifBridgeArtifact = convertAuditFindingsToSarif;
++export const convertFindingsToSarif = convertAuditFindingsToSarif;
++export const normalizeFindingsToSarif = convertAuditFindingsToSarif;
++export const normalizeAuditFindingsToSarif = convertAuditFindingsToSarif;
++export const validateSarifBridgeArtifact = validateSarifLikeArtifact;
++export const validateSarifArtifact = validateSarifLikeArtifact;
++export const validateSarifFindingsArtifact = validateSarifLikeArtifact;
++
++export function validateSarifBridgeInput(input, options = {}) {
++  const normalized = normalizeSarifBridgeInput(input, options);
++  return normalized.ok ? { ok: true, issues: [] } : { ok: false, issues: normalized.issues };
++}
++
++export function validateSarifLikeArtifact(artifact) {
++  const issues = [];
++  const root = asRecord(artifact);
++  if (!root) return invalid("/artifact", "type", "SARIF-like artifact must be an object");
++  expectLiteral(root, "schema_ref", SARIF_BRIDGE_SCHEMA_REF, issues, "/artifact");
++  expectLiteral(root, "sarif_version", SARIF_BRIDGE_SARIF_VERSION, issues, "/artifact");
++  expectRfc3339(root, "generated_at", issues, "/artifact");
++
++  const source = asRecord(root.source);
++  if (!source) issues.push(issue("/artifact/source", "required", "source is required"));
++  else {
++    expectString(source, "tool_name", issues, "/artifact/source");
++    expectStringOrNull(source, "repository", issues, "/artifact/source");
++    expectStringOrNull(source, "task_id", issues, "/artifact/source");
++    expectStringOrNull(source, "audit_id", issues, "/artifact/source");
++    expectStringOrNull(source, "plan_id", issues, "/artifact/source");
++    expectStringOrNull(source, "source_artifact_sha256", issues, "/artifact/source");
++    if (typeof source.source_artifact_sha256 === "string" && source.source_artifact_sha256.length > 0 && !SHA256_RE.test(source.source_artifact_sha256)) issues.push(issue("/artifact/source/source_artifact_sha256", "sha256", "source_artifact_sha256 must use sha256:<64 hex> or null"));
++  }
++
++  if (!Array.isArray(root.runs) || root.runs.length !== 1) issues.push(issue("/artifact/runs", "array", "runs must contain exactly one run"));
++  const run = asRecord(root.runs?.[0]);
++  if (run) {
++    const driver = asRecord(asRecord(run.tool)?.driver);
++    if (!driver) issues.push(issue("/artifact/runs/0/tool/driver", "required", "tool.driver is required"));
++    else {
++      expectString(driver, "name", issues, "/artifact/runs/0/tool/driver");
++      if (!Array.isArray(driver.rules)) issues.push(issue("/artifact/runs/0/tool/driver/rules", "array", "rules must be an array"));
++      else driver.rules.forEach((rule, index) => validateRule(rule, `/artifact/runs/0/tool/driver/rules/${index}`, issues));
++    }
++    if (!Array.isArray(run.results)) issues.push(issue("/artifact/runs/0/results", "array", "results must be an array"));
++    else run.results.forEach((result, index) => validateResult(result, `/artifact/runs/0/results/${index}`, issues));
++  }
++
++  const summary = asRecord(root.summary);
++  if (!summary) issues.push(issue("/artifact/summary", "required", "summary is required"));
++  else validateSummary(root, summary, issues);
++
++  const guards = asRecord(root.guards);
++  if (!guards) issues.push(issue("/artifact/guards", "required", "guards are required"));
++  else {
++    for (const key of Object.keys(boundaryGuards())) if (guards[key] !== true) issues.push(issue(`/artifact/guards/${key}`, "literal", `${key} must be true`));
++  }
++  return { ok: issues.length === 0, issues };
++}
++
++export function normalizeSarifSeverity(value) {
++  const raw = String(value ?? "").trim().toLowerCase();
++  if (["critical", "high", "error", "fatal", "security_high"].includes(raw)) return { ok: true, forgeSeverity: "high", level: "error", sourceSeverity: raw };
++  if (["medium", "moderate", "warning", "warn", "security_medium"].includes(raw)) return { ok: true, forgeSeverity: "medium", level: "warning", sourceSeverity: raw };
++  if (["low", "minor", "info", "informational", "notice", "security_low"].includes(raw)) return { ok: true, forgeSeverity: "low", level: "note", sourceSeverity: raw };
++  if (["note", "none", "pass", "passed"].includes(raw)) return { ok: true, forgeSeverity: "note", level: "note", sourceSeverity: raw };
++  return { ok: false, issue: issue("/finding/severity", "enum", `severity '${raw || "<missing>"}' is not allowed`) };
++}
++
++export function normalizeSarifPath(value, workspaceRoot = null) {
++  return normalizeSarifPathWithWorkspace(value, workspaceRoot);
++}
++
++function normalizeSarifPathWithWorkspace(value, workspaceRoot) {
++  if (typeof value !== "string" || value.trim().length === 0) return null;
++  let raw = value.trim();
++  const normalizedWorkspaceRoot = normalizeWorkspaceRoot(workspaceRoot);
++  const slashRaw = raw.replace(/\\/g, "/").replace(/\/+$/g, "");
++  if (normalizedWorkspaceRoot && slashRaw.startsWith(`${normalizedWorkspaceRoot}/`)) raw = slashRaw.slice(normalizedWorkspaceRoot.length + 1);
++  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) && !/^[a-zA-Z]:[\\/]/.test(raw)) return null;
++  if (/^[a-zA-Z]:[\\/]/.test(raw)) return null;
++  if (raw.startsWith("/") || raw.startsWith("~") || raw.includes("\0")) return null;
++  if (looksSecret(raw)) return null;
++  const normalized = raw.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+/g, "/").replace(/\/+$/g, "");
++  if (!normalized || normalized.startsWith("/")) return null;
++  if (normalized.split("/").some((segment) => !segment || segment === "." || segment === "..")) return null;
++  return normalized;
++}
++
++function normalizeSarifBridgeInput(input, options = {}) {
++  const root = Array.isArray(input) ? { findings: input } : asRecord(input);
++  const issues = [];
++  if (!root) return { ok: false, issues: [issue("/input", "type", "SARIF bridge input must be an object or findings array")] };
++  const auditResult = asRecord(root.auditResult) ?? asRecord(root.audit_result);
++  const findings = Array.isArray(root.findings) ? root.findings : Array.isArray(root.report?.findings) ? root.report.findings : Array.isArray(auditResult?.findings) ? auditResult.findings : null;
++  if (!Array.isArray(findings)) issues.push(issue("/input/findings", "array", "findings must be an array"));
++  else if (findings.length === 0) issues.push(issue("/input/findings", "non_empty", "findings must contain at least one finding"));
++  const generatedAt = root.generated_at ?? root.generatedAt ?? root.now ?? options.generatedAt ?? options.now ?? DEFAULT_GENERATED_AT;
++  if (typeof generatedAt !== "string" || !RFC3339_UTC.test(generatedAt)) issues.push(issue("/input/generated_at", "rfc3339", "generated_at must be RFC3339 UTC when supplied"));
++  const secretIssues = collectSecretLikeInputIssues(root, "/input");
++  if (secretIssues.length > 0) issues.push(...secretIssues);
++  const source = normalizeSource(root, options);
++  const workspaceRoot = root.workspace_root ?? root.workspaceRoot ?? asRecord(root.source)?.workspace_root ?? asRecord(root.source)?.workspaceRoot ?? options.workspaceRoot ?? null;
++  const normalizedFindings = [];
++  if (Array.isArray(findings)) {
++    findings.forEach((findingValue, index) => {
++      const normalized = normalizeFinding(findingValue, index, workspaceRoot);
++      if (!normalized.ok) issues.push(...normalized.issues);
++      else normalizedFindings.push(normalized.finding);
++    });
++  }
++  if (issues.length > 0) return { ok: false, issues };
++  return { ok: true, findings: normalizedFindings, source, generatedAt, rejectedInputCount: 0 };
++}
++
++function normalizeSource(root, options) {
++  const rawSource = asRecord(root.source) ?? {};
++  const report = asRecord(root.report) ?? asRecord(root.auditResult) ?? asRecord(root.audit_result) ?? {};
++  const reportSource = asRecord(report.source) ?? {};
++  return {
++    repository: stringOrNull(rawSource.repository ?? root.repository ?? reportSource.repository),
++    task_id: stringOrNull(rawSource.task_id ?? rawSource.taskId ?? root.task_id ?? root.taskId ?? reportSource.candidate_id ?? options.taskId),
++    audit_id: stringOrNull(rawSource.audit_id ?? rawSource.auditId ?? root.audit_id ?? root.auditId ?? report.audit_id),
++    issue_number: Number.isSafeInteger(rawSource.issue_number ?? rawSource.issueNumber ?? reportSource.issue_number ?? reportSource.issueNumber) ? (rawSource.issue_number ?? rawSource.issueNumber ?? reportSource.issue_number ?? reportSource.issueNumber) : null,
++    plan_id: stringOrNull(rawSource.plan_id ?? rawSource.planId ?? root.plan_id ?? root.planId ?? report.plan_id),
++    source_artifact_sha256: stringOrNull(rawSource.source_artifact_sha256 ?? rawSource.sourceArtifactSha256 ?? root.source_artifact_sha256 ?? root.sourceArtifactSha256),
++    tool_name: String(rawSource.tool_name ?? rawSource.toolName ?? root.tool_name ?? root.toolName ?? options.toolName ?? "ForgeRoot Auditor"),
++  };
++}
++
++function normalizeFinding(value, index, workspaceRoot) {
++  const issues = [];
++  const root = asRecord(value);
++  const base = `/input/findings/${index}`;
++  if (!root) return { ok: false, issues: [issue(base, "object", "finding must be an object")] };
++
++  const message = stringOrNull(root.message ?? asRecord(root.message)?.text ?? root.description ?? root.title);
++  if (!message) issues.push(issue(`${base}/message`, "required", "finding message is required"));
++
++  const severity = normalizeSarifSeverity(root.severity ?? root.level ?? root.risk);
++  if (!severity.ok) issues.push({ ...severity.issue, path: `${base}/severity` });
++
++  const ruleId = normalizeRuleId(root.ruleId ?? root.rule_id ?? asRecord(root.rule)?.id ?? root.category ?? root.code);
++  if (!ruleId) issues.push(issue(`${base}/ruleId`, "required", "ruleId, category, or code is required"));
++
++  const location = extractLocation(root);
++  const path = normalizeSarifPathWithWorkspace(location.path, workspaceRoot);
++  if (!path) issues.push(issue(`${base}/location/path`, "safe_relative_path", "finding path must be a safe repository-relative path"));
++  const startLine = normalizePositiveInteger(location.line, 1);
++  const startColumn = normalizePositiveInteger(location.column, 1);
++  if (startLine === null) issues.push(issue(`${base}/location/line`, "positive_integer", "line must be a positive safe integer"));
++  if (startColumn === null) issues.push(issue(`${base}/location/column`, "positive_integer", "column must be a positive safe integer"));
++
++  if (issues.length > 0) return { ok: false, issues };
++  const forgeSeverity = severity.forgeSeverity;
++  const level = severity.level;
++  const id = stringOrNull(root.id ?? root.finding_id ?? root.findingId) ?? `${ruleId}:${path}:${startLine}:${startColumn}:${stableHash(message)}`;
++  const category = stringOrNull(root.category ?? root.code) ?? ruleId;
++  const fingerprint = stableFingerprint({ ruleId, path, startLine, startColumn, message, forgeSeverity, category });
++  return {
++    ok: true,
++    finding: {
++      id,
++      ruleId,
++      level,
++      forgeSeverity,
++      sourceSeverity: severity.sourceSeverity,
++      category,
++      message,
++      path,
++      startLine,
++      startColumn,
++      fingerprint,
++    },
++  };
++}
++
++function extractLocation(root) {
++  const location = asRecord(root.location) ?? {};
++  const physical = asRecord(location.physicalLocation) ?? asRecord(root.physicalLocation) ?? {};
++  const artifact = asRecord(physical.artifactLocation) ?? {};
++  const region = asRecord(physical.region) ?? asRecord(location.region) ?? {};
++  return {
++    path: root.path ?? root.file ?? root.uri ?? location.path ?? location.uri ?? artifact.uri,
++    line: root.line ?? root.startLine ?? root.start_line ?? location.line ?? location.startLine ?? region.startLine,
++    column: root.column ?? root.startColumn ?? root.start_column ?? location.column ?? location.startColumn ?? region.startColumn,
++  };
++}
++
++function toSarifResult(finding) {
++  return {
++    ruleId: finding.ruleId,
++    level: finding.level,
++    message: { text: finding.message },
++    locations: [
++      {
++        physicalLocation: {
++          artifactLocation: { uri: finding.path },
++          region: {
++            startLine: finding.startLine,
++            startColumn: finding.startColumn,
++          },
++        },
++      },
++    ],
++    partialFingerprints: {
++      forgeRootFingerprint: finding.fingerprint,
++    },
++    properties: {
++      forge_severity: finding.forgeSeverity,
++      source_severity: finding.sourceSeverity,
++      category: finding.category,
++      forge_finding_id: finding.id,
++      normalized_path: finding.path,
++    },
++  };
++}
++
++function buildRules(results) {
++  const byRule = new Map();
++  for (const result of results) {
++    const current = byRule.get(result.ruleId);
++    const level = result.level;
++    if (!current || LEVEL_RANK[level] > LEVEL_RANK[current.defaultConfiguration.level]) {
++      byRule.set(result.ruleId, {
++        id: result.ruleId,
++        name: result.ruleId,
++        shortDescription: { text: `ForgeRoot normalized finding rule ${result.ruleId}` },
++        defaultConfiguration: { level },
++      });
++    }
++  }
++  return [...byRule.values()].sort((a, b) => a.id.localeCompare(b.id));
++}
++
++function summarizeResults(results, rejectedInputCount) {
++  const severityCounts = { high: 0, medium: 0, low: 0, note: 0 };
++  const levelCounts = { error: 0, warning: 0, note: 0, none: 0 };
++  const ruleIds = new Set();
++  const paths = new Set();
++  for (const result of results) {
++    severityCounts[result.properties.forge_severity] += 1;
++    levelCounts[result.level] += 1;
++    ruleIds.add(result.ruleId);
++    paths.add(result.locations[0].physicalLocation.artifactLocation.uri);
++  }
++  return {
++    result_count: results.length,
++    rejected_input_count: rejectedInputCount,
++    severity_counts: severityCounts,
++    level_counts: levelCounts,
++    rule_ids: [...ruleIds].sort(),
++    paths: [...paths].sort(),
++  };
++}
++
++function validateRule(rule, path, issues) {
++  const root = asRecord(rule);
++  if (!root) return issues.push(issue(path, "object", "rule must be an object"));
++  expectString(root, "id", issues, path);
++  expectString(root, "name", issues, path);
++  const shortDescription = asRecord(root.shortDescription);
++  if (!shortDescription) issues.push(issue(`${path}/shortDescription`, "required", "shortDescription is required"));
++  else expectString(shortDescription, "text", issues, `${path}/shortDescription`);
++  const defaultConfiguration = asRecord(root.defaultConfiguration);
++  if (!defaultConfiguration) issues.push(issue(`${path}/defaultConfiguration`, "required", "defaultConfiguration is required"));
++  else expectOneOf(defaultConfiguration, "level", SARIF_LEVELS, issues, `${path}/defaultConfiguration`);
++}
++
++function validateResult(result, path, issues) {
++  const root = asRecord(result);
++  if (!root) return issues.push(issue(path, "object", "result must be an object"));
++  expectString(root, "ruleId", issues, path);
++  expectOneOf(root, "level", SARIF_LEVELS, issues, path);
++  const message = asRecord(root.message);
++  if (!message) issues.push(issue(`${path}/message`, "required", "message is required"));
++  else expectString(message, "text", issues, `${path}/message`);
++  const location = asRecord(root.locations?.[0]?.physicalLocation);
++  if (!Array.isArray(root.locations) || root.locations.length !== 1 || !location) issues.push(issue(`${path}/locations`, "location", "exactly one physical location is required"));
++  else {
++    const artifact = asRecord(location.artifactLocation);
++    const region = asRecord(location.region);
++    if (!artifact) issues.push(issue(`${path}/locations/0/physicalLocation/artifactLocation`, "required", "artifactLocation is required"));
++    else if (!normalizeSarifPath(artifact.uri)) issues.push(issue(`${path}/locations/0/physicalLocation/artifactLocation/uri`, "safe_relative_path", "uri must be safe repository-relative path"));
++    if (!region) issues.push(issue(`${path}/locations/0/physicalLocation/region`, "required", "region is required"));
++    else {
++      if (!Number.isSafeInteger(region.startLine) || region.startLine <= 0) issues.push(issue(`${path}/locations/0/physicalLocation/region/startLine`, "positive_integer", "startLine must be positive"));
++      if (!Number.isSafeInteger(region.startColumn) || region.startColumn <= 0) issues.push(issue(`${path}/locations/0/physicalLocation/region/startColumn`, "positive_integer", "startColumn must be positive"));
++    }
++  }
++  const fingerprints = asRecord(root.partialFingerprints);
++  if (!fingerprints || !SHA256_RE.test(fingerprints.forgeRootFingerprint)) issues.push(issue(`${path}/partialFingerprints/forgeRootFingerprint`, "sha256", "forgeRootFingerprint must use sha256:<64 hex>"));
++  const properties = asRecord(root.properties);
++  if (!properties) issues.push(issue(`${path}/properties`, "required", "properties are required"));
++  else {
++    expectOneOf(properties, "forge_severity", FORGE_SEVERITIES, issues, `${path}/properties`);
++    expectString(properties, "category", issues, `${path}/properties`);
++    expectString(properties, "forge_finding_id", issues, `${path}/properties`);
++    expectString(properties, "normalized_path", issues, `${path}/properties`);
++  }
++}
++
++function validateSummary(root, summary, issues) {
++  if (!Number.isSafeInteger(summary.result_count) || summary.result_count < 0) issues.push(issue("/artifact/summary/result_count", "nonnegative_integer", "result_count must be a non-negative integer"));
++  if (!Number.isSafeInteger(summary.rejected_input_count) || summary.rejected_input_count < 0) issues.push(issue("/artifact/summary/rejected_input_count", "nonnegative_integer", "rejected_input_count must be a non-negative integer"));
++  const results = root.runs?.[0]?.results ?? [];
++  if (Array.isArray(results) && Number.isSafeInteger(summary.result_count) && summary.result_count !== results.length) issues.push(issue("/artifact/summary/result_count", "count_mismatch", "result_count must equal results length"));
++  const severityCounts = asRecord(summary.severity_counts);
++  if (!severityCounts) issues.push(issue("/artifact/summary/severity_counts", "required", "severity_counts is required"));
++  else for (const severity of FORGE_SEVERITIES) if (!Number.isSafeInteger(severityCounts[severity]) || severityCounts[severity] < 0) issues.push(issue(`/artifact/summary/severity_counts/${severity}`, "nonnegative_integer", `${severity} count must be non-negative integer`));
++  const levelCounts = asRecord(summary.level_counts);
++  if (!levelCounts) issues.push(issue("/artifact/summary/level_counts", "required", "level_counts is required"));
++  else for (const level of SARIF_LEVELS) if (!Number.isSafeInteger(levelCounts[level]) || levelCounts[level] < 0) issues.push(issue(`/artifact/summary/level_counts/${level}`, "nonnegative_integer", `${level} count must be non-negative integer`));
++  if (!Array.isArray(summary.rule_ids) || !summary.rule_ids.every((value) => typeof value === "string")) issues.push(issue("/artifact/summary/rule_ids", "string_array", "rule_ids must be strings"));
++  if (!Array.isArray(summary.paths) || !summary.paths.every((value) => typeof value === "string" && normalizeSarifPath(value))) issues.push(issue("/artifact/summary/paths", "path_array", "paths must be safe relative strings"));
++}
++
++function compareSarifResults(a, b) {
++  const aSeverity = FORGE_SEVERITY_RANK[a.properties.forge_severity] ?? -1;
++  const bSeverity = FORGE_SEVERITY_RANK[b.properties.forge_severity] ?? -1;
++  return bSeverity - aSeverity
++    || a.ruleId.localeCompare(b.ruleId)
++    || a.locations[0].physicalLocation.artifactLocation.uri.localeCompare(b.locations[0].physicalLocation.artifactLocation.uri)
++    || a.locations[0].physicalLocation.region.startLine - b.locations[0].physicalLocation.region.startLine
++    || a.locations[0].physicalLocation.region.startColumn - b.locations[0].physicalLocation.region.startColumn
++    || a.message.text.localeCompare(b.message.text)
++    || a.properties.forge_finding_id.localeCompare(b.properties.forge_finding_id);
++}
++
++function normalizeWorkspaceRoot(value) {
++  if (typeof value !== "string" || value.trim().length === 0) return null;
++  const raw = value.trim().replace(/\\/g, "/").replace(/\/+$/g, "");
++  if (!raw.startsWith("/") && !/^[a-zA-Z]:\//.test(raw)) return null;
++  return raw;
++}
++
++function collectSecretLikeInputIssues(value, path) {
++  const issues = [];
++  const visit = (current, currentPath) => {
++    if (Array.isArray(current)) {
++      current.forEach((item, index) => visit(item, `${currentPath}/${index}`));
++      return;
++    }
++    if (!asRecord(current)) {
++      if (typeof current === "string" && looksSecret(current)) issues.push(issue(currentPath, "secret_like_value", "input contains secret-looking material"));
++      return;
++    }
++    for (const [key, item] of Object.entries(current)) {
++      const nextPath = `${currentPath}/${key}`;
++      const upper = key.toUpperCase();
++      if (["TOKEN", "SECRET", "PASSWORD", "PRIVATE_KEY", "CREDENTIAL"].some((part) => upper.includes(part)) && typeof item === "string" && item.length > 0) {
++        issues.push(issue(nextPath, "secret_like_field", "input contains a secret-like field"));
++      }
++      visit(item, nextPath);
++    }
++  };
++  visit(value, path);
++  return issues;
++}
++
++function boundaryGuards() {
++  return {
++    no_github_code_scanning_upload: true,
++    no_github_api_call: true,
++    no_workflow_mutation: true,
++    no_policy_mutation: true,
++    no_ruleset_mutation: true,
++    no_branch_protection_mutation: true,
++    no_security_gate_decision: true,
++    no_memory_or_evaluation_update: true,
++    no_federation_or_self_evolution: true,
++  };
++}
++
++function normalizeRuleId(value) {
++  const raw = stringOrNull(value);
++  if (!raw) return null;
++  const valueText = raw.includes(".") || raw.includes("/") ? raw : `forge.${raw}`;
++  const normalized = valueText
++    .trim()
++    .toLowerCase()
++    .replace(/[^a-z0-9_.\/-]+/g, "-")
++    .replace(/[\/]+/g, ".")
++    .replace(/\.{2,}/g, ".")
++    .replace(/^-+|-+$/g, "")
++    .slice(0, 160);
++  return normalized || null;
++}
++
++function stableFingerprint(value) { return `sha256:${sha256(canonicalJson(value))}`; }
++function stableHash(value) { return sha256(String(value)).slice(0, 12); }
++function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
++function canonicalJson(value) {
++  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
++  if (asRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
++  return JSON.stringify(value);
++}
++function normalizePositiveInteger(value, fallback) {
++  if (value === undefined || value === null || value === "") return fallback;
++  const number = Number(value);
++  return Number.isSafeInteger(number) && number > 0 ? number : null;
++}
++function looksSecret(value) {
++  const lower = String(value).toLowerCase();
++  return lower.includes("github_pat_") || lower.includes("ghp_") || lower.includes("sk-") || lower.includes("-----begin private key-----");
++}
++function stringOrNull(value) { return typeof value === "string" && value.trim().length > 0 ? value.trim() : null; }
++function asRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null; }
++function issue(path, code, message) { return { path, code, message }; }
++function invalid(path, code, message) { return { ok: false, issues: [issue(path, code, message)] }; }
++function expectLiteral(record, key, expected, issues, path) { if (record[key] !== expected) issues.push(issue(`${path}/${key}`, "literal", `${key} must be ${JSON.stringify(expected)}`)); }
++function expectString(record, key, issues, path) { const value = record[key]; if (typeof value !== "string" || value.length === 0) { issues.push(issue(`${path}/${key}`, "string", `${key} must be a non-empty string`)); return null; } return value; }
++function expectStringOrNull(record, key, issues, path) { const value = record[key]; if (!(typeof value === "string" || value === null)) issues.push(issue(`${path}/${key}`, "string_or_null", `${key} must be a string or null`)); }
++function expectOneOf(record, key, allowed, issues, path) { const value = record[key]; if (typeof value !== "string" || !allowed.has(value)) issues.push(issue(`${path}/${key}`, "enum", `${key} is not allowed`)); return value; }
++function expectRfc3339(record, key, issues, path) { const value = expectString(record, key, issues, path); if (value && !RFC3339_UTC.test(value)) issues.push(issue(`${path}/${key}`, "rfc3339", `${key} must be RFC3339 UTC`)); }
++function uniqueStrings(values) { return [...new Set(values.filter((value) => typeof value === "string" && value.length > 0))]; }
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/sarif.js.map /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/sarif.js.map
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/dist/sarif.js.map	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/dist/sarif.js.map	2026-04-19 09:01:08.636036983 +0000
+@@ -0,0 +1 @@
++{"version":3,"file":"sarif.js","sources":["../src/sarif.ts"],"sourcesContent":[],"names":[],"mappings":""}
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/package.json /mnt/data/repo_t028/ForgeRoot/packages/auditor/package.json
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/package.json	2026-04-18 17:29:51.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/package.json	2026-04-19 08:55:31.668768858 +0000
+@@ -1,9 +1,9 @@
+ {
+   "name": "@forgeroot/auditor",
+-  "version": "0.0.0-t023",
++  "version": "0.0.0-t040",
+   "private": true,
+   "type": "module",
+-  "description": "ForgeRoot auditor runtime: independent validation from plan/worktree/sandbox evidence to bounded audit result.",
++  "description": "ForgeRoot auditor runtime and T040 deterministic SARIF-like finding bridge.",
+   "scripts": {
+     "build": "node scripts/build.mjs",
+     "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/scripts/build.mjs /mnt/data/repo_t028/ForgeRoot/packages/auditor/scripts/build.mjs
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/scripts/build.mjs	2026-04-18 17:30:29.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/scripts/build.mjs	2026-04-19 08:58:18.569469771 +0000
+@@ -7,7 +7,7 @@
+ fs.rmSync(distDir, { recursive: true, force: true });
+ fs.mkdirSync(distDir, { recursive: true });
+ 
+-for (const [src, dest] of [["run.ts", "run.js"], ["index.ts", "index.js"]]) {
++for (const [src, dest] of [["run.ts", "run.js"], ["sarif.ts", "sarif.js"], ["index.ts", "index.js"]]) {
+   fs.writeFileSync(path.join(distDir, dest), fs.readFileSync(path.join(srcDir, src), "utf8"), "utf8");
+   fs.writeFileSync(path.join(distDir, `${dest}.map`), JSON.stringify({ version: 3, file: dest, sources: [`../src/${src}`], sourcesContent: [], names: [], mappings: "" }) + "\n", "utf8");
+ }
+@@ -28,4 +28,29 @@
+ export declare function validateAuditResult(report: any): any;
+ export declare const validateAuditReport: typeof validateAuditResult;
+ `, "utf8");
+-fs.writeFileSync(path.join(distDir, "index.d.ts"), 'export * from "./run.js";\n', "utf8");
++
++fs.writeFileSync(path.join(distDir, "sarif.d.ts"), `export declare const SARIF_BRIDGE_SCHEMA_REF = "urn:forgeroot:sarif-bridge:v1";
++export declare const SARIF_BRIDGE_SARIF_VERSION = "2.1.0";
++export declare const SARIF_BRIDGE_CONTRACT: {
++  readonly consumes: readonly string[];
++  readonly produces: readonly string[];
++  readonly validates: readonly string[];
++  readonly forbids: readonly string[];
++  readonly manifestOnly: true;
++  readonly deterministic: true;
++};
++export declare function convertAuditFindingsToSarif(input: any, options?: any): any;
++export declare const createSarifBridgeArtifact: typeof convertAuditFindingsToSarif;
++export declare const convertFindingsToSarif: typeof convertAuditFindingsToSarif;
++export declare const normalizeFindingsToSarif: typeof convertAuditFindingsToSarif;
++export declare const normalizeAuditFindingsToSarif: typeof convertAuditFindingsToSarif;
++export declare function validateSarifBridgeInput(input: any, options?: any): any;
++export declare function validateSarifLikeArtifact(artifact: any): any;
++export declare const validateSarifBridgeArtifact: typeof validateSarifLikeArtifact;
++export declare const validateSarifArtifact: typeof validateSarifLikeArtifact;
++export declare const validateSarifFindingsArtifact: typeof validateSarifLikeArtifact;
++export declare function normalizeSarifSeverity(value: any): any;
++export declare function normalizeSarifPath(value: any, workspaceRoot?: any): any;
++`, "utf8");
++
++fs.writeFileSync(path.join(distDir, "index.d.ts"), 'export * from "./run.js";\nexport * from "./sarif.js";\n', "utf8");
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/src/index.ts /mnt/data/repo_t028/ForgeRoot/packages/auditor/src/index.ts
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/src/index.ts	2026-04-18 17:25:22.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/src/index.ts	2026-04-19 08:55:19.738251636 +0000
+@@ -1 +1,2 @@
+ export * from "./run.js";
++export * from "./sarif.js";
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/src/sarif.ts /mnt/data/repo_t028/ForgeRoot/packages/auditor/src/sarif.ts
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/src/sarif.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/src/sarif.ts	2026-04-19 08:59:23.878386229 +0000
+@@ -0,0 +1,520 @@
++import crypto from "node:crypto";
++
++export const SARIF_BRIDGE_SCHEMA_REF = "urn:forgeroot:sarif-bridge:v1";
++export const SARIF_BRIDGE_SARIF_VERSION = "2.1.0";
++
++export const SARIF_BRIDGE_CONTRACT = {
++  consumes: ["audit_findings", "scan_findings", "sandbox_evidence"],
++  produces: ["sarif_like_artifact"],
++  validates: [
++    "severity_mapping",
++    "sarif_level_mapping",
++    "rule_id_normalization",
++    "location_normalization",
++    "fingerprint_stability",
++    "deterministic_ordering",
++    "malformed_finding_rejection",
++  ],
++  forbids: [
++    "github_code_scanning_upload",
++    "github_api_call",
++    "workflow_mutation",
++    "policy_mutation",
++    "ruleset_mutation",
++    "branch_protection_mutation",
++    "security_gate_decision",
++    "memory_or_evaluation_updates",
++    "network_or_federation_behavior",
++    "self_evolution",
++  ],
++  manifestOnly: true,
++  deterministic: true,
++};
++
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
++const SARIF_LEVELS = new Set(["error", "warning", "note", "none"]);
++const FORGE_SEVERITIES = new Set(["high", "medium", "low", "note"]);
++const FORGE_SEVERITY_RANK = { high: 3, medium: 2, low: 1, note: 0 };
++const LEVEL_RANK = { error: 3, warning: 2, note: 1, none: 0 };
++const DEFAULT_GENERATED_AT = "1970-01-01T00:00:00Z";
++
++export function convertAuditFindingsToSarif(input, options = {}) {
++  const normalized = normalizeSarifBridgeInput(input, options);
++  if (!normalized.ok) {
++    return {
++      status: "invalid",
++      artifact: null,
++      issues: normalized.issues,
++      reasons: uniqueStrings(["invalid_sarif_bridge_input", ...normalized.issues.map((item) => item.code)]),
++      guards: boundaryGuards(),
++    };
++  }
++
++  const results = normalized.findings
++    .map((finding) => toSarifResult(finding))
++    .sort(compareSarifResults);
++  const rules = buildRules(results);
++  const summary = summarizeResults(results, normalized.rejectedInputCount);
++  const artifact = {
++    schema_ref: SARIF_BRIDGE_SCHEMA_REF,
++    sarif_version: SARIF_BRIDGE_SARIF_VERSION,
++    generated_at: normalized.generatedAt,
++    source: normalized.source,
++    runs: [
++      {
++        tool: {
++          driver: {
++            name: normalized.source.tool_name,
++            semanticVersion: "0.0.0-t040",
++            rules,
++          },
++        },
++        results,
++      },
++    ],
++    summary,
++    guards: boundaryGuards(),
++    properties: {
++      forge_task: "T040",
++      bridge_kind: "sarif-like-deterministic-artifact",
++      live_code_scanning_upload: false,
++      security_gate_decision: false,
++    },
++  };
++
++  const validation = validateSarifLikeArtifact(artifact);
++  if (!validation.ok) {
++    return {
++      status: "invalid",
++      artifact: null,
++      issues: validation.issues,
++      reasons: uniqueStrings(["generated_sarif_artifact_failed_validation", ...validation.issues.map((item) => item.code)]),
++      guards: boundaryGuards(),
++    };
++  }
++
++  return {
++    status: "ready",
++    artifact,
++    issues: [],
++    reasons: ["sarif_bridge_ready"],
++    guards: boundaryGuards(),
++  };
++}
++
++export const createSarifBridgeArtifact = convertAuditFindingsToSarif;
++export const convertFindingsToSarif = convertAuditFindingsToSarif;
++export const normalizeFindingsToSarif = convertAuditFindingsToSarif;
++export const normalizeAuditFindingsToSarif = convertAuditFindingsToSarif;
++export const validateSarifBridgeArtifact = validateSarifLikeArtifact;
++export const validateSarifArtifact = validateSarifLikeArtifact;
++export const validateSarifFindingsArtifact = validateSarifLikeArtifact;
++
++export function validateSarifBridgeInput(input, options = {}) {
++  const normalized = normalizeSarifBridgeInput(input, options);
++  return normalized.ok ? { ok: true, issues: [] } : { ok: false, issues: normalized.issues };
++}
++
++export function validateSarifLikeArtifact(artifact) {
++  const issues = [];
++  const root = asRecord(artifact);
++  if (!root) return invalid("/artifact", "type", "SARIF-like artifact must be an object");
++  expectLiteral(root, "schema_ref", SARIF_BRIDGE_SCHEMA_REF, issues, "/artifact");
++  expectLiteral(root, "sarif_version", SARIF_BRIDGE_SARIF_VERSION, issues, "/artifact");
++  expectRfc3339(root, "generated_at", issues, "/artifact");
++
++  const source = asRecord(root.source);
++  if (!source) issues.push(issue("/artifact/source", "required", "source is required"));
++  else {
++    expectString(source, "tool_name", issues, "/artifact/source");
++    expectStringOrNull(source, "repository", issues, "/artifact/source");
++    expectStringOrNull(source, "task_id", issues, "/artifact/source");
++    expectStringOrNull(source, "audit_id", issues, "/artifact/source");
++    expectStringOrNull(source, "plan_id", issues, "/artifact/source");
++    expectStringOrNull(source, "source_artifact_sha256", issues, "/artifact/source");
++    if (typeof source.source_artifact_sha256 === "string" && source.source_artifact_sha256.length > 0 && !SHA256_RE.test(source.source_artifact_sha256)) issues.push(issue("/artifact/source/source_artifact_sha256", "sha256", "source_artifact_sha256 must use sha256:<64 hex> or null"));
++  }
++
++  if (!Array.isArray(root.runs) || root.runs.length !== 1) issues.push(issue("/artifact/runs", "array", "runs must contain exactly one run"));
++  const run = asRecord(root.runs?.[0]);
++  if (run) {
++    const driver = asRecord(asRecord(run.tool)?.driver);
++    if (!driver) issues.push(issue("/artifact/runs/0/tool/driver", "required", "tool.driver is required"));
++    else {
++      expectString(driver, "name", issues, "/artifact/runs/0/tool/driver");
++      if (!Array.isArray(driver.rules)) issues.push(issue("/artifact/runs/0/tool/driver/rules", "array", "rules must be an array"));
++      else driver.rules.forEach((rule, index) => validateRule(rule, `/artifact/runs/0/tool/driver/rules/${index}`, issues));
++    }
++    if (!Array.isArray(run.results)) issues.push(issue("/artifact/runs/0/results", "array", "results must be an array"));
++    else run.results.forEach((result, index) => validateResult(result, `/artifact/runs/0/results/${index}`, issues));
++  }
++
++  const summary = asRecord(root.summary);
++  if (!summary) issues.push(issue("/artifact/summary", "required", "summary is required"));
++  else validateSummary(root, summary, issues);
++
++  const guards = asRecord(root.guards);
++  if (!guards) issues.push(issue("/artifact/guards", "required", "guards are required"));
++  else {
++    for (const key of Object.keys(boundaryGuards())) if (guards[key] !== true) issues.push(issue(`/artifact/guards/${key}`, "literal", `${key} must be true`));
++  }
++  return { ok: issues.length === 0, issues };
++}
++
++export function normalizeSarifSeverity(value) {
++  const raw = String(value ?? "").trim().toLowerCase();
++  if (["critical", "high", "error", "fatal", "security_high"].includes(raw)) return { ok: true, forgeSeverity: "high", level: "error", sourceSeverity: raw };
++  if (["medium", "moderate", "warning", "warn", "security_medium"].includes(raw)) return { ok: true, forgeSeverity: "medium", level: "warning", sourceSeverity: raw };
++  if (["low", "minor", "info", "informational", "notice", "security_low"].includes(raw)) return { ok: true, forgeSeverity: "low", level: "note", sourceSeverity: raw };
++  if (["note", "none", "pass", "passed"].includes(raw)) return { ok: true, forgeSeverity: "note", level: "note", sourceSeverity: raw };
++  return { ok: false, issue: issue("/finding/severity", "enum", `severity '${raw || "<missing>"}' is not allowed`) };
++}
++
++export function normalizeSarifPath(value, workspaceRoot = null) {
++  return normalizeSarifPathWithWorkspace(value, workspaceRoot);
++}
++
++function normalizeSarifPathWithWorkspace(value, workspaceRoot) {
++  if (typeof value !== "string" || value.trim().length === 0) return null;
++  let raw = value.trim();
++  const normalizedWorkspaceRoot = normalizeWorkspaceRoot(workspaceRoot);
++  const slashRaw = raw.replace(/\\/g, "/").replace(/\/+$/g, "");
++  if (normalizedWorkspaceRoot && slashRaw.startsWith(`${normalizedWorkspaceRoot}/`)) raw = slashRaw.slice(normalizedWorkspaceRoot.length + 1);
++  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) && !/^[a-zA-Z]:[\\/]/.test(raw)) return null;
++  if (/^[a-zA-Z]:[\\/]/.test(raw)) return null;
++  if (raw.startsWith("/") || raw.startsWith("~") || raw.includes("\0")) return null;
++  if (looksSecret(raw)) return null;
++  const normalized = raw.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+/g, "/").replace(/\/+$/g, "");
++  if (!normalized || normalized.startsWith("/")) return null;
++  if (normalized.split("/").some((segment) => !segment || segment === "." || segment === "..")) return null;
++  return normalized;
++}
++
++function normalizeSarifBridgeInput(input, options = {}) {
++  const root = Array.isArray(input) ? { findings: input } : asRecord(input);
++  const issues = [];
++  if (!root) return { ok: false, issues: [issue("/input", "type", "SARIF bridge input must be an object or findings array")] };
++  const auditResult = asRecord(root.auditResult) ?? asRecord(root.audit_result);
++  const findings = Array.isArray(root.findings) ? root.findings : Array.isArray(root.report?.findings) ? root.report.findings : Array.isArray(auditResult?.findings) ? auditResult.findings : null;
++  if (!Array.isArray(findings)) issues.push(issue("/input/findings", "array", "findings must be an array"));
++  else if (findings.length === 0) issues.push(issue("/input/findings", "non_empty", "findings must contain at least one finding"));
++  const generatedAt = root.generated_at ?? root.generatedAt ?? root.now ?? options.generatedAt ?? options.now ?? DEFAULT_GENERATED_AT;
++  if (typeof generatedAt !== "string" || !RFC3339_UTC.test(generatedAt)) issues.push(issue("/input/generated_at", "rfc3339", "generated_at must be RFC3339 UTC when supplied"));
++  const secretIssues = collectSecretLikeInputIssues(root, "/input");
++  if (secretIssues.length > 0) issues.push(...secretIssues);
++  const source = normalizeSource(root, options);
++  const workspaceRoot = root.workspace_root ?? root.workspaceRoot ?? asRecord(root.source)?.workspace_root ?? asRecord(root.source)?.workspaceRoot ?? options.workspaceRoot ?? null;
++  const normalizedFindings = [];
++  if (Array.isArray(findings)) {
++    findings.forEach((findingValue, index) => {
++      const normalized = normalizeFinding(findingValue, index, workspaceRoot);
++      if (!normalized.ok) issues.push(...normalized.issues);
++      else normalizedFindings.push(normalized.finding);
++    });
++  }
++  if (issues.length > 0) return { ok: false, issues };
++  return { ok: true, findings: normalizedFindings, source, generatedAt, rejectedInputCount: 0 };
++}
++
++function normalizeSource(root, options) {
++  const rawSource = asRecord(root.source) ?? {};
++  const report = asRecord(root.report) ?? asRecord(root.auditResult) ?? asRecord(root.audit_result) ?? {};
++  const reportSource = asRecord(report.source) ?? {};
++  return {
++    repository: stringOrNull(rawSource.repository ?? root.repository ?? reportSource.repository),
++    task_id: stringOrNull(rawSource.task_id ?? rawSource.taskId ?? root.task_id ?? root.taskId ?? reportSource.candidate_id ?? options.taskId),
++    audit_id: stringOrNull(rawSource.audit_id ?? rawSource.auditId ?? root.audit_id ?? root.auditId ?? report.audit_id),
++    issue_number: Number.isSafeInteger(rawSource.issue_number ?? rawSource.issueNumber ?? reportSource.issue_number ?? reportSource.issueNumber) ? (rawSource.issue_number ?? rawSource.issueNumber ?? reportSource.issue_number ?? reportSource.issueNumber) : null,
++    plan_id: stringOrNull(rawSource.plan_id ?? rawSource.planId ?? root.plan_id ?? root.planId ?? report.plan_id),
++    source_artifact_sha256: stringOrNull(rawSource.source_artifact_sha256 ?? rawSource.sourceArtifactSha256 ?? root.source_artifact_sha256 ?? root.sourceArtifactSha256),
++    tool_name: String(rawSource.tool_name ?? rawSource.toolName ?? root.tool_name ?? root.toolName ?? options.toolName ?? "ForgeRoot Auditor"),
++  };
++}
++
++function normalizeFinding(value, index, workspaceRoot) {
++  const issues = [];
++  const root = asRecord(value);
++  const base = `/input/findings/${index}`;
++  if (!root) return { ok: false, issues: [issue(base, "object", "finding must be an object")] };
++
++  const message = stringOrNull(root.message ?? asRecord(root.message)?.text ?? root.description ?? root.title);
++  if (!message) issues.push(issue(`${base}/message`, "required", "finding message is required"));
++
++  const severity = normalizeSarifSeverity(root.severity ?? root.level ?? root.risk);
++  if (!severity.ok) issues.push({ ...severity.issue, path: `${base}/severity` });
++
++  const ruleId = normalizeRuleId(root.ruleId ?? root.rule_id ?? asRecord(root.rule)?.id ?? root.category ?? root.code);
++  if (!ruleId) issues.push(issue(`${base}/ruleId`, "required", "ruleId, category, or code is required"));
++
++  const location = extractLocation(root);
++  const path = normalizeSarifPathWithWorkspace(location.path, workspaceRoot);
++  if (!path) issues.push(issue(`${base}/location/path`, "safe_relative_path", "finding path must be a safe repository-relative path"));
++  const startLine = normalizePositiveInteger(location.line, 1);
++  const startColumn = normalizePositiveInteger(location.column, 1);
++  if (startLine === null) issues.push(issue(`${base}/location/line`, "positive_integer", "line must be a positive safe integer"));
++  if (startColumn === null) issues.push(issue(`${base}/location/column`, "positive_integer", "column must be a positive safe integer"));
++
++  if (issues.length > 0) return { ok: false, issues };
++  const forgeSeverity = severity.forgeSeverity;
++  const level = severity.level;
++  const id = stringOrNull(root.id ?? root.finding_id ?? root.findingId) ?? `${ruleId}:${path}:${startLine}:${startColumn}:${stableHash(message)}`;
++  const category = stringOrNull(root.category ?? root.code) ?? ruleId;
++  const fingerprint = stableFingerprint({ ruleId, path, startLine, startColumn, message, forgeSeverity, category });
++  return {
++    ok: true,
++    finding: {
++      id,
++      ruleId,
++      level,
++      forgeSeverity,
++      sourceSeverity: severity.sourceSeverity,
++      category,
++      message,
++      path,
++      startLine,
++      startColumn,
++      fingerprint,
++    },
++  };
++}
++
++function extractLocation(root) {
++  const location = asRecord(root.location) ?? {};
++  const physical = asRecord(location.physicalLocation) ?? asRecord(root.physicalLocation) ?? {};
++  const artifact = asRecord(physical.artifactLocation) ?? {};
++  const region = asRecord(physical.region) ?? asRecord(location.region) ?? {};
++  return {
++    path: root.path ?? root.file ?? root.uri ?? location.path ?? location.uri ?? artifact.uri,
++    line: root.line ?? root.startLine ?? root.start_line ?? location.line ?? location.startLine ?? region.startLine,
++    column: root.column ?? root.startColumn ?? root.start_column ?? location.column ?? location.startColumn ?? region.startColumn,
++  };
++}
++
++function toSarifResult(finding) {
++  return {
++    ruleId: finding.ruleId,
++    level: finding.level,
++    message: { text: finding.message },
++    locations: [
++      {
++        physicalLocation: {
++          artifactLocation: { uri: finding.path },
++          region: {
++            startLine: finding.startLine,
++            startColumn: finding.startColumn,
++          },
++        },
++      },
++    ],
++    partialFingerprints: {
++      forgeRootFingerprint: finding.fingerprint,
++    },
++    properties: {
++      forge_severity: finding.forgeSeverity,
++      source_severity: finding.sourceSeverity,
++      category: finding.category,
++      forge_finding_id: finding.id,
++      normalized_path: finding.path,
++    },
++  };
++}
++
++function buildRules(results) {
++  const byRule = new Map();
++  for (const result of results) {
++    const current = byRule.get(result.ruleId);
++    const level = result.level;
++    if (!current || LEVEL_RANK[level] > LEVEL_RANK[current.defaultConfiguration.level]) {
++      byRule.set(result.ruleId, {
++        id: result.ruleId,
++        name: result.ruleId,
++        shortDescription: { text: `ForgeRoot normalized finding rule ${result.ruleId}` },
++        defaultConfiguration: { level },
++      });
++    }
++  }
++  return [...byRule.values()].sort((a, b) => a.id.localeCompare(b.id));
++}
++
++function summarizeResults(results, rejectedInputCount) {
++  const severityCounts = { high: 0, medium: 0, low: 0, note: 0 };
++  const levelCounts = { error: 0, warning: 0, note: 0, none: 0 };
++  const ruleIds = new Set();
++  const paths = new Set();
++  for (const result of results) {
++    severityCounts[result.properties.forge_severity] += 1;
++    levelCounts[result.level] += 1;
++    ruleIds.add(result.ruleId);
++    paths.add(result.locations[0].physicalLocation.artifactLocation.uri);
++  }
++  return {
++    result_count: results.length,
++    rejected_input_count: rejectedInputCount,
++    severity_counts: severityCounts,
++    level_counts: levelCounts,
++    rule_ids: [...ruleIds].sort(),
++    paths: [...paths].sort(),
++  };
++}
++
++function validateRule(rule, path, issues) {
++  const root = asRecord(rule);
++  if (!root) return issues.push(issue(path, "object", "rule must be an object"));
++  expectString(root, "id", issues, path);
++  expectString(root, "name", issues, path);
++  const shortDescription = asRecord(root.shortDescription);
++  if (!shortDescription) issues.push(issue(`${path}/shortDescription`, "required", "shortDescription is required"));
++  else expectString(shortDescription, "text", issues, `${path}/shortDescription`);
++  const defaultConfiguration = asRecord(root.defaultConfiguration);
++  if (!defaultConfiguration) issues.push(issue(`${path}/defaultConfiguration`, "required", "defaultConfiguration is required"));
++  else expectOneOf(defaultConfiguration, "level", SARIF_LEVELS, issues, `${path}/defaultConfiguration`);
++}
++
++function validateResult(result, path, issues) {
++  const root = asRecord(result);
++  if (!root) return issues.push(issue(path, "object", "result must be an object"));
++  expectString(root, "ruleId", issues, path);
++  expectOneOf(root, "level", SARIF_LEVELS, issues, path);
++  const message = asRecord(root.message);
++  if (!message) issues.push(issue(`${path}/message`, "required", "message is required"));
++  else expectString(message, "text", issues, `${path}/message`);
++  const location = asRecord(root.locations?.[0]?.physicalLocation);
++  if (!Array.isArray(root.locations) || root.locations.length !== 1 || !location) issues.push(issue(`${path}/locations`, "location", "exactly one physical location is required"));
++  else {
++    const artifact = asRecord(location.artifactLocation);
++    const region = asRecord(location.region);
++    if (!artifact) issues.push(issue(`${path}/locations/0/physicalLocation/artifactLocation`, "required", "artifactLocation is required"));
++    else if (!normalizeSarifPath(artifact.uri)) issues.push(issue(`${path}/locations/0/physicalLocation/artifactLocation/uri`, "safe_relative_path", "uri must be safe repository-relative path"));
++    if (!region) issues.push(issue(`${path}/locations/0/physicalLocation/region`, "required", "region is required"));
++    else {
++      if (!Number.isSafeInteger(region.startLine) || region.startLine <= 0) issues.push(issue(`${path}/locations/0/physicalLocation/region/startLine`, "positive_integer", "startLine must be positive"));
++      if (!Number.isSafeInteger(region.startColumn) || region.startColumn <= 0) issues.push(issue(`${path}/locations/0/physicalLocation/region/startColumn`, "positive_integer", "startColumn must be positive"));
++    }
++  }
++  const fingerprints = asRecord(root.partialFingerprints);
++  if (!fingerprints || !SHA256_RE.test(fingerprints.forgeRootFingerprint)) issues.push(issue(`${path}/partialFingerprints/forgeRootFingerprint`, "sha256", "forgeRootFingerprint must use sha256:<64 hex>"));
++  const properties = asRecord(root.properties);
++  if (!properties) issues.push(issue(`${path}/properties`, "required", "properties are required"));
++  else {
++    expectOneOf(properties, "forge_severity", FORGE_SEVERITIES, issues, `${path}/properties`);
++    expectString(properties, "category", issues, `${path}/properties`);
++    expectString(properties, "forge_finding_id", issues, `${path}/properties`);
++    expectString(properties, "normalized_path", issues, `${path}/properties`);
++  }
++}
++
++function validateSummary(root, summary, issues) {
++  if (!Number.isSafeInteger(summary.result_count) || summary.result_count < 0) issues.push(issue("/artifact/summary/result_count", "nonnegative_integer", "result_count must be a non-negative integer"));
++  if (!Number.isSafeInteger(summary.rejected_input_count) || summary.rejected_input_count < 0) issues.push(issue("/artifact/summary/rejected_input_count", "nonnegative_integer", "rejected_input_count must be a non-negative integer"));
++  const results = root.runs?.[0]?.results ?? [];
++  if (Array.isArray(results) && Number.isSafeInteger(summary.result_count) && summary.result_count !== results.length) issues.push(issue("/artifact/summary/result_count", "count_mismatch", "result_count must equal results length"));
++  const severityCounts = asRecord(summary.severity_counts);
++  if (!severityCounts) issues.push(issue("/artifact/summary/severity_counts", "required", "severity_counts is required"));
++  else for (const severity of FORGE_SEVERITIES) if (!Number.isSafeInteger(severityCounts[severity]) || severityCounts[severity] < 0) issues.push(issue(`/artifact/summary/severity_counts/${severity}`, "nonnegative_integer", `${severity} count must be non-negative integer`));
++  const levelCounts = asRecord(summary.level_counts);
++  if (!levelCounts) issues.push(issue("/artifact/summary/level_counts", "required", "level_counts is required"));
++  else for (const level of SARIF_LEVELS) if (!Number.isSafeInteger(levelCounts[level]) || levelCounts[level] < 0) issues.push(issue(`/artifact/summary/level_counts/${level}`, "nonnegative_integer", `${level} count must be non-negative integer`));
++  if (!Array.isArray(summary.rule_ids) || !summary.rule_ids.every((value) => typeof value === "string")) issues.push(issue("/artifact/summary/rule_ids", "string_array", "rule_ids must be strings"));
++  if (!Array.isArray(summary.paths) || !summary.paths.every((value) => typeof value === "string" && normalizeSarifPath(value))) issues.push(issue("/artifact/summary/paths", "path_array", "paths must be safe relative strings"));
++}
++
++function compareSarifResults(a, b) {
++  const aSeverity = FORGE_SEVERITY_RANK[a.properties.forge_severity] ?? -1;
++  const bSeverity = FORGE_SEVERITY_RANK[b.properties.forge_severity] ?? -1;
++  return bSeverity - aSeverity
++    || a.ruleId.localeCompare(b.ruleId)
++    || a.locations[0].physicalLocation.artifactLocation.uri.localeCompare(b.locations[0].physicalLocation.artifactLocation.uri)
++    || a.locations[0].physicalLocation.region.startLine - b.locations[0].physicalLocation.region.startLine
++    || a.locations[0].physicalLocation.region.startColumn - b.locations[0].physicalLocation.region.startColumn
++    || a.message.text.localeCompare(b.message.text)
++    || a.properties.forge_finding_id.localeCompare(b.properties.forge_finding_id);
++}
++
++function normalizeWorkspaceRoot(value) {
++  if (typeof value !== "string" || value.trim().length === 0) return null;
++  const raw = value.trim().replace(/\\/g, "/").replace(/\/+$/g, "");
++  if (!raw.startsWith("/") && !/^[a-zA-Z]:\//.test(raw)) return null;
++  return raw;
++}
++
++function collectSecretLikeInputIssues(value, path) {
++  const issues = [];
++  const visit = (current, currentPath) => {
++    if (Array.isArray(current)) {
++      current.forEach((item, index) => visit(item, `${currentPath}/${index}`));
++      return;
++    }
++    if (!asRecord(current)) {
++      if (typeof current === "string" && looksSecret(current)) issues.push(issue(currentPath, "secret_like_value", "input contains secret-looking material"));
++      return;
++    }
++    for (const [key, item] of Object.entries(current)) {
++      const nextPath = `${currentPath}/${key}`;
++      const upper = key.toUpperCase();
++      if (["TOKEN", "SECRET", "PASSWORD", "PRIVATE_KEY", "CREDENTIAL"].some((part) => upper.includes(part)) && typeof item === "string" && item.length > 0) {
++        issues.push(issue(nextPath, "secret_like_field", "input contains a secret-like field"));
++      }
++      visit(item, nextPath);
++    }
++  };
++  visit(value, path);
++  return issues;
++}
++
++function boundaryGuards() {
++  return {
++    no_github_code_scanning_upload: true,
++    no_github_api_call: true,
++    no_workflow_mutation: true,
++    no_policy_mutation: true,
++    no_ruleset_mutation: true,
++    no_branch_protection_mutation: true,
++    no_security_gate_decision: true,
++    no_memory_or_evaluation_update: true,
++    no_federation_or_self_evolution: true,
++  };
++}
++
++function normalizeRuleId(value) {
++  const raw = stringOrNull(value);
++  if (!raw) return null;
++  const valueText = raw.includes(".") || raw.includes("/") ? raw : `forge.${raw}`;
++  const normalized = valueText
++    .trim()
++    .toLowerCase()
++    .replace(/[^a-z0-9_.\/-]+/g, "-")
++    .replace(/[\/]+/g, ".")
++    .replace(/\.{2,}/g, ".")
++    .replace(/^-+|-+$/g, "")
++    .slice(0, 160);
++  return normalized || null;
++}
++
++function stableFingerprint(value) { return `sha256:${sha256(canonicalJson(value))}`; }
++function stableHash(value) { return sha256(String(value)).slice(0, 12); }
++function sha256(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
++function canonicalJson(value) {
++  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
++  if (asRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
++  return JSON.stringify(value);
++}
++function normalizePositiveInteger(value, fallback) {
++  if (value === undefined || value === null || value === "") return fallback;
++  const number = Number(value);
++  return Number.isSafeInteger(number) && number > 0 ? number : null;
++}
++function looksSecret(value) {
++  const lower = String(value).toLowerCase();
++  return lower.includes("github_pat_") || lower.includes("ghp_") || lower.includes("sk-") || lower.includes("-----begin private key-----");
++}
++function stringOrNull(value) { return typeof value === "string" && value.trim().length > 0 ? value.trim() : null; }
++function asRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null; }
++function issue(path, code, message) { return { path, code, message }; }
++function invalid(path, code, message) { return { ok: false, issues: [issue(path, code, message)] }; }
++function expectLiteral(record, key, expected, issues, path) { if (record[key] !== expected) issues.push(issue(`${path}/${key}`, "literal", `${key} must be ${JSON.stringify(expected)}`)); }
++function expectString(record, key, issues, path) { const value = record[key]; if (typeof value !== "string" || value.length === 0) { issues.push(issue(`${path}/${key}`, "string", `${key} must be a non-empty string`)); return null; } return value; }
++function expectStringOrNull(record, key, issues, path) { const value = record[key]; if (!(typeof value === "string" || value === null)) issues.push(issue(`${path}/${key}`, "string_or_null", `${key} must be a string or null`)); }
++function expectOneOf(record, key, allowed, issues, path) { const value = record[key]; if (typeof value !== "string" || !allowed.has(value)) issues.push(issue(`${path}/${key}`, "enum", `${key} is not allowed`)); return value; }
++function expectRfc3339(record, key, issues, path) { const value = expectString(record, key, issues, path); if (value && !RFC3339_UTC.test(value)) issues.push(issue(`${path}/${key}`, "rfc3339", `${key} must be RFC3339 UTC`)); }
++function uniqueStrings(values) { return [...new Set(values.filter((value) => typeof value === "string" && value.length > 0))]; }
+diff -ruN /tmp/forgeroot_base/ForgeRoot/packages/auditor/tests/sarif.test.mjs /mnt/data/repo_t028/ForgeRoot/packages/auditor/tests/sarif.test.mjs
+--- /tmp/forgeroot_base/ForgeRoot/packages/auditor/tests/sarif.test.mjs	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/repo_t028/ForgeRoot/packages/auditor/tests/sarif.test.mjs	2026-04-19 08:59:04.456758379 +0000
+@@ -0,0 +1,144 @@
++import fs from "node:fs";
++import test from "node:test";
++import assert from "node:assert/strict";
++import {
++  SARIF_BRIDGE_CONTRACT,
++  convertAuditFindingsToSarif,
++  convertFindingsToSarif,
++  createSarifBridgeArtifact,
++  validateSarifBridgeArtifact,
++  validateSarifBridgeInput,
++  validateSarifLikeArtifact,
++} from "../dist/index.js";
++
++const NOW = "2026-04-18T00:00:00Z";
++
++function fixture(path) {
++  return JSON.parse(fs.readFileSync(new URL(`../../../docs/specs/fixtures/sarif-bridge/${path}`, import.meta.url), "utf8"));
++}
++
++test("T040 contract remains manifest-only and forbids live GitHub/security-surface mutation", () => {
++  assert.equal(SARIF_BRIDGE_CONTRACT.manifestOnly, true);
++  assert.equal(SARIF_BRIDGE_CONTRACT.deterministic, true);
++  for (const forbidden of [
++    "github_api_call",
++    "github_code_scanning_upload",
++    "workflow_mutation",
++    "policy_mutation",
++    "ruleset_mutation",
++    "memory_or_evaluation_updates",
++    "network_or_federation_behavior",
++    "self_evolution",
++  ]) {
++    assert.ok(SARIF_BRIDGE_CONTRACT.forbids.includes(forbidden), forbidden);
++  }
++});
++
++test("converts audit findings to a deterministic SARIF-like artifact", () => {
++  const input = fixture("valid/audit-findings.json");
++  const first = convertAuditFindingsToSarif(input);
++  const second = convertAuditFindingsToSarif({ ...input, findings: [...input.findings].reverse() });
++
++  assert.equal(first.status, "ready", JSON.stringify(first, null, 2));
++  assert.equal(second.status, "ready", JSON.stringify(second, null, 2));
++  assert.deepEqual(first.artifact.runs[0].results, second.artifact.runs[0].results);
++  assert.equal(first.artifact.schema_ref, "urn:forgeroot:sarif-bridge:v1");
++  assert.equal(first.artifact.sarif_version, "2.1.0");
++  assert.equal(first.artifact.summary.result_count, 2);
++  assert.equal(first.artifact.summary.severity_counts.high, 1);
++  assert.equal(first.artifact.summary.severity_counts.note, 1);
++  assert.match(first.artifact.runs[0].results[0].partialFingerprints.forgeRootFingerprint, /^sha256:[a-f0-9]{64}$/);
++  assert.deepEqual(validateSarifBridgeArtifact(first.artifact), { ok: true, issues: [] });
++  assert.deepEqual(validateSarifLikeArtifact(first.artifact), { ok: true, issues: [] });
++  assert.equal(first.artifact.guards.no_github_api_call, true);
++  assert.equal(first.artifact.guards.no_github_code_scanning_upload, true);
++});
++
++test("maps ForgeRoot severities to SARIF levels", () => {
++  const findings = [
++    { id: "critical", severity: "critical", category: "security", message: "critical finding", path: "a.js" },
++    { id: "medium", severity: "medium", category: "security", message: "medium finding", path: "b.js" },
++    { id: "low", severity: "low", category: "security", message: "low finding", path: "c.js" },
++    { id: "note", severity: "note", category: "security", message: "note finding", path: "d.js" },
++  ];
++  const result = convertAuditFindingsToSarif({ now: NOW, findings });
++  assert.equal(result.status, "ready", JSON.stringify(result, null, 2));
++  const byPath = new Map(result.artifact.runs[0].results.map((item) => [item.locations[0].physicalLocation.artifactLocation.uri, item]));
++  assert.equal(byPath.get("a.js").properties.forge_severity, "high");
++  assert.equal(byPath.get("a.js").level, "error");
++  assert.equal(byPath.get("b.js").properties.forge_severity, "medium");
++  assert.equal(byPath.get("b.js").level, "warning");
++  assert.equal(byPath.get("c.js").properties.forge_severity, "low");
++  assert.equal(byPath.get("c.js").level, "note");
++  assert.equal(byPath.get("d.js").properties.forge_severity, "note");
++  assert.equal(byPath.get("d.js").level, "note");
++});
++
++test("normalizes workspace-root absolute paths into relative artifact URIs", () => {
++  const input = fixture("valid/workspace-root-finding.json");
++  const result = convertAuditFindingsToSarif(input);
++  assert.equal(result.status, "ready", JSON.stringify(result, null, 2));
++  assert.equal(result.artifact.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri, "packages/auditor/src/sarif.ts");
++});
++
++test("rejects malformed findings instead of emitting partial SARIF", () => {
++  const result = convertAuditFindingsToSarif({
++    now: NOW,
++    findings: [
++      { id: "bad-line", severity: "high", category: "scope", message: "line is invalid", path: "packages/auditor/src/sarif.ts", line: 0 },
++      { id: "bad-path", severity: "medium", category: "scope", message: "path is invalid", path: "../escape.ts" },
++    ],
++  });
++  assert.equal(result.status, "invalid");
++  assert.ok(result.issues.some((item) => item.code === "positive_integer"));
++  assert.ok(result.issues.some((item) => item.code === "safe_relative_path"));
++  assert.equal(result.artifact, null);
++});
++
++test("rejects absolute paths unless a workspace root explicitly bounds them", () => {
++  const input = fixture("invalid/absolute-path.json");
++  const validation = validateSarifBridgeInput(input);
++  assert.equal(validation.ok, false);
++  assert.ok(validation.issues.some((item) => item.code === "safe_relative_path"));
++});
++
++test("rejects secret-bearing fields and secret-looking values", () => {
++  const input = fixture("invalid/secret-field.json");
++  const result = convertAuditFindingsToSarif(input);
++  assert.equal(result.status, "invalid");
++  assert.ok(result.issues.some((item) => item.code === "secret_like_field"));
++  assert.ok(result.issues.some((item) => item.code === "secret_like_value"));
++});
++
++test("accepts auditResult.findings and preserves audit source metadata", () => {
++  const result = createSarifBridgeArtifact({
++    now: NOW,
++    auditResult: {
++      audit_id: "forge-audit://abc",
++      source: { repository: "hiroshitanaka-creator/ForgeRoot", issue_number: 40, candidate_id: "T040", title: "SARIF bridge" },
++      findings: [
++        { id: "scope", severity: "error", category: "scope", message: "immutable scope changed", path: ".forge/policies/runtime-mode.forge", line: 2, column: 1 },
++      ],
++    },
++  });
++  assert.equal(result.status, "ready", JSON.stringify(result, null, 2));
++  assert.equal(result.artifact.source.audit_id, "forge-audit://abc");
++  assert.equal(result.artifact.source.repository, "hiroshitanaka-creator/ForgeRoot");
++  assert.equal(result.artifact.source.issue_number, 40);
++  assert.equal(result.artifact.source.task_id, "T040");
++});
++
++test("alias exports route to the same deterministic converter", () => {
++  const input = { now: NOW, findings: [{ severity: "warning", category: "x", message: "warning finding", path: "x.ts", ruleId: "x.rule" }] };
++  assert.deepEqual(convertFindingsToSarif(input), convertAuditFindingsToSarif(input));
++});
++
++test("artifact validation catches tampered SARIF locations", () => {
++  const result = convertAuditFindingsToSarif({ now: NOW, findings: [{ severity: "high", category: "x", message: "bad", path: "safe.ts" }] });
++  assert.equal(result.status, "ready", JSON.stringify(result, null, 2));
++  const tampered = structuredClone(result.artifact);
++  tampered.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri = "/tmp/leaked/safe.ts";
++  const validation = validateSarifBridgeArtifact(tampered);
++  assert.equal(validation.ok, false);
++  assert.ok(validation.issues.some((item) => item.code === "safe_relative_path"));
++});
