@@ -1,0 +1,955 @@
+ForgeRoot T028 validation output
+Date: 2026-04-18 JST
+
+Summary:
+- Forge demo tests: 8 pass / 0 fail
+- Rate governor regression tests: 10 pass / 0 fail
+- Approval checkpoint regression tests: 10 pass / 0 fail
+- GitHub PR adapter regression tests: 10 pass / 0 fail
+- PR composer regression tests: 8 pass / 0 fail
+- Auditor regression tests: 22 pass / 0 fail
+- Executor regression tests: 21 pass / 0 fail
+- Planner regression tests: 23 pass / 0 fail
+- Node syntax checks: pass
+
+Commands represented:
+- node --test --test-force-exit packages/forge-demo/tests/run.test.mjs
+- node --test --test-force-exit packages/rate-governor/tests/run.test.mjs
+- node --test --test-force-exit packages/approval-checkpoint/tests/run.test.mjs
+- node --test --test-force-exit packages/github-pr-adapter/tests/run.test.mjs
+- node --test --test-force-exit packages/pr-composer/tests/run.test.mjs
+- node --test --test-force-exit packages/auditor/tests/audit.test.mjs packages/auditor/tests/run.test.mjs
+- node --test --test-force-exit packages/executor/tests/*.test.mjs
+- node --test --test-force-exit packages/planner/tests/*.test.mjs
+- node --check packages/forge-demo/dist/run.js
+- node --check packages/forge-demo/dist/index.js
+- node --check packages/rate-governor/dist/run.js
+- node --check packages/approval-checkpoint/dist/run.js
+- node --check packages/github-pr-adapter/dist/run.js
+- node --check packages/pr-composer/dist/run.js
+- node --check packages/auditor/dist/run.js
+- node --check packages/executor/dist/index.js
+- node --check packages/planner/dist/run.js
+
+Raw transcript follows.
+\n$ node --test --test-force-exit packages/forge-demo/tests/run.test.mjs
+TAP version 13
+# Subtest: T028 end-to-end forged PR demo
+    # Subtest: declares a manifest-only demo contract without live GitHub transport authority
+    ok 1 - declares a manifest-only demo contract without live GitHub transport authority
+      ---
+      duration_ms: 1.057428
+      type: 'test'
+      ...
+    # Subtest: runs one forge:auto issue through the full Phase 1 manifest chain to rate-governed dispatch
+    ok 2 - runs one forge:auto issue through the full Phase 1 manifest chain to rate-governed dispatch
+      ---
+      duration_ms: 51.265332
+      type: 'test'
+      ...
+    # Subtest: keeps risk summary, acceptance criteria, and approval gate visible in the PR composition
+    ok 3 - keeps risk summary, acceptance criteria, and approval gate visible in the PR composition
+      ---
+      duration_ms: 10.858938
+      type: 'test'
+      ...
+    # Subtest: blocks before planning when the issue is not automation-labeled
+    ok 4 - blocks before planning when the issue is not automation-labeled
+      ---
+      duration_ms: 1.368381
+      type: 'test'
+      ...
+    # Subtest: blocks before audit when the simulated sandbox output exceeds mutable scope
+    ok 5 - blocks before audit when the simulated sandbox output exceeds mutable scope
+      ---
+      duration_ms: 3.643515
+      type: 'test'
+      ...
+    # Subtest: delays before transport when the rate governor content-create budget is exhausted
+    ok 6 - delays before transport when the rate governor content-create budget is exhausted
+      ---
+      duration_ms: 9.68219
+      type: 'test'
+      ...
+    # Subtest: holds Class B before transport until human approval is provided, then queues
+    ok 7 - holds Class B before transport until human approval is provided, then queues
+      ---
+      duration_ms: 11.3946
+      type: 'test'
+      ...
+    # Subtest: supports aliases and validators without changing the ready decision
+    ok 8 - supports aliases and validators without changing the ready decision
+      ---
+      duration_ms: 39.468411
+      type: 'test'
+      ...
+    1..8
+ok 1 - T028 end-to-end forged PR demo
+  ---
+  duration_ms: 130.63745
+  type: 'suite'
+  ...
+1..1
+# tests 8
+# suites 1
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 280.882746
+[exit 0]
+\n$ node --test --test-force-exit packages/rate-governor/tests/run.test.mjs
+TAP version 13
+# Subtest: T027 rate governor queue
+    # Subtest: declares a queue-only contract with no live GitHub transport or rate-limit bypass authority
+    ok 1 - declares a queue-only contract with no live GitHub transport or rate-limit bypass authority
+      ---
+      duration_ms: 3.626227
+      type: 'test'
+      ...
+    # Subtest: queues one authorized PR transport into one repo mutating lane without performing GitHub transport
+    ok 2 - queues one authorized PR transport into one repo mutating lane without performing GitHub transport
+      ---
+      duration_ms: 43.877704
+      type: 'test'
+      ...
+    # Subtest: supports aliases without changing the queue entry identity
+    ok 3 - supports aliases without changing the queue entry identity
+      ---
+      duration_ms: 7.781865
+      type: 'test'
+      ...
+    # Subtest: validates T026 transport authorization before queueing
+    ok 4 - validates T026 transport authorization before queueing
+      ---
+      duration_ms: 3.258691
+      type: 'test'
+      ...
+    # Subtest: delays when the repository mutating lane is already occupied
+    ok 5 - delays when the repository mutating lane is already occupied
+      ---
+      duration_ms: 1.257351
+      type: 'test'
+      ...
+    # Subtest: delays and preserves retry-after cooldown from rate-limit observations
+    ok 6 - delays and preserves retry-after cooldown from rate-limit observations
+      ---
+      duration_ms: 1.251398
+      type: 'test'
+      ...
+    # Subtest: delays when ForgeRoot content-create soft cap per minute is exhausted
+    ok 7 - delays when ForgeRoot content-create soft cap per minute is exhausted
+      ---
+      duration_ms: 0.807193
+      type: 'test'
+      ...
+    # Subtest: delays when the per-repo PR creation hard cap is exhausted
+    ok 8 - delays when the per-repo PR creation hard cap is exhausted
+      ---
+      duration_ms: 0.886883
+      type: 'test'
+      ...
+    # Subtest: blocks when the latest runtime gate no longer permits trusted write transport
+    ok 9 - blocks when the latest runtime gate no longer permits trusted write transport
+      ---
+      duration_ms: 1.205177
+      type: 'test'
+      ...
+    # Subtest: derives cooldowns from retry-after, primary reset, and exponential secondary backoff
+    ok 10 - derives cooldowns from retry-after, primary reset, and exponential secondary backoff
+      ---
+      duration_ms: 1.623769
+      type: 'test'
+      ...
+    1..10
+ok 1 - T027 rate governor queue
+  ---
+  duration_ms: 67.719366
+  type: 'suite'
+  ...
+1..1
+# tests 10
+# suites 1
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 229.006596
+[exit 0]
+\n$ node --test --test-force-exit packages/approval-checkpoint/tests/run.test.mjs
+TAP version 13
+\n$ node --test --test-force-exit packages/approval-checkpoint/tests/run.test.mjs
+TAP version 13
+# Subtest: T026 approval checkpoint
+    # Subtest: declares a checkpoint-only contract with no transport, merge, or approval mutation authority
+    ok 1 - declares a checkpoint-only contract with no transport, merge, or approval mutation authority
+      ---
+      duration_ms: 90.496919
+      type: 'test'
+      ...
+    # Subtest: authorizes Class A low-risk non-dry-run PR transport when runtime and rate gates pass
+    ok 2 - authorizes Class A low-risk non-dry-run PR transport when runtime and rate gates pass
+      ---
+      duration_ms: 134.772842
+      type: 'test'
+      ...
+    # Subtest: holds dry-run requests before trusted transport
+    ok 3 - holds dry-run requests before trusted transport
+      ---
+      duration_ms: 1.165284
+      type: 'test'
+      ...
+    # Subtest: holds Class B transport until a human approval record is present
+    ok 4 - holds Class B transport until a human approval record is present
+      ---
+      duration_ms: 0.858461
+      type: 'test'
+      ...
+    # Subtest: authorizes Class B transport after a non-self human approval
+    ok 5 - authorizes Class B transport after a non-self human approval
+      ---
+      duration_ms: 2.262107
+      type: 'test'
+      ...
+    # Subtest: supports checkpoint aliases without changing the authorization decision
+    ok 6 - supports checkpoint aliases without changing the authorization decision
+      ---
+      duration_ms: 3.163413
+      type: 'test'
+      ...
+    # Subtest: quarantines halted runtime and kill-switch states
+    ok 7 - quarantines halted runtime and kill-switch states
+      ---
+      duration_ms: 0.693183
+      type: 'test'
+      ...
+    # Subtest: quarantines Class D, critical risk, and governance mutation surfaces
+    ok 8 - quarantines Class D, critical risk, and governance mutation surfaces
+      ---
+      duration_ms: 0.84684
+      type: 'test'
+      ...
+    # Subtest: invalidates malformed request manifests and merge endpoints
+    ok 9 - invalidates malformed request manifests and merge endpoints
+      ---
+      duration_ms: 1.014791
+      type: 'test'
+      ...
+    # Subtest: validator rejects token or private key material in generated authorizations
+    ok 10 - validator rejects token or private key material in generated authorizations
+      ---
+      duration_ms: 1.417774
+      type: 'test'
+      ...
+    1..10
+ok 1 - T026 approval checkpoint
+  ---
+  duration_ms: 238.693899
+  type: 'suite'
+  ...
+1..1
+# tests 10
+# suites 1
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 597.560853
+[exit 0]
+\n$ node --test --test-force-exit packages/github-pr-adapter/tests/run.test.mjs
+TAP version 13
+\n$ node --test --test-force-exit packages/github-pr-adapter/tests/run.test.mjs
+TAP version 13
+# Subtest: T025 GitHub PR adapter
+    # Subtest: declares a GitHub-App-only adapter boundary with no merge or approval authority
+    ok 1 - declares a GitHub-App-only adapter boundary with no merge or approval authority
+      ---
+      duration_ms: 1.150576
+      type: 'test'
+      ...
+    # Subtest: turns one PR composition into one deterministic dry-run GitHub App PR creation request
+    ok 2 - turns one PR composition into one deterministic dry-run GitHub App PR creation request
+      ---
+      duration_ms: 40.413554
+      type: 'test'
+      ...
+    # Subtest: supports alias exports for adapter ergonomics
+    ok 3 - supports alias exports for adapter ergonomics
+      ---
+      duration_ms: 4.182468
+      type: 'test'
+      ...
+    # Subtest: blocks non-dry-run transport without explicit runtime and rate-limit gates
+    ok 4 - blocks non-dry-run transport without explicit runtime and rate-limit gates
+      ---
+      duration_ms: 3.828804
+      type: 'test'
+      ...
+    # Subtest: allows non-dry-run request preparation only when runtime and rate gates pass
+    ok 5 - allows non-dry-run request preparation only when runtime and rate gates pass
+      ---
+      duration_ms: 3.907716
+      type: 'test'
+      ...
+    # Subtest: invalidates installation and composition repository mismatches
+    ok 6 - invalidates installation and composition repository mismatches
+      ---
+      duration_ms: 2.794304
+      type: 'test'
+      ...
+    # Subtest: invalidates attempts to use the default branch as the head branch
+    ok 7 - invalidates attempts to use the default branch as the head branch
+      ---
+      duration_ms: 2.002552
+      type: 'test'
+      ...
+    # Subtest: validator rejects generated requests that target merge endpoints
+    ok 8 - validator rejects generated requests that target merge endpoints
+      ---
+      duration_ms: 3.238258
+      type: 'test'
+      ...
+    # Subtest: validator rejects token or private key material in prepared requests
+    ok 9 - validator rejects token or private key material in prepared requests
+      ---
+      duration_ms: 4.004979
+      type: 'test'
+      ...
+    # Subtest: invalidates unsafe labels and reviewer metadata before request preparation
+    ok 10 - invalidates unsafe labels and reviewer metadata before request preparation
+      ---
+      duration_ms: 6.151432
+      type: 'test'
+      ...
+    1..10
+ok 1 - T025 GitHub PR adapter
+  ---
+  duration_ms: 73.578583
+  type: 'suite'
+  ...
+1..1
+# tests 10
+# suites 1
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 218.21364
+[exit 0]
+\n$ node --test --test-force-exit packages/pr-composer/tests/run.test.mjs
+TAP version 13
+# Subtest: T024 PR composer
+    # Subtest: declares a composition-only contract with no GitHub mutation or merge authority
+    ok 1 - declares a composition-only contract with no GitHub mutation or merge authority
+      ---
+      duration_ms: 1.470226
+      type: 'test'
+      ...
+    # Subtest: turns one passed audit chain into one deterministic PR composition manifest
+    ok 2 - turns one passed audit chain into one deterministic PR composition manifest
+      ---
+      duration_ms: 35.821054
+      type: 'test'
+      ...
+    # Subtest: supports audit run wrappers via auditResult.report and alias exports
+    ok 3 - supports audit run wrappers via auditResult.report and alias exports
+      ---
+      duration_ms: 4.128408
+      type: 'test'
+      ...
+    # Subtest: blocks composition when audit has not passed or does not allow PR composition
+    ok 4 - blocks composition when audit has not passed or does not allow PR composition
+      ---
+      duration_ms: 2.954827
+      type: 'test'
+      ...
+    # Subtest: invalidates mismatched plan/worktree/sandbox/audit identity chains
+    ok 5 - invalidates mismatched plan/worktree/sandbox/audit identity chains
+      ---
+      duration_ms: 1.778697
+      type: 'test'
+      ...
+    # Subtest: invalidates branches that attempt to target the default branch
+    ok 6 - invalidates branches that attempt to target the default branch
+      ---
+      duration_ms: 2.075438
+      type: 'test'
+      ...
+    # Subtest: invalidates artifact evidence mismatches between sandbox output and audit result
+    ok 7 - invalidates artifact evidence mismatches between sandbox output and audit result
+      ---
+      duration_ms: 1.832958
+      type: 'test'
+      ...
+    # Subtest: validator rejects compositions that weaken composer safety guards
+    ok 8 - validator rejects compositions that weaken composer safety guards
+      ---
+      duration_ms: 2.007549
+      type: 'test'
+      ...
+    1..8
+ok 1 - T024 PR composer
+  ---
+  duration_ms: 53.853612
+  type: 'suite'
+  ...
+1..1
+# tests 8
+# suites 1
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 209.640011
+[exit 0]
+\n$ node --test --test-force-exit packages/auditor/tests/run.test.mjs
+TAP version 13
+# Subtest: T023 auditor runtime
+    # Subtest: declares an independent audit-only contract
+    ok 1 - declares an independent audit-only contract
+      ---
+      duration_ms: 2.121346
+      type: 'test'
+      ...
+    # Subtest: passes one valid plan/worktree/sandbox/output chain and emits a validated audit result
+    ok 2 - passes one valid plan/worktree/sandbox/output chain and emits a validated audit result
+      ---
+      duration_ms: 15.283638
+      type: 'test'
+      ...
+    # Subtest: blocks PR composition when sandbox observed output is missing
+    ok 3 - blocks PR composition when sandbox observed output is missing
+      ---
+      duration_ms: 2.788445
+      type: 'test'
+      ...
+    # Subtest: invalidates mismatched plan/worktree/sandbox identities before PR composition
+    ok 4 - invalidates mismatched plan/worktree/sandbox identities before PR composition
+      ---
+      duration_ms: 3.882246
+      type: 'test'
+      ...
+    # Subtest: fails when sandbox output touches immutable or out-of-scope paths
+    ok 5 - fails when sandbox output touches immutable or out-of-scope paths
+      ---
+      duration_ms: 2.295583
+      type: 'test'
+      ...
+    # Subtest: fails missing required artifacts and undeclared artifact output
+    ok 6 - fails missing required artifacts and undeclared artifact output
+      ---
+      duration_ms: 1.880744
+      type: 'test'
+      ...
+    # Subtest: fails when observed output exposes secret-looking environment data
+    ok 7 - fails when observed output exposes secret-looking environment data
+      ---
+      duration_ms: 1.735919
+      type: 'test'
+      ...
+    # Subtest: invalidates approval class rewrites between plan and sandbox request
+    ok 8 - invalidates approval class rewrites between plan and sandbox request
+      ---
+      duration_ms: 1.431379
+      type: 'test'
+      ...
+    # Subtest: rejects malformed audit result objects
+    ok 9 - rejects malformed audit result objects
+      ---
+      duration_ms: 0.45196
+      type: 'test'
+      ...
+    1..9
+ok 1 - T023 auditor runtime
+  ---
+  duration_ms: 34.016677
+  type: 'suite'
+  ...
+1..1
+# tests 9
+# suites 1
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 192.449328
+[exit 0]
+\n$ node --test --test-force-exit packages/executor/tests/sandbox.test.mjs packages/executor/tests/worktree.test.mjs
+TAP version 13
+\n$ node --test --test-force-exit packages/executor/tests/*.test.mjs
+TAP version 13
+# Subtest: T019 executor sandbox harness
+    # Subtest: declares a manifest-only sandbox contract with no command execution side effects
+    ok 1 - declares a manifest-only sandbox contract with no command execution side effects
+      ---
+      duration_ms: 1.587895
+      type: 'test'
+      ...
+    # Subtest: creates one deterministic sandbox execution request from one T018 worktree manifest
+    ok 2 - creates one deterministic sandbox execution request from one T018 worktree manifest
+      ---
+      duration_ms: 13.344614
+      type: 'test'
+      ...
+    # Subtest: blocks sandbox requests when a manifest still requires execution approval
+    ok 3 - blocks sandbox requests when a manifest still requires execution approval
+      ---
+      duration_ms: 0.998485
+      type: 'test'
+      ...
+    # Subtest: rejects malformed branch/worktree manifests before sandbox derivation
+    ok 4 - rejects malformed branch/worktree manifests before sandbox derivation
+      ---
+      duration_ms: 0.357647
+      type: 'test'
+      ...
+    # Subtest: rejects forbidden git, shell, and non-allowlisted command binaries
+    ok 5 - rejects forbidden git, shell, and non-allowlisted command binaries
+      ---
+      duration_ms: 1.159366
+      type: 'test'
+      ...
+    # Subtest: rejects command writable paths outside mutable scope or inside immutable scope
+    ok 6 - rejects command writable paths outside mutable scope or inside immutable scope
+      ---
+      duration_ms: 2.963254
+      type: 'test'
+      ...
+    # Subtest: rejects secret-bearing environment variables and locked default overrides
+    ok 7 - rejects secret-bearing environment variables and locked default overrides
+      ---
+      duration_ms: 1.451291
+      type: 'test'
+      ...
+    # Subtest: keeps network disabled by default and only allows explicit safe allowlists
+    ok 8 - keeps network disabled by default and only allows explicit safe allowlists
+      ---
+      duration_ms: 2.424523
+      type: 'test'
+      ...
+    # Subtest: rejects artifact roots inside the worktree
+    ok 9 - rejects artifact roots inside the worktree
+      ---
+      duration_ms: 0.736761
+      type: 'test'
+      ...
+    # Subtest: validates observed sandbox output against declared commands, path scope, and artifacts
+    ok 10 - validates observed sandbox output against declared commands, path scope, and artifacts
+      ---
+      duration_ms: 2.917358
+      type: 'test'
+      ...
+    # Subtest: rejects observed output that escapes commands, mutable paths, or declared artifacts
+    ok 11 - rejects observed output that escapes commands, mutable paths, or declared artifacts
+      ---
+      duration_ms: 2.030691
+      type: 'test'
+      ...
+    1..11
+ok 1 - T019 executor sandbox harness
+  ---
+  duration_ms: 31.837787
+  type: 'suite'
+  ...
+# Subtest: T018 branch/worktree manager
+    # Subtest: declares a manifest-only contract with no git side effects
+    ok 1 - declares a manifest-only contract with no git side effects
+      ---
+      duration_ms: 1.28993
+      type: 'test'
+      ...
+    # Subtest: creates one deterministic branch/worktree plan from one ready Plan Spec
+    ok 2 - creates one deterministic branch/worktree plan from one ready Plan Spec
+      ---
+      duration_ms: 5.046356
+      type: 'test'
+      ...
+    # Subtest: is deterministic for identical Plan Spec and options
+    ok 3 - is deterministic for identical Plan Spec and options
+      ---
+      duration_ms: 2.563562
+      type: 'test'
+      ...
+    # Subtest: blocks elevated plans before branch preparation unless execution approval is attached
+    ok 4 - blocks elevated plans before branch preparation unless execution approval is attached
+      ---
+      duration_ms: 0.79226
+      type: 'test'
+      ...
+    # Subtest: requires an approval reference when elevated execution approval is asserted
+    ok 5 - requires an approval reference when elevated execution approval is asserted
+      ---
+      duration_ms: 0.389596
+      type: 'test'
+      ...
+    # Subtest: rejects default-branch or unsafe branch targets
+    ok 6 - rejects default-branch or unsafe branch targets
+      ---
+      duration_ms: 0.398821
+      type: 'test'
+      ...
+    # Subtest: rejects unsafe worktree roots
+    ok 7 - rejects unsafe worktree roots
+      ---
+      duration_ms: 0.400114
+      type: 'test'
+      ...
+    # Subtest: guards changed paths against immutable and out-of-scope paths
+    ok 8 - guards changed paths against immutable and out-of-scope paths
+      ---
+      duration_ms: 1.589217
+      type: 'test'
+      ...
+    # Subtest: does not prepare branches for draft or superseded plans
+    ok 9 - does not prepare branches for draft or superseded plans
+      ---
+      duration_ms: 0.491443
+      type: 'test'
+      ...
+    # Subtest: rejects malformed plan-like inputs before branch derivation
+    ok 10 - rejects malformed plan-like inputs before branch derivation
+      ---
+      duration_ms: 0.938858
+      type: 'test'
+      ...
+    1..10
+ok 2 - T018 branch/worktree manager
+  ---
+  duration_ms: 15.998709
+  type: 'suite'
+  ...
+1..2
+# tests 21
+# suites 2
+# pass 21
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 186.176315
+[exit 0]
+\n$ node --test --test-force-exit packages/planner/tests/*.test.mjs
+TAP version 13
+# Subtest: normalizes labels deterministically
+ok 1 - normalizes labels deterministically
+  ---
+  duration_ms: 52.914868
+  type: 'test'
+  ...
+# Subtest: forge:auto docs issue becomes an automatic normalized task candidate
+ok 2 - forge:auto docs issue becomes an automatic normalized task candidate
+  ---
+  duration_ms: 2.103289
+  type: 'test'
+  ...
+# Subtest: issue without forge:auto is classified but ignored for automation
+ok 3 - issue without forge:auto is classified but ignored for automation
+  ---
+  duration_ms: 0.401453
+  type: 'test'
+  ...
+# Subtest: classifies at least four stable intake categories
+ok 4 - classifies at least four stable intake categories
+  ---
+  duration_ms: 0.904405
+  type: 'test'
+  ...
+# Subtest: security issue with forge:auto escalates instead of becoming an auto target
+ok 5 - security issue with forge:auto escalates instead of becoming an auto target
+  ---
+  duration_ms: 0.420827
+  type: 'test'
+  ...
+# Subtest: workflow and permission issues escalate as elevated governance work
+ok 6 - workflow and permission issues escalate as elevated governance work
+  ---
+  duration_ms: 0.478046
+  type: 'test'
+  ...
+# Subtest: explicit block labels and bypass requests block intake
+ok 7 - explicit block labels and bypass requests block intake
+  ---
+  duration_ms: 0.49264
+  type: 'test'
+  ...
+# Subtest: issue comments can classify when the parent issue has forge:auto
+ok 8 - issue comments can classify when the parent issue has forge:auto
+  ---
+  duration_ms: 0.370289
+  type: 'test'
+  ...
+# Subtest: failed CI alert is classified but not an automatic target without forge:auto
+ok 9 - failed CI alert is classified but not an automatic target without forge:auto
+  ---
+  duration_ms: 0.579025
+  type: 'test'
+  ...
+# Subtest: successful CI alert is ignored before planning
+ok 10 - successful CI alert is ignored before planning
+  ---
+  duration_ms: 2.165204
+  type: 'test'
+  ...
+# Subtest: broad forge:auto requests are blocked to preserve one-task-one-PR
+ok 11 - broad forge:auto requests are blocked to preserve one-task-one-PR
+  ---
+  duration_ms: 0.387869
+  type: 'test'
+  ...
+# Subtest: creates one deterministic Plan Spec from one accepted issue candidate
+ok 12 - creates one deterministic Plan Spec from one accepted issue candidate
+  ---
+  duration_ms: 16.705273
+  type: 'test'
+  ...
+# Subtest: acceptance criteria are required and machine-checkable
+ok 13 - acceptance criteria are required and machine-checkable
+  ---
+  duration_ms: 1.34214
+  type: 'test'
+  ...
+# Subtest: scope contract requires mutable paths and explicit out-of-scope boundaries
+ok 14 - scope contract requires mutable paths and explicit out-of-scope boundaries
+  ---
+  duration_ms: 0.783008
+  type: 'test'
+  ...
+# Subtest: mutable paths cannot overlap immutable governance paths
+ok 15 - mutable paths cannot overlap immutable governance paths
+  ---
+  duration_ms: 1.969273
+  type: 'test'
+  ...
+# Subtest: approval link blocks elevated class plans before execution
+ok 16 - approval link blocks elevated class plans before execution
+  ---
+  duration_ms: 0.790667
+  type: 'test'
+  ...
+# Subtest: planner runtime turns one forge:auto docs issue into one validated Plan Spec
+ok 17 - planner runtime turns one forge:auto docs issue into one validated Plan Spec
+  ---
+  duration_ms: 17.471234
+  type: 'test'
+  ...
+# Subtest: planner runtime ignores issues without the forge:auto label
+ok 18 - planner runtime ignores issues without the forge:auto label
+  ---
+  duration_ms: 0.584624
+  type: 'test'
+  ...
+# Subtest: planner runtime escalates security, workflow, and policy issues before plan creation
+ok 19 - planner runtime escalates security, workflow, and policy issues before plan creation
+  ---
+  duration_ms: 1.003673
+  type: 'test'
+  ...
+# Subtest: planner runtime blocks broad forge:auto requests
+ok 20 - planner runtime blocks broad forge:auto requests
+  ---
+  duration_ms: 0.436113
+  type: 'test'
+  ...
+# Subtest: planner runtime accepts a direct normalized task candidate deterministically
+ok 21 - planner runtime accepts a direct normalized task candidate deterministically
+  ---
+  duration_ms: 4.309981
+  type: 'test'
+  ...
+# Subtest: planner runtime rejects invalid payloads without creating a plan
+ok 22 - planner runtime rejects invalid payloads without creating a plan
+  ---
+  duration_ms: 0.248359
+  type: 'test'
+  ...
+# Subtest: planner runtime exposes bounded context and output contracts
+ok 23 - planner runtime exposes bounded context and output contracts
+  ---
+  duration_ms: 0.239523
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 211.617128
+[exit 0]
+\n$ node --check packages/forge-demo/dist/run.js
+[exit 0]
+\n$ node --check packages/forge-demo/dist/index.js
+[exit 0]
+\n$ node --check packages/rate-governor/dist/run.js
+[exit 0]
+\n$ node --check packages/approval-checkpoint/dist/run.js
+[exit 0]
+\n$ node --check packages/github-pr-adapter/dist/run.js
+[exit 0]
+\n$ node --check packages/pr-composer/dist/run.js
+[exit 0]
+\n$ node --check packages/auditor/dist/run.js
+[exit 0]
+\n$ node --check packages/executor/dist/index.js
+[exit 0]
+\n$ node --check packages/planner/dist/run.js
+[exit 0]
+\n$ node --test --test-force-exit packages/auditor/tests/audit.test.mjs packages/auditor/tests/run.test.mjs
+TAP version 13
+# Subtest: complete docs evidence produces a passed audit report and allows later PR composition
+ok 1 - complete docs evidence produces a passed audit report and allows later PR composition
+  ---
+  duration_ms: 27.70146
+  type: 'test'
+  ...
+# Subtest: missing sandbox observed output blocks audit instead of guessing
+ok 2 - missing sandbox observed output blocks audit instead of guessing
+  ---
+  duration_ms: 2.988127
+  type: 'test'
+  ...
+# Subtest: mismatched plan/worktree/sandbox chain is invalid
+ok 3 - mismatched plan/worktree/sandbox chain is invalid
+  ---
+  duration_ms: 4.104079
+  type: 'test'
+  ...
+# Subtest: changed path outside mutable scope fails audit
+ok 4 - changed path outside mutable scope fails audit
+  ---
+  duration_ms: 1.779469
+  type: 'test'
+  ...
+# Subtest: immutable governance path change fails audit
+ok 5 - immutable governance path change fails audit
+  ---
+  duration_ms: 1.61567
+  type: 'test'
+  ...
+# Subtest: missing required artifact fails audit
+ok 6 - missing required artifact fails audit
+  ---
+  duration_ms: 1.790984
+  type: 'test'
+  ...
+# Subtest: undeclared artifact fails audit
+ok 7 - undeclared artifact fails audit
+  ---
+  duration_ms: 1.399412
+  type: 'test'
+  ...
+# Subtest: undeclared observed command id fails audit
+ok 8 - undeclared observed command id fails audit
+  ---
+  duration_ms: 1.633051
+  type: 'test'
+  ...
+# Subtest: secret-looking observed environment fails audit
+ok 9 - secret-looking observed environment fails audit
+  ---
+  duration_ms: 3.197401
+  type: 'test'
+  ...
+# Subtest: command acceptance criteria pass with explicit command evidence and preserve human merge gate
+ok 10 - command acceptance criteria pass with explicit command evidence and preserve human merge gate
+  ---
+  duration_ms: 2.462337
+  type: 'test'
+  ...
+# Subtest: command acceptance criteria fail when command exits non-zero
+ok 11 - command acceptance criteria fail when command exits non-zero
+  ---
+  duration_ms: 2.044074
+  type: 'test'
+  ...
+# Subtest: validator rejects malformed audit report guard mutations
+ok 12 - validator rejects malformed audit report guard mutations
+  ---
+  duration_ms: 0.99584
+  type: 'test'
+  ...
+# Subtest: T023 public validators and contract expose auditor-only boundary
+ok 13 - T023 public validators and contract expose auditor-only boundary
+  ---
+  duration_ms: 0.690797
+  type: 'test'
+  ...
+# Subtest: T023 auditor runtime
+    # Subtest: declares an independent audit-only contract
+    ok 1 - declares an independent audit-only contract
+      ---
+      duration_ms: 1.389488
+      type: 'test'
+      ...
+    # Subtest: passes one valid plan/worktree/sandbox/output chain and emits a validated audit result
+    ok 2 - passes one valid plan/worktree/sandbox/output chain and emits a validated audit result
+      ---
+      duration_ms: 14.364862
+      type: 'test'
+      ...
+    # Subtest: blocks PR composition when sandbox observed output is missing
+    ok 3 - blocks PR composition when sandbox observed output is missing
+      ---
+      duration_ms: 2.724861
+      type: 'test'
+      ...
+    # Subtest: invalidates mismatched plan/worktree/sandbox identities before PR composition
+    ok 4 - invalidates mismatched plan/worktree/sandbox identities before PR composition
+      ---
+      duration_ms: 3.144711
+      type: 'test'
+      ...
+    # Subtest: fails when sandbox output touches immutable or out-of-scope paths
+    ok 5 - fails when sandbox output touches immutable or out-of-scope paths
+      ---
+      duration_ms: 1.732168
+      type: 'test'
+      ...
+    # Subtest: fails missing required artifacts and undeclared artifact output
+    ok 6 - fails missing required artifacts and undeclared artifact output
+      ---
+      duration_ms: 1.818153
+      type: 'test'
+      ...
+    # Subtest: fails when observed output exposes secret-looking environment data
+    ok 7 - fails when observed output exposes secret-looking environment data
+      ---
+      duration_ms: 1.700774
+      type: 'test'
+      ...
+    # Subtest: invalidates approval class rewrites between plan and sandbox request
+    ok 8 - invalidates approval class rewrites between plan and sandbox request
+      ---
+      duration_ms: 1.43005
+      type: 'test'
+      ...
+    # Subtest: rejects malformed audit result objects
+    ok 9 - rejects malformed audit result objects
+      ---
+      duration_ms: 0.459857
+      type: 'test'
+      ...
+    1..9
+ok 14 - T023 auditor runtime
+  ---
+  duration_ms: 30.458125
+  type: 'suite'
+  ...
+1..14
+# tests 22
+# suites 1
+# pass 22
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 223.213518
+[exit 0]

@@ -1,0 +1,2471 @@
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/.forge/README.md /mnt/data/fr_t028/ForgeRoot/.forge/README.md
+--- /mnt/data/fr_t028_base2/ForgeRoot/.forge/README.md	2026-04-19 00:52:23.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/.forge/README.md	2026-04-19 01:39:57.750961256 +0000
+@@ -21,6 +21,7 @@
+ - `packages/github-pr-adapter/src/run.ts` defines the T025 GitHub PR creation request manifest schema and adapter runtime.
+ - `packages/approval-checkpoint/src/run.ts` defines the T026 trusted transport authorization schema and approval checkpoint runtime.
+ - `packages/rate-governor/src/run.ts` defines the T027 rate-governed dispatch decision schema and queue runtime.
++- `packages/forge-demo/src/run.ts` defines the T028 end-to-end forged PR demo manifest chain.
+ - `docs/specs/t003-validation-fixture.yaml` records the minimum assertions that later schema and parser work should validate.
+ 
+ Current safety boundary:
+@@ -36,6 +37,7 @@
+ - T025 may prepare a GitHub App PR creation request only; it must not perform network transport by itself, merge, approve, persist tokens, mutate policies/workflows, update memory, or federate.
+ - T026 may authorize, hold, quarantine, or invalidate trusted transport only; it must not call GitHub, create PRs, approve, merge, self-approve, persist tokens, mutate policies/workflows, update memory, or federate.
+ - T027 may queue, delay, block, or invalidate trusted transport dispatch only; it must not call GitHub, create PRs, approve, merge, persist tokens, bypass rate limits, update memory, or federate.
++- T028 may validate and package the Phase 1 manifest chain only; it must not call GitHub, create PRs, execute commands, approve, merge, persist tokens, update memory, or federate.
+ 
+ Still intentionally deferred:
+ 
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/README.md /mnt/data/fr_t028/ForgeRoot/README.md
+--- /mnt/data/fr_t028_base2/ForgeRoot/README.md	2026-04-19 00:52:23.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/README.md	2026-04-19 01:40:05.730078930 +0000
+@@ -37,6 +37,7 @@
+ - T025 — deterministic GitHub App PR creation request adapter
+ - T026 — deterministic approval checkpoint and trusted transport authorization manifest
+ - T027 — deterministic rate governor queue and dispatch manifest
++- T028 — deterministic end-to-end forged PR demo manifest chain
+ 
+ ## Repo layout
+ 
+@@ -65,6 +66,7 @@
+   github-pr-adapter/
+   approval-checkpoint/
+   rate-governor/
++  forge-demo/
+ labs/
+ docs/
+   specs/
+@@ -87,8 +89,9 @@
+ 8. `packages/github-pr-adapter/src/run.ts` consumes one PR composition manifest and a GitHub App installation context, then emits one bounded PR creation request manifest for a trusted transport layer.
+ 9. `packages/approval-checkpoint/src/run.ts` consumes one GitHub PR creation request manifest and emits a trusted transport authorization only when runtime, rate, source, risk, and human approval gates pass.
+ 10. `packages/rate-governor/src/run.ts` consumes one trusted transport authorization and emits a queued / delayed / blocked dispatch decision while preserving one-repo mutating lane, write spacing, content-create budget, PR-create budget, retry-after, and cooldown controls.
++11. `packages/forge-demo/src/run.ts` wires the Phase 1 manifests from one `forge:auto` issue-like input through the rate-governed dispatch manifest without performing live transport.
+ 
+-The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request. The T023 auditor runtime validates existing evidence only; it does not execute commands, edit files, compose PRs, mutate GitHub, approve merges, update memory, or federate. The T024 PR composer prepares review text and metadata only; it does not call GitHub, create the pull request, approve, merge, update memory, or federate. The T025 GitHub PR adapter prepares GitHub App REST request metadata only; it does not perform network transport by itself, merge, approve, persist tokens, update memory, or federate. The T026 approval checkpoint emits authorization manifests only; it does not call GitHub, create the PR, merge, approve, self-approve, persist tokens, update memory, or federate. The T027 rate governor emits queue/dispatch manifests only; it does not call GitHub, create the PR, merge, approve, persist tokens, bypass rate limits, update memory, or federate.
++The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request. The T023 auditor runtime validates existing evidence only; it does not execute commands, edit files, compose PRs, mutate GitHub, approve merges, update memory, or federate. The T024 PR composer prepares review text and metadata only; it does not call GitHub, create the pull request, approve, merge, update memory, or federate. The T025 GitHub PR adapter prepares GitHub App REST request metadata only; it does not perform network transport by itself, merge, approve, persist tokens, update memory, or federate. The T026 approval checkpoint emits authorization manifests only; it does not call GitHub, create the PR, merge, approve, self-approve, persist tokens, update memory, or federate. The T027 rate governor emits queue/dispatch manifests only; it does not call GitHub, create the PR, merge, approve, persist tokens, bypass rate limits, update memory, or federate. The T028 forge demo only validates and packages the manifest chain; it does not call GitHub, create a real PR, execute commands, merge, approve, update memory, or federate.
+ 
+ ## Safety defaults
+ 
+@@ -98,4 +101,4 @@
+ - Workflow, policy, permission, and network changes are elevated.
+ - Kill switch can close the mutating lane in one operation.
+ - Event Inbox dedupes GitHub delivery IDs before downstream processing.
+-- One task becomes one plan, one branch/worktree manifest, one sandbox execution request, one audit result, one PR composition manifest, one GitHub PR creation request manifest, one trusted transport authorization manifest, one rate-governed dispatch manifest, and later one PR.
++- One task becomes one plan, one branch/worktree manifest, one sandbox execution request, one audit result, one PR composition manifest, one GitHub PR creation request manifest, one trusted transport authorization manifest, one rate-governed dispatch manifest, one end-to-end demo manifest, and later one PR.
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/docs/README.md /mnt/data/fr_t028/ForgeRoot/docs/README.md
+--- /mnt/data/fr_t028_base2/ForgeRoot/docs/README.md	2026-04-19 00:52:23.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/docs/README.md	2026-04-19 01:43:15.466106381 +0000
+@@ -18,6 +18,9 @@
+ - `ops/thread-handoff-after-t025.md` — handoff summary for starting T026 approval checkpoint
+ - `ops/thread-handoff-after-t026.md` — handoff summary for starting T027 rate governor queue
+ - `ops/thread-handoff-after-t027.md` — handoff summary for starting T028 end-to-end forged PR demo
++- `ops/t028-e2e-forged-pr-demo.md` — T028 end-to-end demo guide
++- `ops/examples/t028-forged-pr-example.md` — reviewable T028 forged PR example
++- `ops/thread-handoff-after-t028.md` — handoff summary for starting the next safety-floor task
+ - `specs/forge-v1.md` — T004 `.forge` v1 specification seed
+ - `specs/issue-intake.md` — T015 deterministic issue intake classifier
+ - `specs/plan-spec.md` — T016 one-task-one-PR Plan Spec DSL
+@@ -38,3 +41,5 @@
+ - `specs/t025-validation-report.md` — T025 GitHub PR adapter report
+ - `specs/t026-validation-report.md` — T026 approval checkpoint report
+ - `specs/t027-validation-report.md` — T027 rate governor queue report
++- `specs/t028-validation-report.md` — T028 end-to-end forged PR demo report
++- `specs/fixtures/forge-demo/valid/t028-demo-manifest.json` — compact valid T028 demo fixture
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/docs/ops/examples/t028-forged-pr-example.md /mnt/data/fr_t028/ForgeRoot/docs/ops/examples/t028-forged-pr-example.md
+--- /mnt/data/fr_t028_base2/ForgeRoot/docs/ops/examples/t028-forged-pr-example.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/docs/ops/examples/t028-forged-pr-example.md	2026-04-19 01:43:15.439870806 +0000
+@@ -0,0 +1,58 @@
++# T028 forged PR example
++
++This is the reviewable example produced by the T028 deterministic demo harness. It is not a live GitHub pull request. It is the PR composition portion of the manifest chain that would be handed to trusted transport after approval checkpoint and rate governor processing.
++
++## Source issue
++
++```text
++repository: hiroshitanaka-creator/ForgeRoot
++issue:      https://github.com/hiroshitanaka-creator/ForgeRoot/issues/28
++labels:     forge:auto, docs, phase:P1, class:A, risk:low
++title:      docs: add T028 forged PR demo note
++```
++
++## Derived PR
++
++```text
++title: [ForgeRoot] docs: add T028 forged PR demo note
++base:  main
++head:  forge/p1/issue-28-docs-add-t028-forged-pr-demo-note
++```
++
++## Review gate
++
++```text
++approval class: A
++risk:           low
++human review:   preserved before merge
++```
++
++## Acceptance criteria excerpt
++
++The PR body generated by `packages/pr-composer` includes machine-checkable acceptance criteria from the Plan Spec. The T028 harness asserts that the body contains both:
++
++- a risk / approval summary under `### Review gate`
++- acceptance criteria under `### Acceptance criteria`
++
++## Manifest chain
++
++```text
++planner:              planned
++worktree_manager:     ready
++sandbox_harness:      ready
++auditor:              passed
++pr_composer:          ready
++github_pr_adapter:    ready
++approval_checkpoint:  authorized
++rate_governor:        queued
++```
++
++## Demo-only guard
++
++No live GitHub API call was performed. No real pull request was opened. No merge, approval execution, memory update, evaluation update, or federation behavior occurred.
++
++A compact machine-readable fixture is stored at:
++
++```text
++docs/specs/fixtures/forge-demo/valid/t028-demo-manifest.json
++```
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/docs/ops/t028-e2e-forged-pr-demo.md /mnt/data/fr_t028/ForgeRoot/docs/ops/t028-e2e-forged-pr-demo.md
+--- /mnt/data/fr_t028_base2/ForgeRoot/docs/ops/t028-e2e-forged-pr-demo.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/docs/ops/t028-e2e-forged-pr-demo.md	2026-04-19 01:39:48.196070235 +0000
+@@ -0,0 +1,138 @@
++# T028 end-to-end forged PR demo
++
++Date: 2026-04-18 JST
++Status: implemented as a deterministic manifest-only demo harness
++
++## Goal
++
++T028 demonstrates the first Phase 1 forging loop as a single deterministic manifest chain from one `forge:auto` issue-like input to one rate-governed trusted transport dispatch manifest.
++
++The demo proves wiring, scope preservation, and reviewability. It does not perform live GitHub transport and does not create a real pull request.
++
++## Chain
++
++```text
++issue-like input
++  -> Planner runtime
++  -> branch/worktree manager
++  -> executor sandbox request harness
++  -> Auditor runtime
++  -> PR composer
++  -> GitHub PR adapter
++  -> approval checkpoint
++  -> rate governor queue
++```
++
++## Primary API
++
++```ts
++runEndToEndForgedPrDemo(input)
++validateEndToEndForgedPrDemo(result)
++E2E_FORGED_PR_DEMO_CONTRACT
++```
++
++Compatibility aliases:
++
++```ts
++runForgeDemo(input)
++runEndToEndDemo(input)
++runE2EForgedPrDemo(input)
++runT028Demo(input)
++validateForgeDemo(result)
++validateE2EForgedPrDemo(result)
++validateT028Demo(result)
++```
++
++## Default demo input
++
++When no input is provided, the harness normalizes a single issue-like record:
++
++```text
++repository: hiroshitanaka-creator/ForgeRoot
++issue:      28
++labels:     forge:auto, docs, phase:P1, class:A, risk:low
++scope:      one bounded documentation note
++```
++
++The issue is intentionally Class A / low risk so the approval checkpoint can authorize transport without extra human approval records while still preserving merge-time human review gates.
++
++## Output
++
++A ready demo result contains:
++
++- one Plan Spec
++- one branch/worktree manifest
++- one sandbox execution request
++- one simulated sandbox observed output
++- one independent audit result
++- one PR composition manifest
++- one GitHub PR creation request manifest
++- one trusted transport authorization manifest
++- one rate-governed dispatch manifest
++
++The manifest also records invariant flags:
++
++- `one_task_one_pr: true`
++- `source_issue_count: 1`
++- `no_default_branch_write: true`
++- PR body contains risk summary
++- PR body contains acceptance criteria
++- approval gate preserved
++- live GitHub transport not performed
++- real pull request not created
++- merge / approval not executed
++- memory / evaluation not updated
++- federation not performed
++
++## Safety boundary
++
++T028 is a demo harness. It may validate the deterministic chain, but it must not:
++
++- call GitHub APIs
++- create a real pull request
++- approve or merge
++- execute commands
++- edit files as part of the harness
++- persist token material
++- bypass rate governance
++- mutate workflows or policies
++- update memory or evaluation state
++- perform federation or self-evolution
++
++## Failure and delay cases
++
++The demo preserves the stop points from the underlying runtimes:
++
++- missing `forge:auto` label stops at Planner
++- mutable-path violation stops before Auditor
++- failed audit stops before PR composition
++- missing Class B/C human approval stops at approval checkpoint
++- exhausted content-create or PR-create budget returns delayed before transport
++- halted / quarantine runtime returns quarantined before transport
++
++## Example ready summary
++
++```json
++{
++  "status": "ready",
++  "decision": "demo_chain_ready",
++  "summary": {
++    "source_issue": "https://github.com/hiroshitanaka-creator/ForgeRoot/issues/28",
++    "repository": "hiroshitanaka-creator/ForgeRoot",
++    "approval_class": "A",
++    "risk": "low",
++    "rate_governor_status": "queued"
++  },
++  "invariants": {
++    "one_task_one_pr": true,
++    "source_issue_count": 1,
++    "no_default_branch_write": true,
++    "live_github_transport_performed": false,
++    "real_pull_request_created": false
++  }
++}
++```
++
++## Out of scope
++
++The next trusted transport worker is still intentionally absent. T028 stops at the rate governor dispatch manifest.
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/docs/ops/thread-handoff-after-t028.md /mnt/data/fr_t028/ForgeRoot/docs/ops/thread-handoff-after-t028.md
+--- /mnt/data/fr_t028_base2/ForgeRoot/docs/ops/thread-handoff-after-t028.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/docs/ops/thread-handoff-after-t028.md	2026-04-19 01:43:27.028942753 +0000
+@@ -0,0 +1,107 @@
++# ForgeRoot Thread Handoff: after T028
++
++Date: 2026-04-18 JST
++Recommended next task: **T040 SARIF bridge**
++
++## Completed in T028
++
++T028 added the first deterministic end-to-end forged PR demo harness for the Phase 1 manifest chain.
++
++Main deliverables:
++
++- `packages/forge-demo/src/run.ts`
++- `packages/forge-demo/tests/run.test.mjs`
++- `packages/forge-demo/README.md`
++- `docs/ops/examples/t028-forged-pr-example.md`
++- `docs/specs/fixtures/forge-demo/valid/t028-demo-manifest.json`
++- `docs/ops/t028-e2e-forged-pr-demo.md`
++- `docs/specs/t028-validation-report.md`
++
++Primary API:
++
++```ts
++runEndToEndForgedPrDemo(input)
++validateEndToEndForgedPrDemo(result)
++E2E_FORGED_PR_DEMO_CONTRACT
++```
++
++Compatibility aliases:
++
++```ts
++runForgeDemo(input)
++runEndToEndDemo(input)
++runE2EForgedPrDemo(input)
++runT028Demo(input)
++validateForgeDemo(result)
++validateE2EForgedPrDemo(result)
++validateT028Demo(result)
++```
++
++## Current Phase 1 chain
++
++T028 wires the deterministic chain through:
++
++1. T015 intake classifier
++2. T016 Plan Spec DSL
++3. T017 planner runtime
++4. T018 branch/worktree manager
++5. T019 executor sandbox request harness
++6. T023 auditor runtime
++7. T024 PR composer
++8. T025 GitHub PR adapter
++9. T026 approval checkpoint
++10. T027 rate governor queue
++11. T028 end-to-end forged PR demo manifest
++
++## T028 boundary
++
++T028 demonstrates chain integrity only. It does not execute trusted transport.
++
++Preserved guards:
++
++- one issue produces one plan
++- one plan produces one worktree manifest
++- one worktree manifest produces one sandbox request
++- sandbox output remains inside mutable paths
++- audit must pass before PR composition
++- PR body carries risk summary and acceptance criteria
++- GitHub PR adapter produces request metadata only
++- approval checkpoint authorizes only trusted transport metadata
++- rate governor emits queue/delay/block dispatch only
++- live GitHub transport is not performed
++- no real pull request is created
++- no merge or approval execution occurs
++- no memory/evaluation update occurs
++- no federation behavior occurs
++
++## Validation summary
++
++- Forge demo tests: 8 pass / 0 fail
++- Rate governor regression tests: 10 pass / 0 fail
++- Approval checkpoint regression tests: 10 pass / 0 fail
++- GitHub PR adapter regression tests: 10 pass / 0 fail
++- PR composer regression tests: 8 pass / 0 fail
++- Auditor regression tests: 22 pass / 0 fail
++- Executor regression tests: 21 pass / 0 fail
++- Planner regression tests: 23 pass / 0 fail
++- Node syntax checks: pass
++
++## Recommended next boundary
++
++T040 SARIF bridge is the recommended next target from the safety floor. Before implementing it, confirm the exact issue scope from the canonical task source because the current uploaded `03_issue.md` only fully spells out T001, T003-T008, T014-T017, and T028.
++
++Likely T040 boundary:
++
++- consume scan/audit findings as structured SARIF-like evidence
++- normalize security findings for later security gates
++- avoid direct GitHub mutation
++- avoid changing workflows, policies, or repository rulesets
++- keep findings reviewable and replayable
++
++Out of scope until separately introduced:
++
++- live code scanning upload transport
++- workflow mutation
++- security gate enforcement that blocks merges
++- memory/evaluation updates
++- self-evolution or federation
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/docs/specs/fixtures/forge-demo/valid/t028-demo-manifest.json /mnt/data/fr_t028/ForgeRoot/docs/specs/fixtures/forge-demo/valid/t028-demo-manifest.json
+--- /mnt/data/fr_t028_base2/ForgeRoot/docs/specs/fixtures/forge-demo/valid/t028-demo-manifest.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/docs/specs/fixtures/forge-demo/valid/t028-demo-manifest.json	2026-04-19 01:43:15.418138694 +0000
+@@ -0,0 +1,89 @@
++{
++  "manifest_version": 1,
++  "schema_ref": "urn:forgeroot:e2e-forged-pr-demo:v1",
++  "demo_id": "forge-demo://t028-640f635964df",
++  "created_at": "2026-04-18T00:00:00Z",
++  "status": "ready",
++  "decision": "demo_chain_ready",
++  "summary": {
++    "source_issue": "https://github.com/hiroshitanaka-creator/ForgeRoot/issues/28",
++    "repository": "hiroshitanaka-creator/ForgeRoot",
++    "plan_id": "forge-plan://github/hiroshitanaka-creator/forgeroot/issue/28",
++    "worktree_manifest_id": "forge-worktree://github-hiroshitanaka-creator-forgeroot-issue-28-01i7ctaw",
++    "sandbox_request_id": "forge-sandbox://github-hiroshitanaka-creator-forgeroot-issue-28-01m19lxq",
++    "audit_id": "forge-audit://forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-e1d7cebf",
++    "composition_id": "forge-pr://forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924",
++    "github_request_id": "forge-github-pr://forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924-c080317b",
++    "authorization_id": "forge-approval://forge-github-pr-forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924-c08-860c3376",
++    "dispatch_id": "forge-rate-governor://forge-github-pr-forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-774fbca0b834",
++    "pr_title": "[ForgeRoot] docs: add T028 forged PR demo note",
++    "head": "forge/p1/issue-28-docs-add-t028-forged-pr-demo-note",
++    "base": "main",
++    "approval_class": "A",
++    "risk": "low",
++    "rate_governor_status": "queued"
++  },
++  "invariants": {
++    "one_task_one_pr": true,
++    "source_issue_count": 1,
++    "no_default_branch_write": true,
++    "pr_body_contains_risk_summary": true,
++    "pr_body_contains_acceptance_criteria": true,
++    "approval_gate_preserved": true,
++    "live_github_transport_performed": false,
++    "real_pull_request_created": false,
++    "merge_or_approval_executed": false,
++    "memory_or_evaluation_updated": false,
++    "federation_performed": false
++  },
++  "steps": [
++    {
++      "name": "planner",
++      "status": "planned",
++      "produced": "plan_spec",
++      "id": "forge-plan://github/hiroshitanaka-creator/forgeroot/issue/28"
++    },
++    {
++      "name": "worktree_manager",
++      "status": "ready",
++      "produced": "branch_worktree_plan",
++      "id": "forge-worktree://github-hiroshitanaka-creator-forgeroot-issue-28-01i7ctaw"
++    },
++    {
++      "name": "sandbox_harness",
++      "status": "ready",
++      "produced": "sandbox_execution_request",
++      "id": "forge-sandbox://github-hiroshitanaka-creator-forgeroot-issue-28-01m19lxq"
++    },
++    {
++      "name": "auditor",
++      "status": "passed",
++      "produced": "audit_result",
++      "id": "forge-audit://forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-e1d7cebf"
++    },
++    {
++      "name": "pr_composer",
++      "status": "ready",
++      "produced": "pull_request_composition",
++      "id": "forge-pr://forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924"
++    },
++    {
++      "name": "github_pr_adapter",
++      "status": "ready",
++      "produced": "github_pull_request_creation_request",
++      "id": "forge-github-pr://forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924-c080317b"
++    },
++    {
++      "name": "approval_checkpoint",
++      "status": "authorized",
++      "produced": "trusted_transport_authorization",
++      "id": "forge-approval://forge-github-pr-forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924-c08-860c3376"
++    },
++    {
++      "name": "rate_governor",
++      "status": "queued",
++      "produced": "rate_governor_dispatch",
++      "id": "forge-rate-governor://forge-github-pr-forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-774fbca0b834"
++    }
++  ]
++}
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/docs/specs/t028-validation-report.md /mnt/data/fr_t028/ForgeRoot/docs/specs/t028-validation-report.md
+--- /mnt/data/fr_t028_base2/ForgeRoot/docs/specs/t028-validation-report.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/docs/specs/t028-validation-report.md	2026-04-19 01:43:33.210134484 +0000
+@@ -0,0 +1,85 @@
++# T028 validation report — end-to-end forged PR demo
++
++Date: 2026-04-18 JST
++
++## Scope
++
++T028 adds `packages/forge-demo` as a deterministic, manifest-only end-to-end harness for the Phase 1 forging loop.
++
++The harness verifies that one `forge:auto` issue-like input can move through:
++
++```text
++Planner -> Worktree manager -> Sandbox request -> Auditor -> PR composer -> GitHub PR adapter -> Approval checkpoint -> Rate governor
++```
++
++It stops at rate-governed dispatch and does not perform live GitHub transport.
++
++## Added validation
++
++Associated review artifacts:
++
++- `docs/ops/t028-e2e-forged-pr-demo.md`
++- `docs/ops/examples/t028-forged-pr-example.md`
++- `docs/specs/fixtures/forge-demo/valid/t028-demo-manifest.json`
++
++New T028 tests cover:
++
++- contract forbids live GitHub transport, real PR creation, merge, approval execution, memory/evaluation updates, federation, and self-evolution
++- default Class A issue produces a ready full manifest chain
++- PR composition includes risk summary and acceptance criteria
++- issue without `forge:auto` stops at Planner
++- simulated sandbox output outside mutable scope stops before Auditor
++- exhausted content-create budget returns delayed before transport
++- Class B requires human approval before authorization
++- alias exports and validators remain deterministic
++
++## Commands run
++
++```bash
++node --test --test-force-exit packages/forge-demo/tests/run.test.mjs
++node --test --test-force-exit packages/rate-governor/tests/run.test.mjs
++node --test --test-force-exit packages/approval-checkpoint/tests/run.test.mjs
++node --test --test-force-exit packages/github-pr-adapter/tests/run.test.mjs
++node --test --test-force-exit packages/pr-composer/tests/run.test.mjs
++node --test --test-force-exit packages/auditor/tests/audit.test.mjs packages/auditor/tests/run.test.mjs
++node --test --test-force-exit packages/executor/tests/*.test.mjs
++node --test --test-force-exit packages/planner/tests/*.test.mjs
++node --check packages/forge-demo/dist/run.js
++node --check packages/forge-demo/dist/index.js
++node --check packages/rate-governor/dist/run.js
++node --check packages/approval-checkpoint/dist/run.js
++node --check packages/github-pr-adapter/dist/run.js
++node --check packages/pr-composer/dist/run.js
++node --check packages/auditor/dist/run.js
++node --check packages/executor/dist/index.js
++node --check packages/planner/dist/run.js
++```
++
++## Result summary
++
++- Forge demo tests: 8 pass / 0 fail
++- Rate governor regression tests: 10 pass / 0 fail
++- Approval checkpoint regression tests: 10 pass / 0 fail
++- GitHub PR adapter regression tests: 10 pass / 0 fail
++- PR composer regression tests: 8 pass / 0 fail
++- Auditor regression tests: 22 pass / 0 fail
++- Executor regression tests: 21 pass / 0 fail
++- Planner regression tests: 23 pass / 0 fail
++- Node syntax checks: pass
++
++## Notes
++
++The generated `dist/` files were refreshed for `packages/forge-demo`. As in the prior TypeScript package tasks, this sandbox can behave inconsistently around `tsc` process completion, so validation relies on generated `dist`, Node syntax checks, and runtime tests.
++
++## Boundary confirmation
++
++T028 did not add:
++
++- live GitHub API transport
++- real PR creation
++- merge or approval execution
++- file-editing executor implementation
++- real sandbox command execution
++- memory/evaluation update
++- workflow or policy mutation
++- federation behavior
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/README.md /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/README.md
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/README.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/README.md	2026-04-19 01:42:15.340508975 +0000
+@@ -0,0 +1,54 @@
++# @forgeroot/forge-demo
++
++T028 end-to-end forged PR demo harness.
++
++This package wires the deterministic Phase 1 ForgeRoot manifest chain from one `forge:auto` issue-like input through rate-governed dispatch:
++
++```text
++Planner -> Worktree manager -> Sandbox request -> Auditor -> PR composer -> GitHub PR adapter -> Approval checkpoint -> Rate governor
++```
++
++The harness is manifest-only. It does not execute commands, edit files, call GitHub, create a real pull request, merge, approve, update memory/evaluation state, or perform federation.
++
++## Primary API
++
++```ts
++runEndToEndForgedPrDemo(input)
++validateEndToEndForgedPrDemo(result)
++E2E_FORGED_PR_DEMO_CONTRACT
++```
++
++Compatibility aliases:
++
++```ts
++runForgeDemo(input)
++runEndToEndDemo(input)
++runE2EForgedPrDemo(input)
++runT028Demo(input)
++validateForgeDemo(result)
++validateE2EForgedPrDemo(result)
++validateT028Demo(result)
++```
++
++## Runtime outcomes
++
++- `ready` — one complete manifest chain exists through rate-governed dispatch.
++- `blocked` — a pre-transport gate stopped the chain.
++- `delayed` — rate governor delayed dispatch because lane/budget/cooldown conditions require waiting.
++- `quarantined` — approval checkpoint or runtime gate stopped unsafe transport.
++- `invalid` — malformed input or manifest chain.
++
++## Demo invariants
++
++A ready result must preserve:
++
++- one task / one plan / one PR scope
++- no default branch write
++- PR body includes risk summary
++- PR body includes acceptance criteria
++- approval gate remains visible
++- live GitHub transport is not performed
++- real pull request is not created
++- merge / approval is not executed
++- memory / evaluation is not updated
++- federation is not performed
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/index.d.ts /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/index.d.ts
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/index.d.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/index.d.ts	2026-04-19 01:40:14.551782286 +0000
+@@ -0,0 +1 @@
++export * from "./run.js";
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/index.js /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/index.js
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/index.js	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/index.js	2026-04-19 01:40:14.551313100 +0000
+@@ -0,0 +1,2 @@
++export * from "./run.js";
++//# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/index.js.map /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/index.js.map
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/index.js.map	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/index.js.map	2026-04-19 01:40:14.550483490 +0000
+@@ -0,0 +1 @@
++{"version":3,"file":"index.js","sourceRoot":"","sources":["../src/index.ts"],"names":[],"mappings":"AAAA,cAAc,UAAU,CAAC"}
+\ No newline at end of file
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/run.d.ts /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/run.d.ts
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/run.d.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/run.d.ts	2026-04-19 01:40:14.549199982 +0000
+@@ -0,0 +1,132 @@
++export declare const FORGE_DEMO_VERSION: 1;
++export declare const E2E_FORGED_PR_DEMO_SCHEMA_REF: "urn:forgeroot:e2e-forged-pr-demo:v1";
++export type ForgeDemoStatus = "ready" | "blocked" | "delayed" | "quarantined" | "invalid";
++export type ForgeDemoDecision = "demo_chain_ready" | "blocked_before_pr_transport" | "delayed_before_transport" | "quarantine_before_transport" | "invalid_demo_input_or_chain";
++export interface ForgeDemoIssueInput {
++    readonly sourceKind?: string;
++    readonly action?: string;
++    readonly repositoryFullName?: string;
++    readonly number?: number;
++    readonly url?: string;
++    readonly title?: string;
++    readonly body?: string;
++    readonly labels?: readonly string[];
++}
++export interface ForgeDemoInput {
++    readonly now?: string;
++    readonly issue?: ForgeDemoIssueInput;
++    readonly intake?: unknown;
++    readonly plannerInput?: unknown;
++    readonly defaultBranch?: string;
++    readonly worktreeRoot?: string;
++    readonly changedPaths?: readonly string[];
++    readonly sandboxOutput?: unknown;
++    readonly evidence?: unknown;
++    readonly installation?: unknown;
++    readonly runtime?: unknown;
++    readonly rateLimit?: unknown;
++    readonly rateState?: unknown;
++    readonly humanApproval?: unknown;
++    readonly humanApprovals?: readonly unknown[];
++    readonly labels?: readonly string[];
++    readonly reviewers?: readonly string[];
++    readonly teamReviewers?: readonly string[];
++    readonly draft?: boolean;
++    readonly dryRun?: boolean;
++    readonly idempotencyKey?: string;
++}
++export interface ForgeDemoStep {
++    readonly name: string;
++    readonly status: string;
++    readonly produced: string | null;
++    readonly id: string | null;
++}
++export interface ForgeDemoValidationIssue {
++    readonly path: string;
++    readonly code: string;
++    readonly message: string;
++}
++export interface ForgeDemoValidationResult {
++    readonly ok: boolean;
++    readonly issues: readonly ForgeDemoValidationIssue[];
++}
++export interface ForgeDemoResult {
++    readonly manifest_version: typeof FORGE_DEMO_VERSION;
++    readonly schema_ref: typeof E2E_FORGED_PR_DEMO_SCHEMA_REF;
++    readonly demo_id: string;
++    readonly created_at: string;
++    readonly status: ForgeDemoStatus;
++    readonly decision: ForgeDemoDecision;
++    readonly reasons: readonly string[];
++    readonly auditTrail: readonly string[];
++    readonly steps: readonly ForgeDemoStep[];
++    readonly summary: {
++        readonly source_issue: string | null;
++        readonly repository: string | null;
++        readonly plan_id: string | null;
++        readonly worktree_manifest_id: string | null;
++        readonly sandbox_request_id: string | null;
++        readonly audit_id: string | null;
++        readonly composition_id: string | null;
++        readonly github_request_id: string | null;
++        readonly authorization_id: string | null;
++        readonly dispatch_id: string | null;
++        readonly pr_title: string | null;
++        readonly head: string | null;
++        readonly base: string | null;
++        readonly approval_class: string | null;
++        readonly risk: string | null;
++        readonly rate_governor_status: string | null;
++    };
++    readonly invariants: {
++        readonly one_task_one_pr: boolean;
++        readonly source_issue_count: number | null;
++        readonly no_default_branch_write: boolean;
++        readonly pr_body_contains_risk_summary: boolean;
++        readonly pr_body_contains_acceptance_criteria: boolean;
++        readonly approval_gate_preserved: boolean;
++        readonly live_github_transport_performed: false;
++        readonly real_pull_request_created: false;
++        readonly merge_or_approval_executed: false;
++        readonly memory_or_evaluation_updated: false;
++        readonly federation_performed: false;
++    };
++    readonly chain: {
++        readonly planner?: unknown;
++        readonly plan?: unknown;
++        readonly worktreeResult?: unknown;
++        readonly worktreePlan?: unknown;
++        readonly sandboxResult?: unknown;
++        readonly sandboxRequest?: unknown;
++        readonly sandboxObservedOutput?: unknown;
++        readonly sandboxObservedValidation?: unknown;
++        readonly auditResult?: unknown;
++        readonly auditReport?: unknown;
++        readonly prComposerResult?: unknown;
++        readonly prComposition?: unknown;
++        readonly githubAdapterResult?: unknown;
++        readonly githubRequest?: unknown;
++        readonly approvalCheckpointResult?: unknown;
++        readonly transportAuthorization?: unknown;
++        readonly rateGovernorResult?: unknown;
++        readonly rateGovernorDispatch?: unknown;
++    };
++    readonly issues?: readonly ForgeDemoValidationIssue[];
++}
++export declare const E2E_FORGED_PR_DEMO_CONTRACT: {
++    readonly consumes: readonly ["forge_auto_issue_like_input", "planner_runtime", "branch_worktree_manager", "sandbox_execution_request", "sandbox_observed_output", "audit_result", "pull_request_composition", "github_pull_request_creation_request", "trusted_transport_authorization"];
++    readonly produces: readonly ["e2e_forged_pr_demo_manifest", "full_phase1_manifest_chain", "rate_governed_dispatch_manifest"];
++    readonly validates: readonly ["one_issue_to_one_plan", "one_plan_to_one_worktree_manifest", "one_worktree_to_one_sandbox_request", "sandbox_output_with_declared_artifacts", "passed_independent_audit", "reviewable_pr_composition_body", "github_app_pr_request_manifest", "approval_checkpoint_authorization", "rate_governor_dispatch"];
++    readonly forbids: readonly ["live_github_api_transport", "real_pull_request_creation", "merge_operation", "approval_execution", "default_branch_write", "file_editing_in_demo_harness", "command_execution_in_demo_harness", "token_material_or_token_persistence", "workflow_mutation", "policy_mutation", "memory_or_evaluation_updates", "network_or_federation_behavior", "self_evolution"];
++    readonly oneTaskOnePr: true;
++    readonly demoOnly: true;
++};
++export declare function runEndToEndForgedPrDemo(input?: ForgeDemoInput): ForgeDemoResult;
++export declare const runForgeDemo: typeof runEndToEndForgedPrDemo;
++export declare const runEndToEndDemo: typeof runEndToEndForgedPrDemo;
++export declare const runE2EForgedPrDemo: typeof runEndToEndForgedPrDemo;
++export declare const runT028Demo: typeof runEndToEndForgedPrDemo;
++export declare function validateEndToEndForgedPrDemo(value: unknown): ForgeDemoValidationResult;
++export declare const validateForgeDemo: typeof validateEndToEndForgedPrDemo;
++export declare const validateE2EForgedPrDemo: typeof validateEndToEndForgedPrDemo;
++export declare const validateT028Demo: typeof validateEndToEndForgedPrDemo;
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/run.js /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/run.js
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/run.js	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/run.js	2026-04-19 01:40:14.514044760 +0000
+@@ -0,0 +1,674 @@
++import { runPlanner, validatePlanSpec } from "../../planner/dist/index.js";
++import { createBranchWorktreePlan, createSandboxExecutionRequest, validateBranchWorktreePlan, validateSandboxExecutionRequest, validateSandboxObservedOutput, } from "../../executor/dist/index.js";
++import { runAuditor, validateAuditResult } from "../../auditor/dist/index.js";
++import { composePullRequest, validatePullRequestComposition } from "../../pr-composer/dist/index.js";
++import { prepareGitHubPullRequest, validateGitHubPullRequestCreationRequest } from "../../github-pr-adapter/dist/index.js";
++import { runApprovalCheckpoint, validateTransportAuthorization } from "../../approval-checkpoint/dist/index.js";
++import { runRateGovernor, validateRateGovernorDispatch } from "../../rate-governor/dist/index.js";
++export const FORGE_DEMO_VERSION = 1;
++export const E2E_FORGED_PR_DEMO_SCHEMA_REF = "urn:forgeroot:e2e-forged-pr-demo:v1";
++export const E2E_FORGED_PR_DEMO_CONTRACT = {
++    consumes: [
++        "forge_auto_issue_like_input",
++        "planner_runtime",
++        "branch_worktree_manager",
++        "sandbox_execution_request",
++        "sandbox_observed_output",
++        "audit_result",
++        "pull_request_composition",
++        "github_pull_request_creation_request",
++        "trusted_transport_authorization",
++    ],
++    produces: ["e2e_forged_pr_demo_manifest", "full_phase1_manifest_chain", "rate_governed_dispatch_manifest"],
++    validates: [
++        "one_issue_to_one_plan",
++        "one_plan_to_one_worktree_manifest",
++        "one_worktree_to_one_sandbox_request",
++        "sandbox_output_with_declared_artifacts",
++        "passed_independent_audit",
++        "reviewable_pr_composition_body",
++        "github_app_pr_request_manifest",
++        "approval_checkpoint_authorization",
++        "rate_governor_dispatch",
++    ],
++    forbids: [
++        "live_github_api_transport",
++        "real_pull_request_creation",
++        "merge_operation",
++        "approval_execution",
++        "default_branch_write",
++        "file_editing_in_demo_harness",
++        "command_execution_in_demo_harness",
++        "token_material_or_token_persistence",
++        "workflow_mutation",
++        "policy_mutation",
++        "memory_or_evaluation_updates",
++        "network_or_federation_behavior",
++        "self_evolution",
++    ],
++    oneTaskOnePr: true,
++    demoOnly: true,
++};
++const NOW = "2026-04-18T00:00:00Z";
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++export function runEndToEndForgedPrDemo(input = {}) {
++    const createdAt = resolveTimestamp(input.now, NOW);
++    if (createdAt === null)
++        return invalidBase("now_must_be_rfc3339_utc", input.now ?? "unknown");
++    const auditTrail = [
++        "e2e_forged_pr_demo:T028",
++        "contract:demo_manifest_only",
++        "contract:one_task_one_pr",
++        "contract:no_live_github_transport",
++        "contract:no_real_pull_request_creation",
++    ];
++    const plannerResult = runPlanner(resolvePlannerInput(input, createdAt));
++    if (plannerResult.status !== "planned" || plannerResult.plan === undefined) {
++        return stopResult({
++            createdAt,
++            status: plannerResult.status === "invalid" ? "invalid" : "blocked",
++            decision: plannerResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++            reasons: [`planner_${plannerResult.status}`, ...stringArray(plannerResult.reasons)],
++            auditTrail: [...auditTrail, ...stringArray(plannerResult.auditTrail), "chain:stopped_at_planner"],
++            chain: { planner: plannerResult },
++        });
++    }
++    const plan = plannerResult.plan;
++    const worktreeResult = createBranchWorktreePlan(plan, {
++        now: createdAt,
++        defaultBranch: input.defaultBranch ?? "main",
++        worktreeRoot: input.worktreeRoot,
++    });
++    if (worktreeResult.status !== "ready" || worktreeResult.plan === undefined) {
++        return stopResult({
++            createdAt,
++            status: worktreeResult.status === "invalid" ? "invalid" : "blocked",
++            decision: worktreeResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++            reasons: [`worktree_${worktreeResult.status}`, ...stringArray(worktreeResult.reasons)],
++            auditTrail: [...auditTrail, ...stringArray(worktreeResult.auditTrail), "chain:stopped_at_worktree"],
++            chain: { planner: plannerResult, plan, worktreeResult },
++        });
++    }
++    const worktreePlan = worktreeResult.plan;
++    const sandboxResult = createSandboxExecutionRequest(worktreePlan, { now: createdAt });
++    if (sandboxResult.status !== "ready" || sandboxResult.request === undefined) {
++        return stopResult({
++            createdAt,
++            status: sandboxResult.status === "invalid" ? "invalid" : "blocked",
++            decision: sandboxResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++            reasons: [`sandbox_${sandboxResult.status}`, ...stringArray(sandboxResult.reasons)],
++            auditTrail: [...auditTrail, ...stringArray(sandboxResult.auditTrail), "chain:stopped_at_sandbox_request"],
++            chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult },
++        });
++    }
++    const sandboxRequest = sandboxResult.request;
++    const changedPaths = input.changedPaths ?? [selectDemoChangedPath(plan)];
++    const sandboxObservedOutput = input.sandboxOutput ?? buildDemoSandboxOutput(sandboxRequest, changedPaths);
++    const sandboxObservedValidation = validateSandboxObservedOutput(sandboxRequest, sandboxObservedOutput);
++    if (asRecord(sandboxObservedValidation)?.ok !== true) {
++        return stopResult({
++            createdAt,
++            status: "blocked",
++            decision: "blocked_before_pr_transport",
++            reasons: ["sandbox_observed_output_failed_validation", ...formatUpstreamIssues(asRecord(sandboxObservedValidation)?.issues)],
++            auditTrail: [...auditTrail, "sandbox_output:invalid", "chain:stopped_before_audit"],
++            chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation },
++        });
++    }
++    const evidence = input.evidence ?? buildDemoEvidence(plan, sandboxObservedOutput, changedPaths);
++    const auditResult = runAuditor({ plan, worktreePlan, sandboxRequest, sandboxOutput: sandboxObservedOutput, evidence, now: createdAt });
++    if (auditResult.status !== "passed" || auditResult.report === undefined) {
++        return stopResult({
++            createdAt,
++            status: auditResult.status === "invalid" ? "invalid" : "blocked",
++            decision: auditResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++            reasons: [`audit_${String(auditResult.status)}`, ...stringArray(auditResult.reasons)],
++            auditTrail: [...auditTrail, ...stringArray(auditResult.auditTrail), "chain:stopped_at_audit"],
++            chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport: auditResult.report },
++        });
++    }
++    const auditReport = auditResult.report;
++    const prComposerResult = composePullRequest({
++        plan,
++        worktreePlan,
++        sandboxRequest,
++        sandboxOutput: sandboxObservedOutput,
++        auditResult: auditReport,
++        now: createdAt,
++        labels: input.labels ?? [],
++        reviewers: input.reviewers ?? [],
++        teamReviewers: input.teamReviewers ?? [],
++        draft: input.draft ?? true,
++    });
++    if (prComposerResult.status !== "ready" || prComposerResult.composition === undefined) {
++        return stopResult({
++            createdAt,
++            status: prComposerResult.status === "invalid" ? "invalid" : "blocked",
++            decision: prComposerResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++            reasons: [`pr_composer_${prComposerResult.status}`, ...stringArray(prComposerResult.reasons)],
++            auditTrail: [...auditTrail, ...stringArray(prComposerResult.auditTrail), "chain:stopped_at_pr_composer"],
++            chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult },
++        });
++    }
++    const prComposition = prComposerResult.composition;
++    const runtime = normalizeRuntimeGate(input.runtime);
++    const rateLimit = normalizeRateLimitGate(input.rateLimit);
++    const githubAdapterResult = prepareGitHubPullRequest({
++        composition: prComposition,
++        installation: normalizeInstallation(input.installation, plan),
++        now: createdAt,
++        dryRun: input.dryRun ?? false,
++        runtime,
++        rateLimit,
++        idempotencyKey: input.idempotencyKey,
++    });
++    if (githubAdapterResult.status !== "ready" || githubAdapterResult.request === undefined) {
++        return stopResult({
++            createdAt,
++            status: githubAdapterResult.status === "invalid" ? "invalid" : "blocked",
++            decision: githubAdapterResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++            reasons: [`github_pr_adapter_${String(githubAdapterResult.status)}`, ...stringArray(githubAdapterResult.reasons)],
++            auditTrail: [...auditTrail, ...stringArray(githubAdapterResult.auditTrail), "chain:stopped_at_github_pr_adapter"],
++            chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult, prComposition, githubAdapterResult },
++        });
++    }
++    const githubRequest = githubAdapterResult.request;
++    const approvalCheckpointResult = runApprovalCheckpoint({
++        request: githubRequest,
++        runtime,
++        rateLimit,
++        humanApproval: input.humanApproval,
++        humanApprovals: input.humanApprovals,
++        now: createdAt,
++    });
++    if (approvalCheckpointResult.status !== "authorized" || approvalCheckpointResult.authorization === undefined) {
++        const status = approvalCheckpointResult.status === "quarantined" ? "quarantined" : approvalCheckpointResult.status === "invalid" ? "invalid" : "blocked";
++        return stopResult({
++            createdAt,
++            status,
++            decision: status === "quarantined" ? "quarantine_before_transport" : status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++            reasons: [`approval_checkpoint_${String(approvalCheckpointResult.status)}`, ...stringArray(approvalCheckpointResult.reasons)],
++            auditTrail: [...auditTrail, ...stringArray(approvalCheckpointResult.auditTrail), "chain:stopped_at_approval_checkpoint"],
++            chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult, prComposition, githubAdapterResult, githubRequest, approvalCheckpointResult },
++        });
++    }
++    const transportAuthorization = approvalCheckpointResult.authorization;
++    const rateGovernorResult = runRateGovernor({
++        authorization: transportAuthorization,
++        runtime,
++        rateState: input.rateState,
++        now: createdAt,
++    });
++    if (rateGovernorResult.status !== "queued") {
++        const status = rateGovernorResult.status === "delayed" ? "delayed" : rateGovernorResult.status === "invalid" ? "invalid" : "blocked";
++        return stopResult({
++            createdAt,
++            status,
++            decision: status === "delayed" ? "delayed_before_transport" : status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++            reasons: [`rate_governor_${String(rateGovernorResult.status)}`, ...stringArray(rateGovernorResult.reasons)],
++            auditTrail: [...auditTrail, ...stringArray(rateGovernorResult.auditTrail), "chain:stopped_at_rate_governor"],
++            chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult, prComposition, githubAdapterResult, githubRequest, approvalCheckpointResult, transportAuthorization, rateGovernorResult, rateGovernorDispatch: rateGovernorResult.dispatch },
++        });
++    }
++    const rateGovernorDispatch = rateGovernorResult.dispatch;
++    const result = readyResult({
++        createdAt,
++        auditTrail: [
++            ...auditTrail,
++            ...stringArray(plannerResult.auditTrail),
++            ...stringArray(worktreeResult.auditTrail),
++            ...stringArray(sandboxResult.auditTrail),
++            ...stringArray(auditResult.auditTrail),
++            ...stringArray(prComposerResult.auditTrail),
++            ...stringArray(githubAdapterResult.auditTrail),
++            ...stringArray(approvalCheckpointResult.auditTrail),
++            ...stringArray(rateGovernorResult.auditTrail),
++            "chain:complete_through_rate_governor_dispatch",
++            "live_github_transport:not_performed",
++        ],
++        chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult, prComposition, githubAdapterResult, githubRequest, approvalCheckpointResult, transportAuthorization, rateGovernorResult, rateGovernorDispatch },
++    });
++    const validation = validateEndToEndForgedPrDemo(result);
++    if (!validation.ok)
++        return { ...result, status: "invalid", decision: "invalid_demo_input_or_chain", reasons: uniqueStrings([...result.reasons, "generated_demo_manifest_failed_validation", ...validation.issues.map(formatIssue)]), issues: validation.issues };
++    return result;
++}
++export const runForgeDemo = runEndToEndForgedPrDemo;
++export const runEndToEndDemo = runEndToEndForgedPrDemo;
++export const runE2EForgedPrDemo = runEndToEndForgedPrDemo;
++export const runT028Demo = runEndToEndForgedPrDemo;
++export function validateEndToEndForgedPrDemo(value) {
++    const issues = [];
++    const root = asRecord(value);
++    if (root === null)
++        return { ok: false, issues: [issue("/demo", "type", "demo result must be an object")] };
++    expectLiteral(root, "manifest_version", FORGE_DEMO_VERSION, issues, "/demo");
++    expectLiteral(root, "schema_ref", E2E_FORGED_PR_DEMO_SCHEMA_REF, issues, "/demo");
++    expectString(root, "demo_id", issues, "/demo", "forge-demo://");
++    expectRfc3339(root, "created_at", issues, "/demo");
++    const status = expectOneOf(root, "status", new Set(["ready", "blocked", "delayed", "quarantined", "invalid"]), issues, "/demo");
++    expectOneOf(root, "decision", new Set(["demo_chain_ready", "blocked_before_pr_transport", "delayed_before_transport", "quarantine_before_transport", "invalid_demo_input_or_chain"]), issues, "/demo");
++    const steps = arrayValue(root.steps).map(asRecord).filter((item) => item !== null);
++    if (steps.length === 0)
++        issues.push(issue("/demo/steps", "non_empty", "steps must describe the demo chain"));
++    const invariants = asRecord(root.invariants);
++    if (invariants === null)
++        issues.push(issue("/demo/invariants", "required", "invariants are required"));
++    else {
++        for (const key of ["one_task_one_pr", "no_default_branch_write", "approval_gate_preserved", "pr_body_contains_risk_summary", "pr_body_contains_acceptance_criteria"]) {
++            if (status === "ready" && invariants[key] !== true)
++                issues.push(issue(`/demo/invariants/${key}`, "literal", `${key} must be true for ready demo output`));
++        }
++        for (const key of ["live_github_transport_performed", "real_pull_request_created", "merge_or_approval_executed", "memory_or_evaluation_updated", "federation_performed"]) {
++            if (invariants[key] !== false)
++                issues.push(issue(`/demo/invariants/${key}`, "literal", `${key} must remain false`));
++        }
++    }
++    if (status === "ready")
++        validateReadyChain(root, issues);
++    return { ok: issues.length === 0, issues: uniqueIssues(issues) };
++}
++export const validateForgeDemo = validateEndToEndForgedPrDemo;
++export const validateE2EForgedPrDemo = validateEndToEndForgedPrDemo;
++export const validateT028Demo = validateEndToEndForgedPrDemo;
++function validateReadyChain(root, issues) {
++    const chain = asRecord(root.chain);
++    if (chain === null) {
++        issues.push(issue("/demo/chain", "required", "ready demo requires a full manifest chain"));
++        return;
++    }
++    mergeValidation("/demo/chain/plan", validatePlanSpec(chain.plan), issues);
++    mergeValidation("/demo/chain/worktreePlan", validateBranchWorktreePlan(chain.worktreePlan), issues);
++    mergeValidation("/demo/chain/sandboxRequest", validateSandboxExecutionRequest(chain.sandboxRequest), issues);
++    const sandboxRequest = chain.sandboxRequest;
++    const sandboxOutput = chain.sandboxObservedOutput;
++    mergeValidation("/demo/chain/sandboxObservedOutput", validateSandboxObservedOutput(sandboxRequest, sandboxOutput), issues);
++    mergeValidation("/demo/chain/auditReport", validateAuditResult(chain.auditReport), issues);
++    mergeValidation("/demo/chain/prComposition", validatePullRequestComposition(chain.prComposition), issues);
++    mergeValidation("/demo/chain/githubRequest", validateGitHubPullRequestCreationRequest(chain.githubRequest), issues);
++    mergeValidation("/demo/chain/transportAuthorization", validateTransportAuthorization(chain.transportAuthorization), issues);
++    mergeValidation("/demo/chain/rateGovernorDispatch", validateRateGovernorDispatch(chain.rateGovernorDispatch), issues);
++    const planId = stringValue(asRecord(chain.plan)?.plan_id);
++    const worktreePlanId = stringValue(asRecord(chain.worktreePlan)?.plan_id);
++    const sandboxPlanId = stringValue(asRecord(chain.sandboxRequest)?.plan_id);
++    const auditPlanId = stringValue(asRecord(chain.auditReport)?.plan_id);
++    const compositionPlanId = stringValue(asRecord(chain.prComposition)?.plan_id);
++    const requestPlanId = stringValue(asRecord(chain.githubRequest)?.plan_id);
++    const authorizationPlanId = stringValue(asRecord(chain.transportAuthorization)?.plan_id);
++    const dispatchPlanId = stringValue(asRecord(chain.rateGovernorDispatch)?.plan_id);
++    if (!allEqual([planId, worktreePlanId, sandboxPlanId, auditPlanId, compositionPlanId, requestPlanId, authorizationPlanId, dispatchPlanId]))
++        issues.push(issue("/demo/chain/plan_id", "mismatch", "plan_id must match across the full T028 chain"));
++    const worktreeId = stringValue(asRecord(chain.worktreePlan)?.manifest_id);
++    const sandboxWorktreeId = stringValue(asRecord(chain.sandboxRequest)?.worktree_manifest_id);
++    const auditWorktreeId = stringValue(asRecord(chain.auditReport)?.worktree_manifest_id);
++    const compositionWorktreeId = stringValue(asRecord(chain.prComposition)?.worktree_manifest_id);
++    if (!allEqual([worktreeId, sandboxWorktreeId, auditWorktreeId, compositionWorktreeId]))
++        issues.push(issue("/demo/chain/worktree_manifest_id", "mismatch", "worktree manifest id must match through PR composition"));
++    const sandboxId = stringValue(asRecord(chain.sandboxRequest)?.request_id);
++    const auditSandboxId = stringValue(asRecord(chain.auditReport)?.sandbox_request_id);
++    const compositionSandboxId = stringValue(asRecord(chain.prComposition)?.sandbox_request_id);
++    if (!allEqual([sandboxId, auditSandboxId, compositionSandboxId]))
++        issues.push(issue("/demo/chain/sandbox_request_id", "mismatch", "sandbox request id must match through PR composition"));
++    const auditId = stringValue(asRecord(chain.auditReport)?.audit_id);
++    const compositionAuditId = stringValue(asRecord(chain.prComposition)?.audit_id);
++    const githubAuditId = stringValue(asRecord(chain.githubRequest)?.audit_id);
++    const authorizationAuditId = stringValue(asRecord(chain.transportAuthorization)?.audit_id);
++    const dispatchAuditId = stringValue(asRecord(chain.rateGovernorDispatch)?.audit_id);
++    if (!allEqual([auditId, compositionAuditId, githubAuditId, authorizationAuditId, dispatchAuditId]))
++        issues.push(issue("/demo/chain/audit_id", "mismatch", "audit id must match from audit through dispatch"));
++    const githubRequestId = stringValue(asRecord(chain.githubRequest)?.request_id);
++    const authorizationRequestId = stringValue(asRecord(chain.transportAuthorization)?.request_id);
++    const dispatchRequestId = stringValue(asRecord(chain.rateGovernorDispatch)?.request_id);
++    if (!allEqual([githubRequestId, authorizationRequestId, dispatchRequestId]))
++        issues.push(issue("/demo/chain/request_id", "mismatch", "GitHub PR request id must match through approval and rate governor"));
++    const pr = asRecord(asRecord(chain.prComposition)?.pull_request);
++    const body = stringValue(pr?.body) ?? "";
++    if (!body.includes("### Review gate") || !body.includes("Approval class") || !body.includes("Risk"))
++        issues.push(issue("/demo/chain/prComposition/pull_request/body", "risk_summary", "PR body must include risk and approval summary"));
++    if (!body.includes("### Acceptance criteria"))
++        issues.push(issue("/demo/chain/prComposition/pull_request/body", "acceptance", "PR body must include acceptance criteria"));
++}
++function readyResult(context) {
++    const chain = context.chain;
++    const plan = asRecord(chain.plan);
++    const worktreePlan = asRecord(chain.worktreePlan);
++    const sandboxRequest = asRecord(chain.sandboxRequest);
++    const auditReport = asRecord(chain.auditReport);
++    const prComposition = asRecord(chain.prComposition);
++    const githubRequest = asRecord(chain.githubRequest);
++    const transportAuthorization = asRecord(chain.transportAuthorization);
++    const rateGovernorDispatch = asRecord(chain.rateGovernorDispatch);
++    const pr = asRecord(prComposition?.pull_request);
++    const review = asRecord(prComposition?.review);
++    const summary = summaryFor(chain);
++    return {
++        manifest_version: FORGE_DEMO_VERSION,
++        schema_ref: E2E_FORGED_PR_DEMO_SCHEMA_REF,
++        demo_id: `forge-demo://t028-${shortHash(`${stringValue(plan?.plan_id)}:${stringValue(rateGovernorDispatch?.dispatch_id)}:${context.createdAt}`)}`,
++        created_at: context.createdAt,
++        status: "ready",
++        decision: "demo_chain_ready",
++        reasons: uniqueStrings([
++            "e2e_forged_pr_demo_ready",
++            `plan:${summary.plan_id}`,
++            `pr_composition:${summary.composition_id}`,
++            `github_request:${summary.github_request_id}`,
++            `transport_authorization:${summary.authorization_id}`,
++            `rate_dispatch:${summary.dispatch_id}`,
++            "live_github_transport:not_performed",
++        ]),
++        auditTrail: context.auditTrail,
++        steps: stepsFor(chain),
++        summary,
++        invariants: {
++            one_task_one_pr: asRecord(plan?.scope_contract)?.one_task_one_pr === true && asRecord(worktreePlan?.scope)?.one_task_one_pr === true && asRecord(sandboxRequest?.scope)?.one_task_one_pr === true,
++            source_issue_count: numberValue(asRecord(plan?.scope_contract)?.source_issue_count),
++            no_default_branch_write: asRecord(plan?.scope_contract)?.no_default_branch_write === true && asRecord(worktreePlan?.scope)?.no_default_branch_write === true && asRecord(sandboxRequest?.scope)?.no_default_branch_write === true && asRecord(prComposition?.scope)?.no_default_branch_write === true && asRecord(rateGovernorDispatch?.transport)?.live_github_transport_performed === false,
++            pr_body_contains_risk_summary: bodyIncludes(stringValue(pr?.body), ["### Review gate", "Approval class", "Risk"]),
++            pr_body_contains_acceptance_criteria: bodyIncludes(stringValue(pr?.body), ["### Acceptance criteria"]),
++            approval_gate_preserved: asRecord(prComposition?.guards)?.approval_gate_preserved === true && asRecord(transportAuthorization?.guards)?.human_review_before_merge_preserved === true && stringValue(asRecord(auditReport?.gates)?.pr_composition) === "allowed" && stringValue(review?.approval_class) !== null,
++            live_github_transport_performed: false,
++            real_pull_request_created: false,
++            merge_or_approval_executed: false,
++            memory_or_evaluation_updated: false,
++            federation_performed: false,
++        },
++        chain,
++    };
++}
++function stopResult(context) {
++    return {
++        manifest_version: FORGE_DEMO_VERSION,
++        schema_ref: E2E_FORGED_PR_DEMO_SCHEMA_REF,
++        demo_id: `forge-demo://t028-stopped-${shortHash(`${context.status}:${context.reasons.join(":")}:${context.createdAt}`)}`,
++        created_at: context.createdAt,
++        status: context.status,
++        decision: context.decision,
++        reasons: uniqueStrings(context.reasons),
++        auditTrail: context.auditTrail,
++        steps: stepsFor(context.chain),
++        summary: summaryFor(context.chain),
++        invariants: {
++            one_task_one_pr: booleanValue(asRecord(asRecord(context.chain.plan)?.scope_contract)?.one_task_one_pr) ?? false,
++            source_issue_count: numberValue(asRecord(asRecord(context.chain.plan)?.scope_contract)?.source_issue_count),
++            no_default_branch_write: booleanValue(asRecord(asRecord(context.chain.plan)?.scope_contract)?.no_default_branch_write) ?? false,
++            pr_body_contains_risk_summary: bodyIncludes(stringValue(asRecord(asRecord(context.chain.prComposition)?.pull_request)?.body), ["### Review gate", "Approval class", "Risk"]),
++            pr_body_contains_acceptance_criteria: bodyIncludes(stringValue(asRecord(asRecord(context.chain.prComposition)?.pull_request)?.body), ["### Acceptance criteria"]),
++            approval_gate_preserved: booleanValue(asRecord(asRecord(context.chain.prComposition)?.guards)?.approval_gate_preserved) ?? false,
++            live_github_transport_performed: false,
++            real_pull_request_created: false,
++            merge_or_approval_executed: false,
++            memory_or_evaluation_updated: false,
++            federation_performed: false,
++        },
++        chain: context.chain,
++    };
++}
++function invalidBase(reason, value) {
++    return stopResult({ createdAt: NOW, status: "invalid", decision: "invalid_demo_input_or_chain", reasons: [reason, value], auditTrail: ["e2e_forged_pr_demo:T028", "input:invalid"], chain: {} });
++}
++function resolvePlannerInput(input, now) {
++    if (asRecord(input.plannerInput) !== null)
++        return input.plannerInput;
++    if (asRecord(input.intake) !== null)
++        return { source: "intake_input", now, intake: input.intake };
++    return { source: "intake_input", now, intake: normalizeIssueInput(input.issue) };
++}
++function normalizeIssueInput(issueInput) {
++    const issue = issueInput ?? {};
++    const repository = issue.repositoryFullName ?? "hiroshitanaka-creator/ForgeRoot";
++    const number = Number.isSafeInteger(issue.number) ? issue.number : 28;
++    return {
++        sourceKind: issue.sourceKind ?? "issue",
++        action: issue.action ?? "opened",
++        repositoryFullName: repository,
++        number,
++        url: issue.url ?? `https://github.com/${repository}/issues/${number}`,
++        title: issue.title ?? "docs: add T028 forged PR demo note",
++        body: issue.body ?? "Add one bounded documentation note to docs/ops/t028-e2e-forged-pr-demo.md.",
++        labels: issue.labels ?? ["forge:auto", "docs", "phase:P1", "class:A", "risk:low"],
++    };
++}
++function normalizeInstallation(input, plan) {
++    const source = asRecord(plan.source);
++    const repo = stringValue(asRecord(input)?.repositoryFullName) ?? stringValue(source?.repository) ?? "hiroshitanaka-creator/ForgeRoot";
++    const root = asRecord(input) ?? {};
++    return {
++        installationId: numberValue(root.installationId) ?? numberValue(root.installation_id) ?? 42,
++        repositoryFullName: repo,
++        permissions: asRecord(root.permissions) ?? {
++            metadata: "read",
++            contents: "write",
++            pull_requests: "write",
++            issues: "write",
++            checks: "write",
++            actions: "read",
++        },
++    };
++}
++function normalizeRuntimeGate(input) {
++    const root = asRecord(input) ?? {};
++    const mode = stringValue(root.mode) ?? "evolve";
++    return {
++        operation: "open_pull_request",
++        mode,
++        allowed: booleanValue(root.allowed) ?? true,
++        mutatingLaneOpen: booleanValue(root.mutatingLaneOpen ?? root.mutating_lane_open) ?? true,
++        mutating_lane_open: booleanValue(root.mutating_lane_open ?? root.mutatingLaneOpen) ?? true,
++        killSwitchEngaged: booleanValue(root.killSwitchEngaged ?? root.kill_switch_engaged) ?? false,
++        kill_switch_engaged: booleanValue(root.kill_switch_engaged ?? root.killSwitchEngaged) ?? false,
++        cooldownUntil: root.cooldownUntil === null || root.cooldown_until === null ? null : stringValue(root.cooldownUntil ?? root.cooldown_until),
++        cooldown_until: root.cooldown_until === null || root.cooldownUntil === null ? null : stringValue(root.cooldown_until ?? root.cooldownUntil),
++        liveTransportAllowed: booleanValue(root.liveTransportAllowed ?? root.live_transport_allowed) ?? true,
++        live_transport_allowed: booleanValue(root.live_transport_allowed ?? root.liveTransportAllowed) ?? true,
++    };
++}
++function normalizeRateLimitGate(input) {
++    const root = asRecord(input) ?? {};
++    return {
++        writeLaneAvailable: booleanValue(root.writeLaneAvailable ?? root.write_lane_available) ?? true,
++        write_lane_available: booleanValue(root.write_lane_available ?? root.writeLaneAvailable) ?? true,
++        contentCreateAllowed: booleanValue(root.contentCreateAllowed ?? root.content_create_allowed) ?? true,
++        content_create_allowed: booleanValue(root.content_create_allowed ?? root.contentCreateAllowed) ?? true,
++        retryAfterSeconds: numberValue(root.retryAfterSeconds ?? root.retry_after_seconds),
++        retry_after_seconds: numberValue(root.retry_after_seconds ?? root.retryAfterSeconds),
++        minDelayMs: numberValue(root.minDelayMs ?? root.min_delay_ms) ?? 1200,
++        min_delay_ms: numberValue(root.min_delay_ms ?? root.minDelayMs) ?? 1200,
++        jitterMs: numberValue(root.jitterMs ?? root.jitter_ms) ?? 800,
++        jitter_ms: numberValue(root.jitter_ms ?? root.jitterMs) ?? 800,
++        liveTransportAllowed: booleanValue(root.liveTransportAllowed ?? root.live_transport_allowed) ?? true,
++        live_transport_allowed: booleanValue(root.live_transport_allowed ?? root.liveTransportAllowed) ?? true,
++    };
++}
++function selectDemoChangedPath(plan) {
++    const mutable = stringArray(asRecord(plan.scope_contract)?.mutable_paths);
++    if (mutable.some((path) => path === "docs/**" || path.startsWith("docs/")))
++        return "docs/ops/t028-e2e-forged-pr-demo.md";
++    if (mutable.includes("README.md"))
++        return "README.md";
++    if (mutable.some((path) => path === "tests/**" || path.includes("test")))
++        return "tests/t028-demo.test.mjs";
++    if (mutable.includes("package.json"))
++        return "package.json";
++    const first = mutable[0] ?? "docs/ops/t028-e2e-forged-pr-demo.md";
++    if (first.endsWith("/**"))
++        return `${first.slice(0, -3)}/t028-demo.txt`;
++    if (first.includes("*"))
++        return first.replace(/\*\*/g, "t028-demo").replace(/\*/g, "t028-demo");
++    return first;
++}
++function buildDemoSandboxOutput(request, changedPaths) {
++    const artifacts = arrayValue(request.artifacts).map((value, index) => {
++        const artifact = asRecord(value) ?? {};
++        const path = stringValue(artifact.path) ?? `.forgeroot/artifacts/t028/artifact-${index + 1}.json`;
++        return { path, bytes: Math.min(numberValue(artifact.max_bytes) ?? 1024, 256), media_type: stringValue(artifact.media_type) ?? "application/json", sha256: `sha256:${demoSha256LikeHex(path).slice(0, 64)}` };
++    });
++    return {
++        command_ids: arrayValue(request.commands).map((value) => stringValue(asRecord(value)?.id)).filter((value) => value !== null),
++        changed_paths: [...changedPaths],
++        diff_summary: { files_changed: changedPaths.length, lines_added: 10, lines_deleted: 1, total_lines_changed: 11 },
++        artifacts,
++        environment: { CI: "1", FORGE_SANDBOX: "1" },
++    };
++}
++function buildDemoEvidence(plan, sandboxOutput, changedPaths) {
++    const commandResults = arrayValue(plan.acceptance_criteria)
++        .map(asRecord)
++        .filter((criterion) => criterion !== null)
++        .map((criterion) => asRecord(criterion.check))
++        .filter((check) => check !== null && check.kind === "command" && typeof check.command === "string")
++        .map((check) => ({ id: stableCommandId(String(check.command)), command: String(check.command), exit_code: numberValue(check.expected_exit_code) ?? 0, outcome: "passed" }));
++    const diff = asRecord(sandboxOutput.diff_summary);
++    return {
++        changed_paths: [...changedPaths],
++        files_changed: numberValue(diff?.files_changed) ?? changedPaths.length,
++        diff_lines: numberValue(diff?.total_lines_changed) ?? 11,
++        command_results: commandResults,
++        text_evidence: { summary: "T028 deterministic demo evidence; no command was executed by the demo harness." },
++    };
++}
++function stepsFor(chain) {
++    const steps = [];
++    if (chain.planner !== undefined)
++        steps.push({ name: "planner", status: stringValue(asRecord(chain.planner)?.status) ?? "unknown", produced: chain.plan ? "plan_spec" : null, id: stringValue(asRecord(chain.plan)?.plan_id) });
++    if (chain.worktreeResult !== undefined)
++        steps.push({ name: "worktree_manager", status: stringValue(asRecord(chain.worktreeResult)?.status) ?? "unknown", produced: chain.worktreePlan ? "branch_worktree_plan" : null, id: stringValue(asRecord(chain.worktreePlan)?.manifest_id) });
++    if (chain.sandboxResult !== undefined)
++        steps.push({ name: "sandbox_harness", status: stringValue(asRecord(chain.sandboxResult)?.status) ?? "unknown", produced: chain.sandboxRequest ? "sandbox_execution_request" : null, id: stringValue(asRecord(chain.sandboxRequest)?.request_id) });
++    if (chain.auditResult !== undefined)
++        steps.push({ name: "auditor", status: stringValue(asRecord(chain.auditResult)?.status) ?? "unknown", produced: chain.auditReport ? "audit_result" : null, id: stringValue(asRecord(chain.auditReport)?.audit_id) });
++    if (chain.prComposerResult !== undefined)
++        steps.push({ name: "pr_composer", status: stringValue(asRecord(chain.prComposerResult)?.status) ?? "unknown", produced: chain.prComposition ? "pull_request_composition" : null, id: stringValue(asRecord(chain.prComposition)?.composition_id) });
++    if (chain.githubAdapterResult !== undefined)
++        steps.push({ name: "github_pr_adapter", status: stringValue(asRecord(chain.githubAdapterResult)?.status) ?? "unknown", produced: chain.githubRequest ? "github_pull_request_creation_request" : null, id: stringValue(asRecord(chain.githubRequest)?.request_id) });
++    if (chain.approvalCheckpointResult !== undefined)
++        steps.push({ name: "approval_checkpoint", status: stringValue(asRecord(chain.approvalCheckpointResult)?.status) ?? "unknown", produced: chain.transportAuthorization ? "trusted_transport_authorization" : null, id: stringValue(asRecord(chain.transportAuthorization)?.authorization_id) });
++    if (chain.rateGovernorResult !== undefined)
++        steps.push({ name: "rate_governor", status: stringValue(asRecord(chain.rateGovernorResult)?.status) ?? "unknown", produced: chain.rateGovernorDispatch ? "rate_governor_dispatch" : null, id: stringValue(asRecord(chain.rateGovernorDispatch)?.dispatch_id) });
++    return steps;
++}
++function summaryFor(chain) {
++    const plan = asRecord(chain.plan);
++    const source = asRecord(plan?.source);
++    const worktree = asRecord(chain.worktreePlan);
++    const sandbox = asRecord(chain.sandboxRequest);
++    const audit = asRecord(chain.auditReport);
++    const composition = asRecord(chain.prComposition);
++    const pr = asRecord(composition?.pull_request);
++    const review = asRecord(composition?.review);
++    const request = asRecord(chain.githubRequest);
++    const authorization = asRecord(chain.transportAuthorization);
++    const dispatch = asRecord(chain.rateGovernorDispatch);
++    return {
++        source_issue: sourceIssueRef(source),
++        repository: stringValue(source?.repository) ?? stringValue(asRecord(request?.repository)?.full_name),
++        plan_id: stringValue(plan?.plan_id),
++        worktree_manifest_id: stringValue(worktree?.manifest_id),
++        sandbox_request_id: stringValue(sandbox?.request_id),
++        audit_id: stringValue(audit?.audit_id),
++        composition_id: stringValue(composition?.composition_id),
++        github_request_id: stringValue(request?.request_id),
++        authorization_id: stringValue(authorization?.authorization_id),
++        dispatch_id: stringValue(dispatch?.dispatch_id),
++        pr_title: stringValue(pr?.title),
++        head: stringValue(pr?.head),
++        base: stringValue(pr?.base),
++        approval_class: stringValue(review?.approval_class) ?? stringValue(asRecord(request?.review_gate)?.approval_class),
++        risk: stringValue(review?.risk) ?? stringValue(asRecord(request?.review_gate)?.risk),
++        rate_governor_status: stringValue(dispatch?.status),
++    };
++}
++function mergeValidation(path, validation, issues) {
++    const root = asRecord(validation);
++    if (root?.ok === true)
++        return;
++    for (const item of arrayValue(root?.issues)) {
++        const record = asRecord(item);
++        issues.push(issue(`${path}${stringValue(record?.path) ?? ""}`, stringValue(record?.code) ?? "invalid", stringValue(record?.message) ?? "upstream validation failed"));
++    }
++    if (!arrayValue(root?.issues).length)
++        issues.push(issue(path, "invalid", "upstream validation failed"));
++}
++function sourceIssueRef(source) {
++    if (source === null)
++        return null;
++    const url = stringValue(source.url);
++    if (url !== null)
++        return url;
++    const repository = stringValue(source.repository);
++    const number = numberValue(source.issue_number);
++    if (repository !== null && number !== null)
++        return `${repository}#${number}`;
++    return null;
++}
++function formatUpstreamIssues(value) {
++    return arrayValue(value).map((item) => {
++        const record = asRecord(item);
++        return `${stringValue(record?.path) ?? "/"}:${stringValue(record?.code) ?? "invalid"}`;
++    });
++}
++function bodyIncludes(body, needles) {
++    if (body === null)
++        return false;
++    return needles.every((needle) => body.includes(needle));
++}
++function expectLiteral(record, key, expected, issues, path) {
++    if (record[key] !== expected)
++        issues.push(issue(`${path}/${key}`, "literal", `${key} must equal ${JSON.stringify(expected)}`));
++}
++function expectString(record, key, issues, path, prefix) {
++    const value = record[key];
++    if (typeof value !== "string" || value.length === 0) {
++        issues.push(issue(`${path}/${key}`, "string", `${key} must be a non-empty string`));
++        return null;
++    }
++    if (prefix !== undefined && !value.startsWith(prefix))
++        issues.push(issue(`${path}/${key}`, "prefix", `${key} must start with ${prefix}`));
++    return value;
++}
++function expectRfc3339(record, key, issues, path) {
++    const value = expectString(record, key, issues, path);
++    if (value !== null && !RFC3339_UTC.test(value))
++        issues.push(issue(`${path}/${key}`, "rfc3339", `${key} must be RFC3339 UTC`));
++}
++function expectOneOf(record, key, allowed, issues, path) {
++    const value = expectString(record, key, issues, path);
++    if (value !== null && !allowed.has(value))
++        issues.push(issue(`${path}/${key}`, "enum", `${key} is not allowed`));
++    return value;
++}
++function issue(path, code, message) { return { path, code, message }; }
++function formatIssue(item) { return `${item.path}:${item.code}:${item.message}`; }
++function uniqueIssues(values) { const seen = new Set(); const out = []; for (const item of values) {
++    const key = `${item.path}\0${item.code}\0${item.message}`;
++    if (!seen.has(key)) {
++        seen.add(key);
++        out.push(item);
++    }
++} return out; }
++function uniqueStrings(values) { return [...new Set(values.filter((value) => typeof value === "string" && value.length > 0))]; }
++function allEqual(values) { const nonNull = values.filter((value) => value !== null); return nonNull.length === values.length && nonNull.every((value) => value === nonNull[0]); }
++function resolveTimestamp(candidate, fallback) { const value = candidate ?? fallback; return RFC3339_UTC.test(value) ? value : null; }
++function demoSha256LikeHex(value) {
++    const chunks = [];
++    for (let index = 0; index < 8; index += 1)
++        chunks.push(fnvHex(String(index) + ":" + value));
++    return chunks.join("").slice(0, 64);
++}
++function shortHash(value) { return demoSha256LikeHex(value).slice(0, 12); }
++function fnvHex(value) {
++    let hash = 0x811c9dc5;
++    for (let index = 0; index < value.length; index += 1) {
++        hash ^= value.charCodeAt(index);
++        hash = Math.imul(hash, 0x01000193) >>> 0;
++    }
++    return hash.toString(16).padStart(8, "0");
++}
++function stableCommandId(command) { return command.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64); }
++function asRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null; }
++function arrayValue(value) { return Array.isArray(value) ? value : []; }
++function stringValue(value) { return typeof value === "string" && value.length > 0 ? value : null; }
++function numberValue(value) { return Number.isSafeInteger(value) ? value : null; }
++function booleanValue(value) { return typeof value === "boolean" ? value : null; }
++function stringArray(value) { return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.length > 0) : []; }
++//# sourceMappingURL=run.js.map
+\ No newline at end of file
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/run.js.map /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/run.js.map
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/dist/run.js.map	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/dist/run.js.map	2026-04-19 01:40:14.493081970 +0000
+@@ -0,0 +1 @@
++{"version":3,"file":"run.js","sourceRoot":"","sources":["../src/run.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/package.json /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/package.json
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/package.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/package.json	2026-04-19 01:34:24.438250864 +0000
+@@ -0,0 +1,17 @@
++{
++  "name": "@forgeroot/forge-demo",
++  "version": "0.0.0-t028",
++  "private": true,
++  "type": "module",
++  "description": "ForgeRoot T028 end-to-end forged PR demo harness wiring the Phase 1 deterministic manifest chain.",
++  "scripts": {
++    "build": "tsc -p tsconfig.json",
++    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
++  },
++  "engines": {
++    "node": ">=22.5"
++  },
++  "devDependencies": {
++    "typescript": "^5.8.3"
++  }
++}
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/src/index.ts /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/src/index.ts
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/src/index.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/src/index.ts	2026-04-19 01:34:24.428607239 +0000
+@@ -0,0 +1 @@
++export * from "./run.js";
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/src/run.ts /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/src/run.ts
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/src/run.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/src/run.ts	2026-04-19 01:38:36.962696244 +0000
+@@ -0,0 +1,794 @@
++import { runPlanner, validatePlanSpec } from "../../planner/dist/index.js";
++import {
++  createBranchWorktreePlan,
++  createSandboxExecutionRequest,
++  validateBranchWorktreePlan,
++  validateSandboxExecutionRequest,
++  validateSandboxObservedOutput,
++} from "../../executor/dist/index.js";
++import { runAuditor, validateAuditResult } from "../../auditor/dist/index.js";
++import { composePullRequest, validatePullRequestComposition } from "../../pr-composer/dist/index.js";
++import { prepareGitHubPullRequest, validateGitHubPullRequestCreationRequest } from "../../github-pr-adapter/dist/index.js";
++import { runApprovalCheckpoint, validateTransportAuthorization } from "../../approval-checkpoint/dist/index.js";
++import { runRateGovernor, validateRateGovernorDispatch } from "../../rate-governor/dist/index.js";
++
++export const FORGE_DEMO_VERSION = 1 as const;
++export const E2E_FORGED_PR_DEMO_SCHEMA_REF = "urn:forgeroot:e2e-forged-pr-demo:v1" as const;
++
++export type ForgeDemoStatus = "ready" | "blocked" | "delayed" | "quarantined" | "invalid";
++export type ForgeDemoDecision = "demo_chain_ready" | "blocked_before_pr_transport" | "delayed_before_transport" | "quarantine_before_transport" | "invalid_demo_input_or_chain";
++
++export interface ForgeDemoIssueInput {
++  readonly sourceKind?: string;
++  readonly action?: string;
++  readonly repositoryFullName?: string;
++  readonly number?: number;
++  readonly url?: string;
++  readonly title?: string;
++  readonly body?: string;
++  readonly labels?: readonly string[];
++}
++
++export interface ForgeDemoInput {
++  readonly now?: string;
++  readonly issue?: ForgeDemoIssueInput;
++  readonly intake?: unknown;
++  readonly plannerInput?: unknown;
++  readonly defaultBranch?: string;
++  readonly worktreeRoot?: string;
++  readonly changedPaths?: readonly string[];
++  readonly sandboxOutput?: unknown;
++  readonly evidence?: unknown;
++  readonly installation?: unknown;
++  readonly runtime?: unknown;
++  readonly rateLimit?: unknown;
++  readonly rateState?: unknown;
++  readonly humanApproval?: unknown;
++  readonly humanApprovals?: readonly unknown[];
++  readonly labels?: readonly string[];
++  readonly reviewers?: readonly string[];
++  readonly teamReviewers?: readonly string[];
++  readonly draft?: boolean;
++  readonly dryRun?: boolean;
++  readonly idempotencyKey?: string;
++}
++
++export interface ForgeDemoStep {
++  readonly name: string;
++  readonly status: string;
++  readonly produced: string | null;
++  readonly id: string | null;
++}
++
++export interface ForgeDemoValidationIssue {
++  readonly path: string;
++  readonly code: string;
++  readonly message: string;
++}
++
++export interface ForgeDemoValidationResult {
++  readonly ok: boolean;
++  readonly issues: readonly ForgeDemoValidationIssue[];
++}
++
++export interface ForgeDemoResult {
++  readonly manifest_version: typeof FORGE_DEMO_VERSION;
++  readonly schema_ref: typeof E2E_FORGED_PR_DEMO_SCHEMA_REF;
++  readonly demo_id: string;
++  readonly created_at: string;
++  readonly status: ForgeDemoStatus;
++  readonly decision: ForgeDemoDecision;
++  readonly reasons: readonly string[];
++  readonly auditTrail: readonly string[];
++  readonly steps: readonly ForgeDemoStep[];
++  readonly summary: {
++    readonly source_issue: string | null;
++    readonly repository: string | null;
++    readonly plan_id: string | null;
++    readonly worktree_manifest_id: string | null;
++    readonly sandbox_request_id: string | null;
++    readonly audit_id: string | null;
++    readonly composition_id: string | null;
++    readonly github_request_id: string | null;
++    readonly authorization_id: string | null;
++    readonly dispatch_id: string | null;
++    readonly pr_title: string | null;
++    readonly head: string | null;
++    readonly base: string | null;
++    readonly approval_class: string | null;
++    readonly risk: string | null;
++    readonly rate_governor_status: string | null;
++  };
++  readonly invariants: {
++    readonly one_task_one_pr: boolean;
++    readonly source_issue_count: number | null;
++    readonly no_default_branch_write: boolean;
++    readonly pr_body_contains_risk_summary: boolean;
++    readonly pr_body_contains_acceptance_criteria: boolean;
++    readonly approval_gate_preserved: boolean;
++    readonly live_github_transport_performed: false;
++    readonly real_pull_request_created: false;
++    readonly merge_or_approval_executed: false;
++    readonly memory_or_evaluation_updated: false;
++    readonly federation_performed: false;
++  };
++  readonly chain: {
++    readonly planner?: unknown;
++    readonly plan?: unknown;
++    readonly worktreeResult?: unknown;
++    readonly worktreePlan?: unknown;
++    readonly sandboxResult?: unknown;
++    readonly sandboxRequest?: unknown;
++    readonly sandboxObservedOutput?: unknown;
++    readonly sandboxObservedValidation?: unknown;
++    readonly auditResult?: unknown;
++    readonly auditReport?: unknown;
++    readonly prComposerResult?: unknown;
++    readonly prComposition?: unknown;
++    readonly githubAdapterResult?: unknown;
++    readonly githubRequest?: unknown;
++    readonly approvalCheckpointResult?: unknown;
++    readonly transportAuthorization?: unknown;
++    readonly rateGovernorResult?: unknown;
++    readonly rateGovernorDispatch?: unknown;
++  };
++  readonly issues?: readonly ForgeDemoValidationIssue[];
++}
++
++export const E2E_FORGED_PR_DEMO_CONTRACT = {
++  consumes: [
++    "forge_auto_issue_like_input",
++    "planner_runtime",
++    "branch_worktree_manager",
++    "sandbox_execution_request",
++    "sandbox_observed_output",
++    "audit_result",
++    "pull_request_composition",
++    "github_pull_request_creation_request",
++    "trusted_transport_authorization",
++  ],
++  produces: ["e2e_forged_pr_demo_manifest", "full_phase1_manifest_chain", "rate_governed_dispatch_manifest"],
++  validates: [
++    "one_issue_to_one_plan",
++    "one_plan_to_one_worktree_manifest",
++    "one_worktree_to_one_sandbox_request",
++    "sandbox_output_with_declared_artifacts",
++    "passed_independent_audit",
++    "reviewable_pr_composition_body",
++    "github_app_pr_request_manifest",
++    "approval_checkpoint_authorization",
++    "rate_governor_dispatch",
++  ],
++  forbids: [
++    "live_github_api_transport",
++    "real_pull_request_creation",
++    "merge_operation",
++    "approval_execution",
++    "default_branch_write",
++    "file_editing_in_demo_harness",
++    "command_execution_in_demo_harness",
++    "token_material_or_token_persistence",
++    "workflow_mutation",
++    "policy_mutation",
++    "memory_or_evaluation_updates",
++    "network_or_federation_behavior",
++    "self_evolution",
++  ],
++  oneTaskOnePr: true,
++  demoOnly: true,
++} as const;
++
++const NOW = "2026-04-18T00:00:00Z";
++const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
++
++export function runEndToEndForgedPrDemo(input: ForgeDemoInput = {}): ForgeDemoResult {
++  const createdAt = resolveTimestamp(input.now, NOW);
++  if (createdAt === null) return invalidBase("now_must_be_rfc3339_utc", input.now ?? "unknown");
++
++  const auditTrail = [
++    "e2e_forged_pr_demo:T028",
++    "contract:demo_manifest_only",
++    "contract:one_task_one_pr",
++    "contract:no_live_github_transport",
++    "contract:no_real_pull_request_creation",
++  ];
++
++  const plannerResult = runPlanner(resolvePlannerInput(input, createdAt));
++  if (plannerResult.status !== "planned" || plannerResult.plan === undefined) {
++    return stopResult({
++      createdAt,
++      status: plannerResult.status === "invalid" ? "invalid" : "blocked",
++      decision: plannerResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++      reasons: [`planner_${plannerResult.status}`, ...stringArray((plannerResult as any).reasons)],
++      auditTrail: [...auditTrail, ...stringArray((plannerResult as any).auditTrail), "chain:stopped_at_planner"],
++      chain: { planner: plannerResult },
++    });
++  }
++
++  const plan = plannerResult.plan;
++  const worktreeResult = createBranchWorktreePlan(plan as any, {
++    now: createdAt,
++    defaultBranch: input.defaultBranch ?? "main",
++    worktreeRoot: input.worktreeRoot,
++  });
++  if (worktreeResult.status !== "ready" || worktreeResult.plan === undefined) {
++    return stopResult({
++      createdAt,
++      status: worktreeResult.status === "invalid" ? "invalid" : "blocked",
++      decision: worktreeResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++      reasons: [`worktree_${worktreeResult.status}`, ...stringArray((worktreeResult as any).reasons)],
++      auditTrail: [...auditTrail, ...stringArray((worktreeResult as any).auditTrail), "chain:stopped_at_worktree"],
++      chain: { planner: plannerResult, plan, worktreeResult },
++    });
++  }
++
++  const worktreePlan = worktreeResult.plan;
++  const sandboxResult = createSandboxExecutionRequest(worktreePlan as any, { now: createdAt });
++  if (sandboxResult.status !== "ready" || sandboxResult.request === undefined) {
++    return stopResult({
++      createdAt,
++      status: sandboxResult.status === "invalid" ? "invalid" : "blocked",
++      decision: sandboxResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++      reasons: [`sandbox_${sandboxResult.status}`, ...stringArray((sandboxResult as any).reasons)],
++      auditTrail: [...auditTrail, ...stringArray((sandboxResult as any).auditTrail), "chain:stopped_at_sandbox_request"],
++      chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult },
++    });
++  }
++
++  const sandboxRequest = sandboxResult.request;
++  const changedPaths = input.changedPaths ?? [selectDemoChangedPath(plan as any)];
++  const sandboxObservedOutput = input.sandboxOutput ?? buildDemoSandboxOutput(sandboxRequest as any, changedPaths);
++  const sandboxObservedValidation = validateSandboxObservedOutput(sandboxRequest as any, sandboxObservedOutput as any);
++  if (asRecord(sandboxObservedValidation)?.ok !== true) {
++    return stopResult({
++      createdAt,
++      status: "blocked",
++      decision: "blocked_before_pr_transport",
++      reasons: ["sandbox_observed_output_failed_validation", ...formatUpstreamIssues(asRecord(sandboxObservedValidation)?.issues)],
++      auditTrail: [...auditTrail, "sandbox_output:invalid", "chain:stopped_before_audit"],
++      chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation },
++    });
++  }
++
++  const evidence = input.evidence ?? buildDemoEvidence(plan as any, sandboxObservedOutput as any, changedPaths);
++  const auditResult = runAuditor({ plan, worktreePlan, sandboxRequest, sandboxOutput: sandboxObservedOutput, evidence, now: createdAt });
++  if ((auditResult as any).status !== "passed" || (auditResult as any).report === undefined) {
++    return stopResult({
++      createdAt,
++      status: (auditResult as any).status === "invalid" ? "invalid" : "blocked",
++      decision: (auditResult as any).status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++      reasons: [`audit_${String((auditResult as any).status)}`, ...stringArray((auditResult as any).reasons)],
++      auditTrail: [...auditTrail, ...stringArray((auditResult as any).auditTrail), "chain:stopped_at_audit"],
++      chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport: (auditResult as any).report },
++    });
++  }
++
++  const auditReport = (auditResult as any).report;
++  const prComposerResult = composePullRequest({
++    plan,
++    worktreePlan,
++    sandboxRequest,
++    sandboxOutput: sandboxObservedOutput,
++    auditResult: auditReport,
++    now: createdAt,
++    labels: input.labels ?? [],
++    reviewers: input.reviewers ?? [],
++    teamReviewers: input.teamReviewers ?? [],
++    draft: input.draft ?? true,
++  });
++  if (prComposerResult.status !== "ready" || prComposerResult.composition === undefined) {
++    return stopResult({
++      createdAt,
++      status: prComposerResult.status === "invalid" ? "invalid" : "blocked",
++      decision: prComposerResult.status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++      reasons: [`pr_composer_${prComposerResult.status}`, ...stringArray((prComposerResult as any).reasons)],
++      auditTrail: [...auditTrail, ...stringArray((prComposerResult as any).auditTrail), "chain:stopped_at_pr_composer"],
++      chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult },
++    });
++  }
++
++  const prComposition = prComposerResult.composition;
++  const runtime = normalizeRuntimeGate(input.runtime);
++  const rateLimit = normalizeRateLimitGate(input.rateLimit);
++  const githubAdapterResult = prepareGitHubPullRequest({
++    composition: prComposition,
++    installation: normalizeInstallation(input.installation, plan as any),
++    now: createdAt,
++    dryRun: input.dryRun ?? false,
++    runtime,
++    rateLimit,
++    idempotencyKey: input.idempotencyKey,
++  });
++  if ((githubAdapterResult as any).status !== "ready" || (githubAdapterResult as any).request === undefined) {
++    return stopResult({
++      createdAt,
++      status: (githubAdapterResult as any).status === "invalid" ? "invalid" : "blocked",
++      decision: (githubAdapterResult as any).status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++      reasons: [`github_pr_adapter_${String((githubAdapterResult as any).status)}`, ...stringArray((githubAdapterResult as any).reasons)],
++      auditTrail: [...auditTrail, ...stringArray((githubAdapterResult as any).auditTrail), "chain:stopped_at_github_pr_adapter"],
++      chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult, prComposition, githubAdapterResult },
++    });
++  }
++
++  const githubRequest = (githubAdapterResult as any).request;
++  const approvalCheckpointResult = runApprovalCheckpoint({
++    request: githubRequest,
++    runtime,
++    rateLimit,
++    humanApproval: input.humanApproval,
++    humanApprovals: input.humanApprovals,
++    now: createdAt,
++  });
++  if ((approvalCheckpointResult as any).status !== "authorized" || (approvalCheckpointResult as any).authorization === undefined) {
++    const status = (approvalCheckpointResult as any).status === "quarantined" ? "quarantined" : (approvalCheckpointResult as any).status === "invalid" ? "invalid" : "blocked";
++    return stopResult({
++      createdAt,
++      status,
++      decision: status === "quarantined" ? "quarantine_before_transport" : status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++      reasons: [`approval_checkpoint_${String((approvalCheckpointResult as any).status)}`, ...stringArray((approvalCheckpointResult as any).reasons)],
++      auditTrail: [...auditTrail, ...stringArray((approvalCheckpointResult as any).auditTrail), "chain:stopped_at_approval_checkpoint"],
++      chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult, prComposition, githubAdapterResult, githubRequest, approvalCheckpointResult },
++    });
++  }
++
++  const transportAuthorization = (approvalCheckpointResult as any).authorization;
++  const rateGovernorResult = runRateGovernor({
++    authorization: transportAuthorization,
++    runtime,
++    rateState: input.rateState,
++    now: createdAt,
++  });
++  if ((rateGovernorResult as any).status !== "queued") {
++    const status = (rateGovernorResult as any).status === "delayed" ? "delayed" : (rateGovernorResult as any).status === "invalid" ? "invalid" : "blocked";
++    return stopResult({
++      createdAt,
++      status,
++      decision: status === "delayed" ? "delayed_before_transport" : status === "invalid" ? "invalid_demo_input_or_chain" : "blocked_before_pr_transport",
++      reasons: [`rate_governor_${String((rateGovernorResult as any).status)}`, ...stringArray((rateGovernorResult as any).reasons)],
++      auditTrail: [...auditTrail, ...stringArray((rateGovernorResult as any).auditTrail), "chain:stopped_at_rate_governor"],
++      chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult, prComposition, githubAdapterResult, githubRequest, approvalCheckpointResult, transportAuthorization, rateGovernorResult, rateGovernorDispatch: (rateGovernorResult as any).dispatch },
++    });
++  }
++
++  const rateGovernorDispatch = (rateGovernorResult as any).dispatch;
++  const result = readyResult({
++    createdAt,
++    auditTrail: [
++      ...auditTrail,
++      ...stringArray((plannerResult as any).auditTrail),
++      ...stringArray((worktreeResult as any).auditTrail),
++      ...stringArray((sandboxResult as any).auditTrail),
++      ...stringArray((auditResult as any).auditTrail),
++      ...stringArray((prComposerResult as any).auditTrail),
++      ...stringArray((githubAdapterResult as any).auditTrail),
++      ...stringArray((approvalCheckpointResult as any).auditTrail),
++      ...stringArray((rateGovernorResult as any).auditTrail),
++      "chain:complete_through_rate_governor_dispatch",
++      "live_github_transport:not_performed",
++    ],
++    chain: { planner: plannerResult, plan, worktreeResult, worktreePlan, sandboxResult, sandboxRequest, sandboxObservedOutput, sandboxObservedValidation, auditResult, auditReport, prComposerResult, prComposition, githubAdapterResult, githubRequest, approvalCheckpointResult, transportAuthorization, rateGovernorResult, rateGovernorDispatch },
++  });
++
++  const validation = validateEndToEndForgedPrDemo(result);
++  if (!validation.ok) return { ...result, status: "invalid", decision: "invalid_demo_input_or_chain", reasons: uniqueStrings([...result.reasons, "generated_demo_manifest_failed_validation", ...validation.issues.map(formatIssue)]), issues: validation.issues };
++  return result;
++}
++
++export const runForgeDemo = runEndToEndForgedPrDemo;
++export const runEndToEndDemo = runEndToEndForgedPrDemo;
++export const runE2EForgedPrDemo = runEndToEndForgedPrDemo;
++export const runT028Demo = runEndToEndForgedPrDemo;
++
++export function validateEndToEndForgedPrDemo(value: unknown): ForgeDemoValidationResult {
++  const issues: ForgeDemoValidationIssue[] = [];
++  const root = asRecord(value);
++  if (root === null) return { ok: false, issues: [issue("/demo", "type", "demo result must be an object")] };
++  expectLiteral(root, "manifest_version", FORGE_DEMO_VERSION, issues, "/demo");
++  expectLiteral(root, "schema_ref", E2E_FORGED_PR_DEMO_SCHEMA_REF, issues, "/demo");
++  expectString(root, "demo_id", issues, "/demo", "forge-demo://");
++  expectRfc3339(root, "created_at", issues, "/demo");
++  const status = expectOneOf(root, "status", new Set(["ready", "blocked", "delayed", "quarantined", "invalid"]), issues, "/demo");
++  expectOneOf(root, "decision", new Set(["demo_chain_ready", "blocked_before_pr_transport", "delayed_before_transport", "quarantine_before_transport", "invalid_demo_input_or_chain"]), issues, "/demo");
++  const steps = arrayValue(root.steps).map(asRecord).filter((item): item is JsonRecord => item !== null);
++  if (steps.length === 0) issues.push(issue("/demo/steps", "non_empty", "steps must describe the demo chain"));
++  const invariants = asRecord(root.invariants);
++  if (invariants === null) issues.push(issue("/demo/invariants", "required", "invariants are required"));
++  else {
++    for (const key of ["one_task_one_pr", "no_default_branch_write", "approval_gate_preserved", "pr_body_contains_risk_summary", "pr_body_contains_acceptance_criteria"] as const) {
++      if (status === "ready" && invariants[key] !== true) issues.push(issue(`/demo/invariants/${key}`, "literal", `${key} must be true for ready demo output`));
++    }
++    for (const key of ["live_github_transport_performed", "real_pull_request_created", "merge_or_approval_executed", "memory_or_evaluation_updated", "federation_performed"] as const) {
++      if (invariants[key] !== false) issues.push(issue(`/demo/invariants/${key}`, "literal", `${key} must remain false`));
++    }
++  }
++  if (status === "ready") validateReadyChain(root, issues);
++  return { ok: issues.length === 0, issues: uniqueIssues(issues) };
++}
++
++export const validateForgeDemo = validateEndToEndForgedPrDemo;
++export const validateE2EForgedPrDemo = validateEndToEndForgedPrDemo;
++export const validateT028Demo = validateEndToEndForgedPrDemo;
++
++function validateReadyChain(root: JsonRecord, issues: ForgeDemoValidationIssue[]): void {
++  const chain = asRecord(root.chain);
++  if (chain === null) {
++    issues.push(issue("/demo/chain", "required", "ready demo requires a full manifest chain"));
++    return;
++  }
++  mergeValidation("/demo/chain/plan", validatePlanSpec(chain.plan), issues);
++  mergeValidation("/demo/chain/worktreePlan", validateBranchWorktreePlan(chain.worktreePlan), issues);
++  mergeValidation("/demo/chain/sandboxRequest", validateSandboxExecutionRequest(chain.sandboxRequest), issues);
++  const sandboxRequest = chain.sandboxRequest;
++  const sandboxOutput = chain.sandboxObservedOutput;
++  mergeValidation("/demo/chain/sandboxObservedOutput", validateSandboxObservedOutput(sandboxRequest as any, sandboxOutput as any), issues);
++  mergeValidation("/demo/chain/auditReport", validateAuditResult(chain.auditReport), issues);
++  mergeValidation("/demo/chain/prComposition", validatePullRequestComposition(chain.prComposition), issues);
++  mergeValidation("/demo/chain/githubRequest", validateGitHubPullRequestCreationRequest(chain.githubRequest), issues);
++  mergeValidation("/demo/chain/transportAuthorization", validateTransportAuthorization(chain.transportAuthorization), issues);
++  mergeValidation("/demo/chain/rateGovernorDispatch", validateRateGovernorDispatch(chain.rateGovernorDispatch), issues);
++
++  const planId = stringValue(asRecord(chain.plan)?.plan_id);
++  const worktreePlanId = stringValue(asRecord(chain.worktreePlan)?.plan_id);
++  const sandboxPlanId = stringValue(asRecord(chain.sandboxRequest)?.plan_id);
++  const auditPlanId = stringValue(asRecord(chain.auditReport)?.plan_id);
++  const compositionPlanId = stringValue(asRecord(chain.prComposition)?.plan_id);
++  const requestPlanId = stringValue(asRecord(chain.githubRequest)?.plan_id);
++  const authorizationPlanId = stringValue(asRecord(chain.transportAuthorization)?.plan_id);
++  const dispatchPlanId = stringValue(asRecord(chain.rateGovernorDispatch)?.plan_id);
++  if (!allEqual([planId, worktreePlanId, sandboxPlanId, auditPlanId, compositionPlanId, requestPlanId, authorizationPlanId, dispatchPlanId])) issues.push(issue("/demo/chain/plan_id", "mismatch", "plan_id must match across the full T028 chain"));
++
++  const worktreeId = stringValue(asRecord(chain.worktreePlan)?.manifest_id);
++  const sandboxWorktreeId = stringValue(asRecord(chain.sandboxRequest)?.worktree_manifest_id);
++  const auditWorktreeId = stringValue(asRecord(chain.auditReport)?.worktree_manifest_id);
++  const compositionWorktreeId = stringValue(asRecord(chain.prComposition)?.worktree_manifest_id);
++  if (!allEqual([worktreeId, sandboxWorktreeId, auditWorktreeId, compositionWorktreeId])) issues.push(issue("/demo/chain/worktree_manifest_id", "mismatch", "worktree manifest id must match through PR composition"));
++
++  const sandboxId = stringValue(asRecord(chain.sandboxRequest)?.request_id);
++  const auditSandboxId = stringValue(asRecord(chain.auditReport)?.sandbox_request_id);
++  const compositionSandboxId = stringValue(asRecord(chain.prComposition)?.sandbox_request_id);
++  if (!allEqual([sandboxId, auditSandboxId, compositionSandboxId])) issues.push(issue("/demo/chain/sandbox_request_id", "mismatch", "sandbox request id must match through PR composition"));
++
++  const auditId = stringValue(asRecord(chain.auditReport)?.audit_id);
++  const compositionAuditId = stringValue(asRecord(chain.prComposition)?.audit_id);
++  const githubAuditId = stringValue(asRecord(chain.githubRequest)?.audit_id);
++  const authorizationAuditId = stringValue(asRecord(chain.transportAuthorization)?.audit_id);
++  const dispatchAuditId = stringValue(asRecord(chain.rateGovernorDispatch)?.audit_id);
++  if (!allEqual([auditId, compositionAuditId, githubAuditId, authorizationAuditId, dispatchAuditId])) issues.push(issue("/demo/chain/audit_id", "mismatch", "audit id must match from audit through dispatch"));
++
++  const githubRequestId = stringValue(asRecord(chain.githubRequest)?.request_id);
++  const authorizationRequestId = stringValue(asRecord(chain.transportAuthorization)?.request_id);
++  const dispatchRequestId = stringValue(asRecord(chain.rateGovernorDispatch)?.request_id);
++  if (!allEqual([githubRequestId, authorizationRequestId, dispatchRequestId])) issues.push(issue("/demo/chain/request_id", "mismatch", "GitHub PR request id must match through approval and rate governor"));
++
++  const pr = asRecord(asRecord(chain.prComposition)?.pull_request);
++  const body = stringValue(pr?.body) ?? "";
++  if (!body.includes("### Review gate") || !body.includes("Approval class") || !body.includes("Risk")) issues.push(issue("/demo/chain/prComposition/pull_request/body", "risk_summary", "PR body must include risk and approval summary"));
++  if (!body.includes("### Acceptance criteria")) issues.push(issue("/demo/chain/prComposition/pull_request/body", "acceptance", "PR body must include acceptance criteria"));
++}
++
++function readyResult(context: { readonly createdAt: string; readonly auditTrail: readonly string[]; readonly chain: ForgeDemoResult["chain"] }): ForgeDemoResult {
++  const chain = context.chain;
++  const plan = asRecord(chain.plan);
++  const worktreePlan = asRecord(chain.worktreePlan);
++  const sandboxRequest = asRecord(chain.sandboxRequest);
++  const auditReport = asRecord(chain.auditReport);
++  const prComposition = asRecord(chain.prComposition);
++  const githubRequest = asRecord(chain.githubRequest);
++  const transportAuthorization = asRecord(chain.transportAuthorization);
++  const rateGovernorDispatch = asRecord(chain.rateGovernorDispatch);
++  const pr = asRecord(prComposition?.pull_request);
++  const review = asRecord(prComposition?.review);
++  const summary = summaryFor(chain);
++  return {
++    manifest_version: FORGE_DEMO_VERSION,
++    schema_ref: E2E_FORGED_PR_DEMO_SCHEMA_REF,
++    demo_id: `forge-demo://t028-${shortHash(`${stringValue(plan?.plan_id)}:${stringValue(rateGovernorDispatch?.dispatch_id)}:${context.createdAt}`)}`,
++    created_at: context.createdAt,
++    status: "ready",
++    decision: "demo_chain_ready",
++    reasons: uniqueStrings([
++      "e2e_forged_pr_demo_ready",
++      `plan:${summary.plan_id}`,
++      `pr_composition:${summary.composition_id}`,
++      `github_request:${summary.github_request_id}`,
++      `transport_authorization:${summary.authorization_id}`,
++      `rate_dispatch:${summary.dispatch_id}`,
++      "live_github_transport:not_performed",
++    ]),
++    auditTrail: context.auditTrail,
++    steps: stepsFor(chain),
++    summary,
++    invariants: {
++      one_task_one_pr: asRecord(plan?.scope_contract)?.one_task_one_pr === true && asRecord(worktreePlan?.scope)?.one_task_one_pr === true && asRecord(sandboxRequest?.scope)?.one_task_one_pr === true,
++      source_issue_count: numberValue(asRecord(plan?.scope_contract)?.source_issue_count),
++      no_default_branch_write: asRecord(plan?.scope_contract)?.no_default_branch_write === true && asRecord(worktreePlan?.scope)?.no_default_branch_write === true && asRecord(sandboxRequest?.scope)?.no_default_branch_write === true && asRecord(prComposition?.scope)?.no_default_branch_write === true && asRecord(rateGovernorDispatch?.transport)?.live_github_transport_performed === false,
++      pr_body_contains_risk_summary: bodyIncludes(stringValue(pr?.body), ["### Review gate", "Approval class", "Risk"]),
++      pr_body_contains_acceptance_criteria: bodyIncludes(stringValue(pr?.body), ["### Acceptance criteria"]),
++      approval_gate_preserved: asRecord(prComposition?.guards)?.approval_gate_preserved === true && asRecord(transportAuthorization?.guards)?.human_review_before_merge_preserved === true && stringValue(asRecord(auditReport?.gates)?.pr_composition) === "allowed" && stringValue(review?.approval_class) !== null,
++      live_github_transport_performed: false,
++      real_pull_request_created: false,
++      merge_or_approval_executed: false,
++      memory_or_evaluation_updated: false,
++      federation_performed: false,
++    },
++    chain,
++  };
++}
++
++function stopResult(context: { readonly createdAt: string; readonly status: ForgeDemoStatus; readonly decision: ForgeDemoDecision; readonly reasons: readonly string[]; readonly auditTrail: readonly string[]; readonly chain: ForgeDemoResult["chain"] }): ForgeDemoResult {
++  return {
++    manifest_version: FORGE_DEMO_VERSION,
++    schema_ref: E2E_FORGED_PR_DEMO_SCHEMA_REF,
++    demo_id: `forge-demo://t028-stopped-${shortHash(`${context.status}:${context.reasons.join(":")}:${context.createdAt}`)}`,
++    created_at: context.createdAt,
++    status: context.status,
++    decision: context.decision,
++    reasons: uniqueStrings(context.reasons),
++    auditTrail: context.auditTrail,
++    steps: stepsFor(context.chain),
++    summary: summaryFor(context.chain),
++    invariants: {
++      one_task_one_pr: booleanValue(asRecord(asRecord(context.chain.plan)?.scope_contract)?.one_task_one_pr) ?? false,
++      source_issue_count: numberValue(asRecord(asRecord(context.chain.plan)?.scope_contract)?.source_issue_count),
++      no_default_branch_write: booleanValue(asRecord(asRecord(context.chain.plan)?.scope_contract)?.no_default_branch_write) ?? false,
++      pr_body_contains_risk_summary: bodyIncludes(stringValue(asRecord(asRecord(context.chain.prComposition)?.pull_request)?.body), ["### Review gate", "Approval class", "Risk"]),
++      pr_body_contains_acceptance_criteria: bodyIncludes(stringValue(asRecord(asRecord(context.chain.prComposition)?.pull_request)?.body), ["### Acceptance criteria"]),
++      approval_gate_preserved: booleanValue(asRecord(asRecord(context.chain.prComposition)?.guards)?.approval_gate_preserved) ?? false,
++      live_github_transport_performed: false,
++      real_pull_request_created: false,
++      merge_or_approval_executed: false,
++      memory_or_evaluation_updated: false,
++      federation_performed: false,
++    },
++    chain: context.chain,
++  };
++}
++
++function invalidBase(reason: string, value: string): ForgeDemoResult {
++  return stopResult({ createdAt: NOW, status: "invalid", decision: "invalid_demo_input_or_chain", reasons: [reason, value], auditTrail: ["e2e_forged_pr_demo:T028", "input:invalid"], chain: {} });
++}
++
++function resolvePlannerInput(input: ForgeDemoInput, now: string): any {
++  if (asRecord(input.plannerInput) !== null) return input.plannerInput;
++  if (asRecord(input.intake) !== null) return { source: "intake_input", now, intake: input.intake };
++  return { source: "intake_input", now, intake: normalizeIssueInput(input.issue) };
++}
++
++function normalizeIssueInput(issueInput: ForgeDemoIssueInput | undefined): any {
++  const issue = issueInput ?? {};
++  const repository = issue.repositoryFullName ?? "hiroshitanaka-creator/ForgeRoot";
++  const number = Number.isSafeInteger(issue.number) ? issue.number : 28;
++  return {
++    sourceKind: issue.sourceKind ?? "issue",
++    action: issue.action ?? "opened",
++    repositoryFullName: repository,
++    number,
++    url: issue.url ?? `https://github.com/${repository}/issues/${number}`,
++    title: issue.title ?? "docs: add T028 forged PR demo note",
++    body: issue.body ?? "Add one bounded documentation note to docs/ops/t028-e2e-forged-pr-demo.md.",
++    labels: issue.labels ?? ["forge:auto", "docs", "phase:P1", "class:A", "risk:low"],
++  };
++}
++
++function normalizeInstallation(input: unknown, plan: JsonRecord): any {
++  const source = asRecord(plan.source);
++  const repo = stringValue(asRecord(input)?.repositoryFullName) ?? stringValue(source?.repository) ?? "hiroshitanaka-creator/ForgeRoot";
++  const root = asRecord(input) ?? {};
++  return {
++    installationId: numberValue(root.installationId) ?? numberValue(root.installation_id) ?? 42,
++    repositoryFullName: repo,
++    permissions: asRecord(root.permissions) ?? {
++      metadata: "read",
++      contents: "write",
++      pull_requests: "write",
++      issues: "write",
++      checks: "write",
++      actions: "read",
++    },
++  };
++}
++
++function normalizeRuntimeGate(input: unknown): any {
++  const root = asRecord(input) ?? {};
++  const mode = stringValue(root.mode) ?? "evolve";
++  return {
++    operation: "open_pull_request",
++    mode,
++    allowed: booleanValue(root.allowed) ?? true,
++    mutatingLaneOpen: booleanValue(root.mutatingLaneOpen ?? root.mutating_lane_open) ?? true,
++    mutating_lane_open: booleanValue(root.mutating_lane_open ?? root.mutatingLaneOpen) ?? true,
++    killSwitchEngaged: booleanValue(root.killSwitchEngaged ?? root.kill_switch_engaged) ?? false,
++    kill_switch_engaged: booleanValue(root.kill_switch_engaged ?? root.killSwitchEngaged) ?? false,
++    cooldownUntil: root.cooldownUntil === null || root.cooldown_until === null ? null : stringValue(root.cooldownUntil ?? root.cooldown_until),
++    cooldown_until: root.cooldown_until === null || root.cooldownUntil === null ? null : stringValue(root.cooldown_until ?? root.cooldownUntil),
++    liveTransportAllowed: booleanValue(root.liveTransportAllowed ?? root.live_transport_allowed) ?? true,
++    live_transport_allowed: booleanValue(root.live_transport_allowed ?? root.liveTransportAllowed) ?? true,
++  };
++}
++
++function normalizeRateLimitGate(input: unknown): any {
++  const root = asRecord(input) ?? {};
++  return {
++    writeLaneAvailable: booleanValue(root.writeLaneAvailable ?? root.write_lane_available) ?? true,
++    write_lane_available: booleanValue(root.write_lane_available ?? root.writeLaneAvailable) ?? true,
++    contentCreateAllowed: booleanValue(root.contentCreateAllowed ?? root.content_create_allowed) ?? true,
++    content_create_allowed: booleanValue(root.content_create_allowed ?? root.contentCreateAllowed) ?? true,
++    retryAfterSeconds: numberValue(root.retryAfterSeconds ?? root.retry_after_seconds),
++    retry_after_seconds: numberValue(root.retry_after_seconds ?? root.retryAfterSeconds),
++    minDelayMs: numberValue(root.minDelayMs ?? root.min_delay_ms) ?? 1200,
++    min_delay_ms: numberValue(root.min_delay_ms ?? root.minDelayMs) ?? 1200,
++    jitterMs: numberValue(root.jitterMs ?? root.jitter_ms) ?? 800,
++    jitter_ms: numberValue(root.jitter_ms ?? root.jitterMs) ?? 800,
++    liveTransportAllowed: booleanValue(root.liveTransportAllowed ?? root.live_transport_allowed) ?? true,
++    live_transport_allowed: booleanValue(root.live_transport_allowed ?? root.liveTransportAllowed) ?? true,
++  };
++}
++
++function selectDemoChangedPath(plan: JsonRecord): string {
++  const mutable = stringArray(asRecord(plan.scope_contract)?.mutable_paths);
++  if (mutable.some((path) => path === "docs/**" || path.startsWith("docs/"))) return "docs/ops/t028-e2e-forged-pr-demo.md";
++  if (mutable.includes("README.md")) return "README.md";
++  if (mutable.some((path) => path === "tests/**" || path.includes("test"))) return "tests/t028-demo.test.mjs";
++  if (mutable.includes("package.json")) return "package.json";
++  const first = mutable[0] ?? "docs/ops/t028-e2e-forged-pr-demo.md";
++  if (first.endsWith("/**")) return `${first.slice(0, -3)}/t028-demo.txt`;
++  if (first.includes("*")) return first.replace(/\*\*/g, "t028-demo").replace(/\*/g, "t028-demo");
++  return first;
++}
++
++function buildDemoSandboxOutput(request: JsonRecord, changedPaths: readonly string[]): any {
++  const artifacts = arrayValue(request.artifacts).map((value, index) => {
++    const artifact = asRecord(value) ?? {};
++    const path = stringValue(artifact.path) ?? `.forgeroot/artifacts/t028/artifact-${index + 1}.json`;
++    return { path, bytes: Math.min(numberValue(artifact.max_bytes) ?? 1024, 256), media_type: stringValue(artifact.media_type) ?? "application/json", sha256: `sha256:${demoSha256LikeHex(path).slice(0, 64)}` };
++  });
++  return {
++    command_ids: arrayValue(request.commands).map((value) => stringValue(asRecord(value)?.id)).filter((value): value is string => value !== null),
++    changed_paths: [...changedPaths],
++    diff_summary: { files_changed: changedPaths.length, lines_added: 10, lines_deleted: 1, total_lines_changed: 11 },
++    artifacts,
++    environment: { CI: "1", FORGE_SANDBOX: "1" },
++  };
++}
++
++function buildDemoEvidence(plan: JsonRecord, sandboxOutput: JsonRecord, changedPaths: readonly string[]): any {
++  const commandResults = arrayValue(plan.acceptance_criteria)
++    .map(asRecord)
++    .filter((criterion): criterion is JsonRecord => criterion !== null)
++    .map((criterion) => asRecord(criterion.check))
++    .filter((check): check is JsonRecord => check !== null && check.kind === "command" && typeof check.command === "string")
++    .map((check) => ({ id: stableCommandId(String(check.command)), command: String(check.command), exit_code: numberValue(check.expected_exit_code) ?? 0, outcome: "passed" }));
++  const diff = asRecord(sandboxOutput.diff_summary);
++  return {
++    changed_paths: [...changedPaths],
++    files_changed: numberValue(diff?.files_changed) ?? changedPaths.length,
++    diff_lines: numberValue(diff?.total_lines_changed) ?? 11,
++    command_results: commandResults,
++    text_evidence: { summary: "T028 deterministic demo evidence; no command was executed by the demo harness." },
++  };
++}
++
++function stepsFor(chain: ForgeDemoResult["chain"]): readonly ForgeDemoStep[] {
++  const steps: ForgeDemoStep[] = [];
++  if (chain.planner !== undefined) steps.push({ name: "planner", status: stringValue(asRecord(chain.planner)?.status) ?? "unknown", produced: chain.plan ? "plan_spec" : null, id: stringValue(asRecord(chain.plan)?.plan_id) });
++  if (chain.worktreeResult !== undefined) steps.push({ name: "worktree_manager", status: stringValue(asRecord(chain.worktreeResult)?.status) ?? "unknown", produced: chain.worktreePlan ? "branch_worktree_plan" : null, id: stringValue(asRecord(chain.worktreePlan)?.manifest_id) });
++  if (chain.sandboxResult !== undefined) steps.push({ name: "sandbox_harness", status: stringValue(asRecord(chain.sandboxResult)?.status) ?? "unknown", produced: chain.sandboxRequest ? "sandbox_execution_request" : null, id: stringValue(asRecord(chain.sandboxRequest)?.request_id) });
++  if (chain.auditResult !== undefined) steps.push({ name: "auditor", status: stringValue(asRecord(chain.auditResult)?.status) ?? "unknown", produced: chain.auditReport ? "audit_result" : null, id: stringValue(asRecord(chain.auditReport)?.audit_id) });
++  if (chain.prComposerResult !== undefined) steps.push({ name: "pr_composer", status: stringValue(asRecord(chain.prComposerResult)?.status) ?? "unknown", produced: chain.prComposition ? "pull_request_composition" : null, id: stringValue(asRecord(chain.prComposition)?.composition_id) });
++  if (chain.githubAdapterResult !== undefined) steps.push({ name: "github_pr_adapter", status: stringValue(asRecord(chain.githubAdapterResult)?.status) ?? "unknown", produced: chain.githubRequest ? "github_pull_request_creation_request" : null, id: stringValue(asRecord(chain.githubRequest)?.request_id) });
++  if (chain.approvalCheckpointResult !== undefined) steps.push({ name: "approval_checkpoint", status: stringValue(asRecord(chain.approvalCheckpointResult)?.status) ?? "unknown", produced: chain.transportAuthorization ? "trusted_transport_authorization" : null, id: stringValue(asRecord(chain.transportAuthorization)?.authorization_id) });
++  if (chain.rateGovernorResult !== undefined) steps.push({ name: "rate_governor", status: stringValue(asRecord(chain.rateGovernorResult)?.status) ?? "unknown", produced: chain.rateGovernorDispatch ? "rate_governor_dispatch" : null, id: stringValue(asRecord(chain.rateGovernorDispatch)?.dispatch_id) });
++  return steps;
++}
++
++function summaryFor(chain: ForgeDemoResult["chain"]): ForgeDemoResult["summary"] {
++  const plan = asRecord(chain.plan);
++  const source = asRecord(plan?.source);
++  const worktree = asRecord(chain.worktreePlan);
++  const sandbox = asRecord(chain.sandboxRequest);
++  const audit = asRecord(chain.auditReport);
++  const composition = asRecord(chain.prComposition);
++  const pr = asRecord(composition?.pull_request);
++  const review = asRecord(composition?.review);
++  const request = asRecord(chain.githubRequest);
++  const authorization = asRecord(chain.transportAuthorization);
++  const dispatch = asRecord(chain.rateGovernorDispatch);
++  return {
++    source_issue: sourceIssueRef(source),
++    repository: stringValue(source?.repository) ?? stringValue(asRecord(request?.repository)?.full_name),
++    plan_id: stringValue(plan?.plan_id),
++    worktree_manifest_id: stringValue(worktree?.manifest_id),
++    sandbox_request_id: stringValue(sandbox?.request_id),
++    audit_id: stringValue(audit?.audit_id),
++    composition_id: stringValue(composition?.composition_id),
++    github_request_id: stringValue(request?.request_id),
++    authorization_id: stringValue(authorization?.authorization_id),
++    dispatch_id: stringValue(dispatch?.dispatch_id),
++    pr_title: stringValue(pr?.title),
++    head: stringValue(pr?.head),
++    base: stringValue(pr?.base),
++    approval_class: stringValue(review?.approval_class) ?? stringValue(asRecord(request?.review_gate)?.approval_class),
++    risk: stringValue(review?.risk) ?? stringValue(asRecord(request?.review_gate)?.risk),
++    rate_governor_status: stringValue(dispatch?.status),
++  };
++}
++
++function mergeValidation(path: string, validation: unknown, issues: ForgeDemoValidationIssue[]): void {
++  const root = asRecord(validation);
++  if (root?.ok === true) return;
++  for (const item of arrayValue(root?.issues)) {
++    const record = asRecord(item);
++    issues.push(issue(`${path}${stringValue(record?.path) ?? ""}`, stringValue(record?.code) ?? "invalid", stringValue(record?.message) ?? "upstream validation failed"));
++  }
++  if (!arrayValue(root?.issues).length) issues.push(issue(path, "invalid", "upstream validation failed"));
++}
++
++function sourceIssueRef(source: JsonRecord | null): string | null {
++  if (source === null) return null;
++  const url = stringValue(source.url);
++  if (url !== null) return url;
++  const repository = stringValue(source.repository);
++  const number = numberValue(source.issue_number);
++  if (repository !== null && number !== null) return `${repository}#${number}`;
++  return null;
++}
++
++function formatUpstreamIssues(value: unknown): readonly string[] {
++  return arrayValue(value).map((item) => {
++    const record = asRecord(item);
++    return `${stringValue(record?.path) ?? "/"}:${stringValue(record?.code) ?? "invalid"}`;
++  });
++}
++
++function bodyIncludes(body: string | null, needles: readonly string[]): boolean {
++  if (body === null) return false;
++  return needles.every((needle) => body.includes(needle));
++}
++
++function expectLiteral(record: JsonRecord, key: string, expected: unknown, issues: ForgeDemoValidationIssue[], path: string): void {
++  if (record[key] !== expected) issues.push(issue(`${path}/${key}`, "literal", `${key} must equal ${JSON.stringify(expected)}`));
++}
++function expectString(record: JsonRecord, key: string, issues: ForgeDemoValidationIssue[], path: string, prefix?: string): string | null {
++  const value = record[key];
++  if (typeof value !== "string" || value.length === 0) { issues.push(issue(`${path}/${key}`, "string", `${key} must be a non-empty string`)); return null; }
++  if (prefix !== undefined && !value.startsWith(prefix)) issues.push(issue(`${path}/${key}`, "prefix", `${key} must start with ${prefix}`));
++  return value;
++}
++function expectRfc3339(record: JsonRecord, key: string, issues: ForgeDemoValidationIssue[], path: string): void {
++  const value = expectString(record, key, issues, path);
++  if (value !== null && !RFC3339_UTC.test(value)) issues.push(issue(`${path}/${key}`, "rfc3339", `${key} must be RFC3339 UTC`));
++}
++function expectOneOf(record: JsonRecord, key: string, allowed: ReadonlySet<string>, issues: ForgeDemoValidationIssue[], path: string): string | null {
++  const value = expectString(record, key, issues, path);
++  if (value !== null && !allowed.has(value)) issues.push(issue(`${path}/${key}`, "enum", `${key} is not allowed`));
++  return value;
++}
++function issue(path: string, code: string, message: string): ForgeDemoValidationIssue { return { path, code, message }; }
++function formatIssue(item: ForgeDemoValidationIssue): string { return `${item.path}:${item.code}:${item.message}`; }
++function uniqueIssues(values: readonly ForgeDemoValidationIssue[]): readonly ForgeDemoValidationIssue[] { const seen = new Set<string>(); const out: ForgeDemoValidationIssue[] = []; for (const item of values) { const key = `${item.path}\0${item.code}\0${item.message}`; if (!seen.has(key)) { seen.add(key); out.push(item); } } return out; }
++function uniqueStrings(values: readonly string[]): readonly string[] { return [...new Set(values.filter((value) => typeof value === "string" && value.length > 0))]; }
++function allEqual(values: readonly (string | null)[]): boolean { const nonNull = values.filter((value): value is string => value !== null); return nonNull.length === values.length && nonNull.every((value) => value === nonNull[0]); }
++function resolveTimestamp(candidate: string | undefined, fallback: string): string | null { const value = candidate ?? fallback; return RFC3339_UTC.test(value) ? value : null; }
++function demoSha256LikeHex(value: string): string {
++  const chunks: string[] = [];
++  for (let index = 0; index < 8; index += 1) chunks.push(fnvHex(String(index) + ":" + value));
++  return chunks.join("").slice(0, 64);
++}
++function shortHash(value: string): string { return demoSha256LikeHex(value).slice(0, 12); }
++function fnvHex(value: string): string {
++  let hash = 0x811c9dc5;
++  for (let index = 0; index < value.length; index += 1) {
++    hash ^= value.charCodeAt(index);
++    hash = Math.imul(hash, 0x01000193) >>> 0;
++  }
++  return hash.toString(16).padStart(8, "0");
++}
++function stableCommandId(command: string): string { return command.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64); }
++function asRecord(value: unknown): JsonRecord | null { return typeof value === "object" && value !== null && !Array.isArray(value) ? value as JsonRecord : null; }
++function arrayValue(value: unknown): readonly unknown[] { return Array.isArray(value) ? value : []; }
++function stringValue(value: unknown): string | null { return typeof value === "string" && value.length > 0 ? value : null; }
++function numberValue(value: unknown): number | null { return Number.isSafeInteger(value) ? value as number : null; }
++function booleanValue(value: unknown): boolean | null { return typeof value === "boolean" ? value : null; }
++function stringArray(value: unknown): readonly string[] { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.length > 0) : []; }
++
++type JsonRecord = Record<string, unknown>;
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/tests/run.test.mjs /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/tests/run.test.mjs
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/tests/run.test.mjs	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/tests/run.test.mjs	2026-04-19 01:38:54.456189136 +0000
+@@ -0,0 +1,156 @@
++import assert from "node:assert/strict";
++import { describe, it } from "node:test";
++import {
++  E2E_FORGED_PR_DEMO_CONTRACT,
++  runEndToEndDemo,
++  runEndToEndForgedPrDemo,
++  runE2EForgedPrDemo,
++  runForgeDemo,
++  runT028Demo,
++  validateE2EForgedPrDemo,
++  validateEndToEndForgedPrDemo,
++  validateForgeDemo,
++  validateT028Demo,
++} from "../dist/index.js";
++
++const NOW = "2026-04-18T00:00:00Z";
++const HUMAN_APPROVAL = {
++  approval_ref: "review://maintainer-one/1",
++  approver: "maintainer-one",
++  approved: true,
++  approved_at: NOW,
++  code_owner: false,
++};
++
++function readyDemo(overrides = {}) {
++  const result = runEndToEndForgedPrDemo({ now: NOW, ...overrides });
++  assert.equal(result.status, "ready", JSON.stringify(result, null, 2));
++  return result;
++}
++
++function step(result, name) {
++  return result.steps.find((item) => item.name === name);
++}
++
++describe("T028 end-to-end forged PR demo", () => {
++  it("declares a manifest-only demo contract without live GitHub transport authority", () => {
++    assert.equal(E2E_FORGED_PR_DEMO_CONTRACT.oneTaskOnePr, true);
++    assert.equal(E2E_FORGED_PR_DEMO_CONTRACT.demoOnly, true);
++    assert.ok(E2E_FORGED_PR_DEMO_CONTRACT.consumes.includes("forge_auto_issue_like_input"));
++    assert.ok(E2E_FORGED_PR_DEMO_CONTRACT.consumes.includes("trusted_transport_authorization"));
++    assert.ok(E2E_FORGED_PR_DEMO_CONTRACT.produces.includes("full_phase1_manifest_chain"));
++    assert.ok(E2E_FORGED_PR_DEMO_CONTRACT.produces.includes("rate_governed_dispatch_manifest"));
++    assert.ok(E2E_FORGED_PR_DEMO_CONTRACT.forbids.includes("live_github_api_transport"));
++    assert.ok(E2E_FORGED_PR_DEMO_CONTRACT.forbids.includes("real_pull_request_creation"));
++    assert.ok(E2E_FORGED_PR_DEMO_CONTRACT.forbids.includes("merge_operation"));
++    assert.ok(E2E_FORGED_PR_DEMO_CONTRACT.forbids.includes("memory_or_evaluation_updates"));
++    assert.ok(E2E_FORGED_PR_DEMO_CONTRACT.forbids.includes("network_or_federation_behavior"));
++  });
++
++  it("runs one forge:auto issue through the full Phase 1 manifest chain to rate-governed dispatch", () => {
++    const result = readyDemo();
++
++    assert.equal(result.decision, "demo_chain_ready");
++    assert.equal(result.steps.length, 8);
++    assert.deepEqual(result.steps.map((item) => item.name), [
++      "planner",
++      "worktree_manager",
++      "sandbox_harness",
++      "auditor",
++      "pr_composer",
++      "github_pr_adapter",
++      "approval_checkpoint",
++      "rate_governor",
++    ]);
++    assert.equal(step(result, "planner")?.status, "planned");
++    assert.equal(step(result, "auditor")?.status, "passed");
++    assert.equal(step(result, "rate_governor")?.status, "queued");
++    assert.equal(result.chain.rateGovernorDispatch.transport.live_github_transport_performed, false);
++    assert.equal(result.invariants.one_task_one_pr, true);
++    assert.equal(result.invariants.source_issue_count, 1);
++    assert.equal(result.invariants.no_default_branch_write, true);
++    assert.equal(result.invariants.live_github_transport_performed, false);
++    assert.equal(result.invariants.real_pull_request_created, false);
++    assert.deepEqual(validateEndToEndForgedPrDemo(result), { ok: true, issues: [] });
++  });
++
++  it("keeps risk summary, acceptance criteria, and approval gate visible in the PR composition", () => {
++    const result = readyDemo({ labels: ["forge:auto", "phase:P1", "class:A", "risk:low"] });
++    const body = result.chain.prComposition.pull_request.body;
++
++    assert.match(body, /### Review gate/);
++    assert.match(body, /Approval class/);
++    assert.match(body, /Risk/);
++    assert.match(body, /### Acceptance criteria/);
++    assert.equal(result.invariants.pr_body_contains_risk_summary, true);
++    assert.equal(result.invariants.pr_body_contains_acceptance_criteria, true);
++    assert.equal(result.invariants.approval_gate_preserved, true);
++    assert.equal(result.summary.approval_class, "A");
++    assert.equal(result.summary.risk, "low");
++  });
++
++  it("blocks before planning when the issue is not automation-labeled", () => {
++    const result = runEndToEndForgedPrDemo({ now: NOW, issue: { labels: ["docs", "phase:P1", "class:A", "risk:low"] } });
++
++    assert.equal(result.status, "blocked", JSON.stringify(result, null, 2));
++    assert.equal(result.decision, "blocked_before_pr_transport");
++    assert.equal(step(result, "planner")?.status, "ignored");
++    assert.equal(result.chain.plan, undefined);
++    assert.ok(result.reasons.includes("planner_ignored"));
++    assert.deepEqual(validateEndToEndForgedPrDemo(result), { ok: true, issues: [] });
++  });
++
++  it("blocks before audit when the simulated sandbox output exceeds mutable scope", () => {
++    const result = runEndToEndForgedPrDemo({ now: NOW, changedPaths: [".forge/policies/runtime-mode.forge"] });
++
++    assert.equal(result.status, "blocked", JSON.stringify(result, null, 2));
++    assert.equal(result.decision, "blocked_before_pr_transport");
++    assert.equal(step(result, "sandbox_harness")?.status, "ready");
++    assert.equal(result.chain.auditResult, undefined);
++    assert.equal(result.chain.prComposition, undefined);
++    assert.ok(result.reasons.includes("sandbox_observed_output_failed_validation"));
++    assert.deepEqual(validateEndToEndForgedPrDemo(result), { ok: true, issues: [] });
++  });
++
++  it("delays before transport when the rate governor content-create budget is exhausted", () => {
++    const result = runEndToEndForgedPrDemo({
++      now: NOW,
++      rateState: { contentCreate: { perMinuteCount: 20, minuteResetAt: "2026-04-18T00:01:00Z" } },
++    });
++
++    assert.equal(result.status, "delayed", JSON.stringify(result, null, 2));
++    assert.equal(result.decision, "delayed_before_transport");
++    assert.equal(step(result, "rate_governor")?.status, "delayed");
++    assert.equal(result.summary.rate_governor_status, "delayed");
++    assert.equal(result.invariants.live_github_transport_performed, false);
++    assert.ok(result.reasons.some((reason) => reason.includes("content_create_minute_cap")));
++    assert.deepEqual(validateEndToEndForgedPrDemo(result), { ok: true, issues: [] });
++  });
++
++  it("holds Class B before transport until human approval is provided, then queues", () => {
++    const issue = { labels: ["forge:auto", "docs", "phase:P1", "class:B", "risk:medium"] };
++    const held = runEndToEndForgedPrDemo({ now: NOW, issue });
++    assert.equal(held.status, "blocked", JSON.stringify(held, null, 2));
++    assert.equal(step(held, "approval_checkpoint")?.status, "held");
++    assert.ok(held.reasons.some((reason) => reason.includes("approval_required")));
++
++    const approved = readyDemo({ issue, humanApproval: HUMAN_APPROVAL });
++    assert.equal(approved.summary.approval_class, "B");
++    assert.equal(approved.summary.risk, "medium");
++    assert.equal(approved.chain.transportAuthorization.review_gate.human_approval_count, 1);
++    assert.equal(approved.chain.rateGovernorDispatch.status, "queued");
++  });
++
++  it("supports aliases and validators without changing the ready decision", () => {
++    const results = [runForgeDemo, runEndToEndDemo, runE2EForgedPrDemo, runT028Demo].map((fn) => fn({ now: NOW }));
++    for (const result of results) {
++      assert.equal(result.status, "ready", JSON.stringify(result, null, 2));
++      assert.deepEqual(validateForgeDemo(result), { ok: true, issues: [] });
++      assert.deepEqual(validateE2EForgedPrDemo(result), { ok: true, issues: [] });
++      assert.deepEqual(validateT028Demo(result), { ok: true, issues: [] });
++    }
++    assert.equal(results[0].summary.dispatch_id, results[1].summary.dispatch_id);
++    assert.equal(results[0].summary.dispatch_id, results[2].summary.dispatch_id);
++    assert.equal(results[0].summary.dispatch_id, results[3].summary.dispatch_id);
++  });
++});
+diff -ruN /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/tsconfig.json /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/tsconfig.json
+--- /mnt/data/fr_t028_base2/ForgeRoot/packages/forge-demo/tsconfig.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/fr_t028/ForgeRoot/packages/forge-demo/tsconfig.json	2026-04-19 01:34:24.448543602 +0000
+@@ -0,0 +1,15 @@
++{
++  "compilerOptions": {
++    "target": "ES2022",
++    "module": "NodeNext",
++    "moduleResolution": "NodeNext",
++    "rootDir": "src",
++    "outDir": "dist",
++    "declaration": true,
++    "sourceMap": true,
++    "strict": false,
++    "skipLibCheck": true,
++    "noEmitOnError": true
++  },
++  "include": ["src/**/*.ts"]
++}
