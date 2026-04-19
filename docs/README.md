@@ -17,6 +17,10 @@ Current specs and reports:
 - `ops/thread-handoff-after-t024.md` — handoff summary for starting T025 GitHub PR adapter
 - `ops/thread-handoff-after-t025.md` — handoff summary for starting T026 approval checkpoint
 - `ops/thread-handoff-after-t026.md` — handoff summary for starting T027 rate governor queue
+- `ops/thread-handoff-after-t027.md` — handoff summary for starting T028 end-to-end forged PR demo
+- `ops/t028-e2e-forged-pr-demo.md` — T028 end-to-end demo guide
+- `ops/examples/t028-forged-pr-example.md` — reviewable T028 forged PR example
+- `ops/thread-handoff-after-t028.md` — handoff summary for starting the next safety-floor task
 - `specs/forge-v1.md` — T004 `.forge` v1 specification seed
 - `specs/issue-intake.md` — T015 deterministic issue intake classifier
 - `specs/plan-spec.md` — T016 one-task-one-PR Plan Spec DSL
@@ -36,3 +40,6 @@ Current specs and reports:
 - `specs/t024-validation-report.md` — T024 PR composer report
 - `specs/t025-validation-report.md` — T025 GitHub PR adapter report
 - `specs/t026-validation-report.md` — T026 approval checkpoint report
+- `specs/t027-validation-report.md` — T027 rate governor queue report
+- `specs/t028-validation-report.md` — T028 end-to-end forged PR demo report
+- `specs/fixtures/forge-demo/valid/t028-demo-manifest.json` — compact valid T028 demo fixture

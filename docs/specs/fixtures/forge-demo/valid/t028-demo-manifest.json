@@ -1,0 +1,89 @@
+{
+  "manifest_version": 1,
+  "schema_ref": "urn:forgeroot:e2e-forged-pr-demo:v1",
+  "demo_id": "forge-demo://t028-640f635964df",
+  "created_at": "2026-04-18T00:00:00Z",
+  "status": "ready",
+  "decision": "demo_chain_ready",
+  "summary": {
+    "source_issue": "https://github.com/hiroshitanaka-creator/ForgeRoot/issues/28",
+    "repository": "hiroshitanaka-creator/ForgeRoot",
+    "plan_id": "forge-plan://github/hiroshitanaka-creator/forgeroot/issue/28",
+    "worktree_manifest_id": "forge-worktree://github-hiroshitanaka-creator-forgeroot-issue-28-01i7ctaw",
+    "sandbox_request_id": "forge-sandbox://github-hiroshitanaka-creator-forgeroot-issue-28-01m19lxq",
+    "audit_id": "forge-audit://forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-e1d7cebf",
+    "composition_id": "forge-pr://forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924",
+    "github_request_id": "forge-github-pr://forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924-c080317b",
+    "authorization_id": "forge-approval://forge-github-pr-forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924-c08-860c3376",
+    "dispatch_id": "forge-rate-governor://forge-github-pr-forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-774fbca0b834",
+    "pr_title": "[ForgeRoot] docs: add T028 forged PR demo note",
+    "head": "forge/p1/issue-28-docs-add-t028-forged-pr-demo-note",
+    "base": "main",
+    "approval_class": "A",
+    "risk": "low",
+    "rate_governor_status": "queued"
+  },
+  "invariants": {
+    "one_task_one_pr": true,
+    "source_issue_count": 1,
+    "no_default_branch_write": true,
+    "pr_body_contains_risk_summary": true,
+    "pr_body_contains_acceptance_criteria": true,
+    "approval_gate_preserved": true,
+    "live_github_transport_performed": false,
+    "real_pull_request_created": false,
+    "merge_or_approval_executed": false,
+    "memory_or_evaluation_updated": false,
+    "federation_performed": false
+  },
+  "steps": [
+    {
+      "name": "planner",
+      "status": "planned",
+      "produced": "plan_spec",
+      "id": "forge-plan://github/hiroshitanaka-creator/forgeroot/issue/28"
+    },
+    {
+      "name": "worktree_manager",
+      "status": "ready",
+      "produced": "branch_worktree_plan",
+      "id": "forge-worktree://github-hiroshitanaka-creator-forgeroot-issue-28-01i7ctaw"
+    },
+    {
+      "name": "sandbox_harness",
+      "status": "ready",
+      "produced": "sandbox_execution_request",
+      "id": "forge-sandbox://github-hiroshitanaka-creator-forgeroot-issue-28-01m19lxq"
+    },
+    {
+      "name": "auditor",
+      "status": "passed",
+      "produced": "audit_result",
+      "id": "forge-audit://forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-e1d7cebf"
+    },
+    {
+      "name": "pr_composer",
+      "status": "ready",
+      "produced": "pull_request_composition",
+      "id": "forge-pr://forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924"
+    },
+    {
+      "name": "github_pr_adapter",
+      "status": "ready",
+      "produced": "github_pull_request_creation_request",
+      "id": "forge-github-pr://forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924-c080317b"
+    },
+    {
+      "name": "approval_checkpoint",
+      "status": "authorized",
+      "produced": "trusted_transport_authorization",
+      "id": "forge-approval://forge-github-pr-forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-28-7762d924-c08-860c3376"
+    },
+    {
+      "name": "rate_governor",
+      "status": "queued",
+      "produced": "rate_governor_dispatch",
+      "id": "forge-rate-governor://forge-github-pr-forge-pr-forge-plan-github-hiroshitanaka-creator-forgeroot-issue-774fbca0b834"
+    }
+  ]
+}
