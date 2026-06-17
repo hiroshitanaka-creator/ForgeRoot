@@ -16,11 +16,11 @@ struct MappingFrame {
 pub fn validate_source_and_body(source_bytes: &[u8]) -> Result<&str> {
     let source = std::str::from_utf8(source_bytes)?;
 
-    if !source.starts_with(MAGIC_LINE) {
-        return Err(Error::MissingMagicLine);
-    }
     if source.contains('\r') {
         return Err(Error::CrLfLineEnding);
+    }
+    if !source.starts_with(MAGIC_LINE) {
+        return Err(Error::MissingMagicLine);
     }
     if !source.ends_with('\n') || source.ends_with("\n\n") {
         return Err(Error::TrailingNewline);

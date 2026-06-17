@@ -19,4 +19,4 @@ pub use canonical::{canonical_bytes, canonical_string, TOP_LEVEL_KEY_ORDER, ZERO
 pub use error::{Error, Result};
 pub use hash::{canonical_hash, verify_integrity, IntegrityStatus};
 pub use parser::{parse_bytes, parse_file, parse_str, ForgeDocument};
-pub use validate::validate_document_shape;
+pub use validate::{validate_document_shape, validate_document_shape_for_path};

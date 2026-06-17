@@ -1,3 +1,5 @@
+use std::path::{Component, Path};
+
 use regex::Regex;
 use serde_json::Value;
 
@@ -178,6 +180,161 @@ pub fn validate_document_shape(value: &Value) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Path-aware validation: runs `validate_document_shape` then checks that the
+/// file's `kind`, `id`, `identity.species`, and `identity.role_name` are
+/// consistent with the canonical `.forge` directory layout.
+///
+/// Recognised layouts:
+/// - `.forge/agents/<species>.forge`  → kind=agent, species matches, role_name matches prefix, id ends with `/agent/<species>`
+/// - `.forge/mind.forge`              → kind=mind
+/// - `.forge/policies/<slug>.forge`   → kind=policy
+///
+/// When `path` is `None` the function is identical to `validate_document_shape`.
+pub fn validate_document_shape_for_path(value: &Value, path: Option<&Path>) -> Result<()> {
+    validate_document_shape(value)?;
+    if let Some(p) = path {
+        validate_path_kind_consistency(value, p)?;
+    }
+    Ok(())
+}
+
+fn validate_path_kind_consistency(value: &Value, path: &Path) -> Result<()> {
+    let root = value.as_object().expect("already validated");
+    let kind = root.get("kind").and_then(Value::as_str).unwrap_or("");
+
+    if let Some(species) = find_forge_agents_basename(path) {
+        if kind != "agent" {
+            return shape(
+                "$.kind",
+                format!("path is under .forge/agents/ but kind is '{kind}', expected 'agent'"),
+            );
+        }
+        let id = root.get("id").and_then(Value::as_str).unwrap_or("");
+        let expected_suffix = format!("/agent/{species}");
+        if !id.ends_with(&expected_suffix) {
+            return shape(
+                "$.id",
+                format!("id must end with '/agent/{species}' for .forge/agents/{species}.forge"),
+            );
+        }
+        if let Some(identity) = root.get("identity").and_then(Value::as_object) {
+            let doc_species = identity.get("species").and_then(Value::as_str).unwrap_or("");
+            if doc_species != species {
+                return shape(
+                    "$.identity.species",
+                    format!(
+                        "species '{doc_species}' does not match path basename '{species}'"
+                    ),
+                );
+            }
+            let expected_role = species.split('.').next().unwrap_or("");
+            let role_name = identity.get("role_name").and_then(Value::as_str).unwrap_or("");
+            if role_name != expected_role {
+                return shape(
+                    "$.identity.role_name",
+                    format!(
+                        "role_name '{role_name}' does not match species prefix '{expected_role}'"
+                    ),
+                );
+            }
+        }
+    } else if is_forge_mind_file(path) {
+        if kind != "mind" {
+            return shape(
+                "$.kind",
+                format!("path is .forge/mind.forge but kind is '{kind}', expected 'mind'"),
+            );
+        }
+    } else if is_forge_policies_file(path) {
+        if kind != "policy" {
+            return shape(
+                "$.kind",
+                format!("path is under .forge/policies/ but kind is '{kind}', expected 'policy'"),
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn find_forge_agents_basename(path: &Path) -> Option<String> {
+    let components: Vec<_> = path.components().collect();
+    let n = components.len();
+    if n < 3 {
+        return None;
+    }
+    for i in 0..n - 2 {
+        let c0 = match &components[i] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c1 = match &components[i + 1] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c2 = match &components[i + 2] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        if c0 == ".forge" && c1 == "agents" {
+            if let Some(base) = c2.strip_suffix(".forge") {
+                if !base.is_empty() {
+                    return Some(base.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn is_forge_mind_file(path: &Path) -> bool {
+    let components: Vec<_> = path.components().collect();
+    let n = components.len();
+    if n < 2 {
+        return false;
+    }
+    for i in 0..n - 1 {
+        let c0 = match &components[i] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c1 = match &components[i + 1] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        if c0 == ".forge" && c1 == "mind.forge" {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_forge_policies_file(path: &Path) -> bool {
+    let components: Vec<_> = path.components().collect();
+    let n = components.len();
+    if n < 3 {
+        return false;
+    }
+    for i in 0..n - 2 {
+        let c0 = match &components[i] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c1 = match &components[i + 1] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c2 = match &components[i + 2] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        if c0 == ".forge" && c1 == "policies" {
+            return c2.ends_with(".forge");
+        }
+    }
+    false
 }
 
 fn validate_mind(root: &serde_json::Map<String, Value>) -> Result<()> {

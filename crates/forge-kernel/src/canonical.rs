@@ -182,11 +182,13 @@ fn emit_value(value: &Value, out: &mut String, indent: usize) -> Result<()> {
         Value::Object(map) if map.is_empty() => {
             push_indent(out, indent);
             out.push_str("{}\n");
+            Ok(())
         }
         Value::Object(map) => emit_mapping(map, out, indent, false, None),
         Value::Array(items) if items.is_empty() => {
             push_indent(out, indent);
             out.push_str("[]\n");
+            Ok(())
         }
         Value::Array(items) => emit_sequence(items, out, indent),
         _ => {

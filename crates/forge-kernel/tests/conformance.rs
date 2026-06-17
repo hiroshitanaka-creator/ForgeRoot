@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use forge_kernel::{parse_file, parse_str, verify_integrity, IntegrityStatus};
+use forge_kernel::{parse_file, parse_str, validate_document_shape_for_path, verify_integrity, IntegrityStatus};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -26,7 +26,7 @@ fn t003_bootstrap_files_are_parseable() {
         .expect("constitution parses");
 
     assert_eq!(mind.canonical_hash, "sha256:3f2e4e4793194d00e1c73982e79591633349e3b47a64db7e01af464103b81702");
-    assert_eq!(policy.canonical_hash, "sha256:bc996728112cdf6793e815d5248cd77beff29c28869f9539423846f75f7adfec");
+    assert_eq!(policy.canonical_hash, "sha256:a9f49b52c71bc8be774885d37e814f0a6a7ceeae524aa9f6f95d7fd5636bdeaf");
 }
 
 #[test]
@@ -139,4 +139,85 @@ provenance: {}
 
     assert_eq!(first_doc.canonical, second_doc.canonical);
     assert_eq!(first_doc.canonical_hash, second_doc.canonical_hash);
+}
+
+// ── path-aware validation tests ──────────────────────────────────────────────
+
+#[test]
+fn path_aware_valid_agent_at_canonical_agents_path() {
+    let doc = parse_file(fixture("valid/minimal-agent.forge")).expect("minimal agent parses");
+    let path = Path::new(".forge/agents/planner.alpha.forge");
+    validate_document_shape_for_path(&doc.value, Some(path))
+        .expect("valid planner at .forge/agents/planner.alpha.forge should pass");
+}
+
+#[test]
+fn path_aware_valid_canonical_executor_agent() {
+    let doc = parse_file(fixture("valid/canonical-executor-agent.forge"))
+        .expect("canonical executor fixture parses");
+    let path = Path::new(".forge/agents/executor.alpha.forge");
+    validate_document_shape_for_path(&doc.value, Some(path))
+        .expect("valid executor at .forge/agents/executor.alpha.forge should pass");
+}
+
+#[test]
+fn path_aware_species_mismatch_at_executor_path_is_rejected() {
+    let doc = parse_file(fixture("invalid/agent-species-mismatch.forge"))
+        .expect("species-mismatch fixture passes base validation");
+    let path = Path::new(".forge/agents/executor.alpha.forge");
+    let err = validate_document_shape_for_path(&doc.value, Some(path))
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("species"),
+        "expected 'species' in error, got: {err}"
+    );
+}
+
+#[test]
+fn path_aware_wrong_kind_at_agents_path_fails() {
+    let doc = parse_file(repo_root().join(".forge/mind.forge")).expect("mind parses");
+    let path = Path::new(".forge/agents/root.forge");
+    let err = validate_document_shape_for_path(&doc.value, Some(path)).unwrap_err();
+    assert!(
+        err.to_string().contains("kind"),
+        "expected 'kind' in error, got: {err}"
+    );
+}
+
+#[test]
+fn path_aware_valid_mind_at_mind_path() {
+    let mind_path = repo_root().join(".forge/mind.forge");
+    let doc = parse_file(&mind_path).expect("mind parses");
+    validate_document_shape_for_path(&doc.value, Some(Path::new(".forge/mind.forge")))
+        .expect("mind at .forge/mind.forge should pass");
+}
+
+#[test]
+fn path_aware_agent_at_mind_path_is_rejected() {
+    let doc = parse_file(fixture("valid/minimal-agent.forge")).expect("minimal agent parses");
+    let err = validate_document_shape_for_path(&doc.value, Some(Path::new(".forge/mind.forge")))
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("kind"),
+        "expected 'kind' in error, got: {err}"
+    );
+}
+
+#[test]
+fn path_aware_valid_policy_at_policies_path() {
+    let policy_path = repo_root().join(".forge/policies/constitution.forge");
+    let doc = parse_file(&policy_path).expect("constitution parses");
+    validate_document_shape_for_path(
+        &doc.value,
+        Some(Path::new(".forge/policies/constitution.forge")),
+    )
+    .expect("policy at .forge/policies/constitution.forge should pass");
+}
+
+#[test]
+fn path_none_skips_path_consistency_check() {
+    let doc = parse_file(fixture("invalid/agent-species-mismatch.forge"))
+        .expect("species-mismatch fixture passes base validation");
+    validate_document_shape_for_path(&doc.value, None)
+        .expect("no path means only base validation, which passes for this fixture");
 }

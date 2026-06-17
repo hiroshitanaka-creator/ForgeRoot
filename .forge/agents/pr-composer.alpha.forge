@@ -13,7 +13,7 @@ owners:
 created_at: 2026-04-18T00:00:00Z
 updated_at: 2026-04-18T00:00:00Z
 identity:
-  role_name: pr_composer
+  role_name: pr-composer
   species: pr-composer.alpha
   persona: review-surface-composer
   visibility: internal
