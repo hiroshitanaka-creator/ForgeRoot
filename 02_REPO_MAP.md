@@ -2,7 +2,7 @@
 
 This file is the canonical surface inventory of ForgeRoot. It is updated when the directory structure changes.
 
-**Last updated:** 2026-06-17 (T041-3 Genome Integrity)
+**Last updated:** 2026-06-17 (T029–T031 Memory Foundation)
 
 ---
 
@@ -38,6 +38,7 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 | `.forge/agents/approval-checkpoint.alpha.forge` | agent | `approval-checkpoint.alpha` |
 | `.forge/agents/rate-governor.alpha.forge` | agent | `rate-governor.alpha` |
 | `.forge/policies/constitution.forge` | policy | `forge://…/policy/constitution` — **immutable** |
+| `.forge/policies/memory.forge` | policy | `forge://…/policy/memory` — Phase 2 memory governance |
 | `.forge/lineage/constitution.forge` | policy | Duplicate of policy constitution (quarantine candidate) |
 | `.forge/network/` | network policy | **immutable** |
 
@@ -59,6 +60,8 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 
 ## `packages/` — TypeScript Agent Runtime Packages
 
+### Phase 1 — Pipeline Agents
+
 | Package | Agent |
 |---|---|
 | `packages/planner/` | planner.alpha |
@@ -69,6 +72,12 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 | `packages/approval-checkpoint/` | approval-checkpoint.alpha |
 | `packages/rate-governor/` | rate-governor.alpha |
 
+### Phase 2 — Memory Foundation
+
+| Package | Tasks | Description |
+|---|---|---|
+| `packages/memory/` | T029–T031 | Deterministic working memory update and episode digest manifests |
+
 ---
 
 ## `docs/` — Documentation
@@ -78,8 +87,12 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 | `docs/specs/` | Validation reports and interface specs |
 | `docs/specs/fixtures/forge-v1/` | Test fixtures (valid and invalid `.forge` files) |
 | `docs/specs/repo-integrity.md` | Repo surface integrity spec |
+| `docs/specs/memory-model.md` | T029 four-layer memory model |
+| `docs/specs/working-memory-update.md` | T030 working memory update spec |
+| `docs/specs/episode-digest.md` | T031 episode digest spec |
 | `docs/ops/` | Operations runbooks and thread handoffs |
 | `docs/ops/repo-hygiene-report.md` | Root surface hygiene findings |
+| `docs/ops/thread-handoff-after-t031.md` | Thread handoff after T029–T031 |
 
 ---
 
