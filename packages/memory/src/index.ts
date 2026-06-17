@@ -24,3 +24,38 @@ export type {
   EpisodeDigestResult,
   EpisodeDigestValidationResult,
 } from "./digest.js";
+
+export {
+  createMemoryArchivePack,
+  validateMemoryArchivePack,
+  verifyMemoryArchivePack,
+  MEMORY_ARCHIVE_PACK_VERSION,
+  MEMORY_ARCHIVE_PACK_SCHEMA_REF,
+} from "./packer.js";
+export type {
+  PackKind,
+  MemoryArchiveRecordRef,
+  MemoryArchivePack,
+  MemoryArchivePackResult,
+  MemoryArchivePackValidationResult,
+  MemoryArchivePackVerificationResult,
+} from "./packer.js";
+
+export {
+  createMemoryRetrievalRequest,
+  retrieveMemoryContext,
+  validateMemoryRetrievalResult,
+  MEMORY_RETRIEVAL_VERSION,
+  MEMORY_RETRIEVAL_SCHEMA_REF,
+} from "./retrieval.js";
+export type {
+  RetrievalIntent,
+  MissingMemoryStatus,
+  ContextItemType,
+  MemoryContextItem,
+  MemoryRetrievalResult,
+  MemoryRetrievalRequest,
+  MemoryRetrievalRequestResult,
+  MemoryRetrievalResultWrapper,
+  MemoryRetrievalValidationResult,
+} from "./retrieval.js";

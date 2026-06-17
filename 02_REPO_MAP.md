@@ -2,7 +2,7 @@
 
 This file is the canonical surface inventory of ForgeRoot. It is updated when the directory structure changes.
 
-**Last updated:** 2026-06-17 (T029–T031 Memory Foundation)
+**Last updated:** 2026-06-17 (T029–T033 Memory Foundation)
 
 ---
 
@@ -76,7 +76,7 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 
 | Package | Tasks | Description |
 |---|---|---|
-| `packages/memory/` | T029–T031 | Deterministic working memory update and episode digest manifests |
+| `packages/memory/` | T029–T033 | Deterministic working memory update, episode digest, archive pack, and retrieval adapter manifests |
 
 ---
 
@@ -90,9 +90,14 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 | `docs/specs/memory-model.md` | T029 four-layer memory model |
 | `docs/specs/working-memory-update.md` | T030 working memory update spec |
 | `docs/specs/episode-digest.md` | T031 episode digest spec |
+| `docs/specs/archive-pack.md` | T032 memory archive pack spec |
+| `docs/specs/memory-retrieval.md` | T033 memory retrieval adapter spec |
+| `docs/specs/t032-validation-report.md` | T032 validation report |
+| `docs/specs/t033-validation-report.md` | T033 validation report |
 | `docs/ops/` | Operations runbooks and thread handoffs |
 | `docs/ops/repo-hygiene-report.md` | Root surface hygiene findings |
 | `docs/ops/thread-handoff-after-t031.md` | Thread handoff after T029–T031 |
+| `docs/ops/thread-handoff-after-t033.md` | Thread handoff after T032–T033 |
 
 ---
 
