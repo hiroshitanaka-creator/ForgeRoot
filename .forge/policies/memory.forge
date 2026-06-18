@@ -1,0 +1,28 @@
+kind: policy
+schema_ref: urn:forgeroot:forge:policy:v1
+id: forge://hiroshitanaka-creator/ForgeRoot/policy/memory
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+policy_type: memory
+approval_class: C
+rules:
+  - id: memory-source-of-truth
+    approval_class: C
+    statement: ".forge and committed memory artifacts are the curated memory source of truth."
+  - id: curated-memory-update-requires-pr
+    approval_class: B
+    statement: "Curated memory updates must move through PR review before acceptance."
+  - id: source-refs-required
+    approval_class: B
+    statement: "Memory manifests require task refs, source refs, and artifact hashes."
+  - id: rejected-and-blocked-events-preserved
+    approval_class: B
+    statement: "Rejected and blocked events are preserved as first-class episodic memory."
+  - id: runtime-db-derived-only
+    approval_class: C
+    statement: "Runtime databases, caches, and vector indexes are derived state only."
+  - id: memory-eval-separation
+    approval_class: C
+    statement: "Memory records provenance and outcomes but does not calculate eval scores."
+constitution_compatibility:
+  must_not_weaken_constitution: true
+  direct_forge_write_allowed: false
