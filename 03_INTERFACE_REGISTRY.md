@@ -130,3 +130,20 @@ Fields: action (dispatch | queue | block | cooldown), dispatch_at (timestamp), r
 - `trusted_transport_authorization.decision == authorized` requires non-self human approval for class B, C, D surfaces.
 - `rate_governor_dispatch_decision.action != dispatch` if `retry_after` is set.
 - No agent in the pipeline performs live GitHub API transport. Only the downstream trusted transport worker (not yet implemented) may do so.
+
+---
+
+## packages/memory
+
+| API | Task | Input | Output | Forbidden |
+|---|---:|---|---|---|
+| createWorkingMemoryUpdate(input) | T030 | source refs + facts | working memory update manifest | .forge direct write |
+| validateWorkingMemoryUpdate(update) | T030 | update manifest | validation result | guessed source refs |
+| createEpisodeDigest(input) | T031 | PR/audit/outcome refs | episode digest | source-less digest |
+| validateEpisodeDigest(digest) | T031 | digest manifest | validation result | missing source guessing |
+
+### Memory foundation invariants
+
+- `packages/memory` produces deterministic artifacts only.
+- Runtime DBs and vector indexes remain derived state, not memory source of truth.
+- The package does not call GitHub APIs, write `.forge`, implement MemoryKeeper, calculate eval scores, or generate mutations.
