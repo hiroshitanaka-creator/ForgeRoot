@@ -281,3 +281,24 @@ test("validate: secret-like key in value fails", () => {
   assert.ok(!vResult.ok);
   assert.ok(vResult.issues?.some((i) => i.includes("secret")));
 });
+
+test("validate: missing retention object fails", () => {
+  const createResult = createWorkingMemoryUpdate(VALID_INPUT);
+  assert.ok(createResult.ok, JSON.stringify(createResult.errors));
+  const { retention: _retention, ...withoutRetention } = createResult.update ?? {};
+  const vResult = validateWorkingMemoryUpdate(withoutRetention);
+  assert.ok(!vResult.ok);
+  assert.ok(vResult.issues?.some((i) => i.includes("retention_must_be_object")));
+});
+
+test("validate: non-positive ttl_days fails", () => {
+  const createResult = createWorkingMemoryUpdate(VALID_INPUT);
+  assert.ok(createResult.ok, JSON.stringify(createResult.errors));
+  const bad = {
+    ...createResult.update,
+    retention: { ...createResult.update?.retention, ttl_days: 0 },
+  };
+  const vResult = validateWorkingMemoryUpdate(bad);
+  assert.ok(!vResult.ok);
+  assert.ok(vResult.issues?.some((i) => i.includes("ttl_days")));
+});

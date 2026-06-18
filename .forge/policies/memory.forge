@@ -3,7 +3,7 @@ forge_version: 1
 schema_ref: urn:forgeroot:forge:policy:v1
 kind: policy
 id: forge://hiroshitanaka-creator/ForgeRoot/policy/memory
-revision: 01KPEY6702MEMORY0000PHASE2T
+revision: 01JPEY670TPMEMR0PHASE2T029
 mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
 status: active
 title: ForgeRoot Memory Policy
@@ -16,7 +16,7 @@ owners:
   - github://hiroshitanaka-creator
   - github-app://forgeroot
 created_at: 2026-06-17T00:00:00Z
-updated_at: 2026-06-17T00:00:00Z
+updated_at: 2026-06-18T00:00:00Z
 policy_type: memory
 rules:
   - id: memory-source-of-truth
@@ -105,6 +105,60 @@ rules:
 thresholds:
   path_class_floors:
     ".forge/policies/memory.forge": C
+
+actions_on_breach:
+  memory-source-of-truth:
+    - reject_change
+    - open_incident_issue
+  curated-memory-update-requires-pr:
+    - reject_change
+    - require_reviewable_pull_request
+  source-refs-required:
+    - reject_change
+  rejected-and-blocked-events-preserved:
+    - reject_change
+    - hold_for_human_governance
+  runtime-db-derived-only:
+    - reject_change
+  memory-eval-separation:
+    - reject_change
+    - hold_for_human_governance
+
+required_approvals:
+  A:
+    summary: docs, tests, comments, and low-risk refactors
+    min_human_approvals: 0
+    auto_pr_allowed: true
+    merge_requires_human: false
+  B:
+    summary: memory manifest changes, source ref updates, and retention policy tuning
+    min_human_approvals: 1
+    auto_pr_allowed: true
+    merge_requires_human: true
+  C:
+    summary: memory governance policy, memory.forge, and memory partition contract changes
+    min_human_approvals: 2
+    auto_pr_allowed: false
+    codeowner_required: true
+
+cooldowns:
+  secondary_rate_limit_backoff_seconds:
+    - 60
+    - 300
+    - 1800
+    - 7200
+  restore_requires_human_ack_after_step: 4
+  mode_downgrade_order:
+    - federate_to_propose
+    - evolve_to_propose
+    - propose_to_observe
+
+quarantine_triggers:
+  - memory_authority_drift
+  - eval_score_injected_in_memory_manifest
+  - direct_forge_memory_write
+  - source_ref_missing_on_committed_manifest
+  - self_evolution_triggered_by_memory_write
 
 provenance:
   seed_task: T029

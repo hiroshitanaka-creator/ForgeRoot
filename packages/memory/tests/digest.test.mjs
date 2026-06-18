@@ -336,3 +336,27 @@ test("validate: secret-like key in digest object fails", () => {
   assert.ok(!vResult.ok);
   assert.ok(vResult.issues?.some((i) => i.includes("secret")));
 });
+
+test("validate: missing links object fails", () => {
+  const createResult = createEpisodeDigest(VALID_ACCEPTED_INPUT);
+  assert.ok(createResult.ok);
+  const { links: _links, ...withoutLinks } = createResult.digest ?? {};
+  const vResult = validateEpisodeDigest(withoutLinks);
+  assert.ok(!vResult.ok);
+  assert.ok(vResult.issues?.some((i) => i.includes("links_must_be_object")));
+});
+
+test("validate: duplicate related_plan_ids fails", () => {
+  const createResult = createEpisodeDigest(VALID_ACCEPTED_INPUT);
+  assert.ok(createResult.ok);
+  const bad = {
+    ...createResult.digest,
+    links: {
+      ...createResult.digest?.links,
+      related_plan_ids: ["plan-aaa", "plan-aaa"],
+    },
+  };
+  const vResult = validateEpisodeDigest(bad);
+  assert.ok(!vResult.ok);
+  assert.ok(vResult.issues?.some((i) => i.includes("related_plan_ids_duplicate")));
+});

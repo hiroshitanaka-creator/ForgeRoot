@@ -417,38 +417,56 @@ export function validateEpisodeDigest(
   }
 
   const links = asRecord(r.links);
-  if (links !== null) {
-    if (Array.isArray(links.related_plan_ids)) {
+  if (links === null) {
+    issues.push("links_must_be_object");
+  } else {
+    if (!Array.isArray(links.related_plan_ids)) {
+      issues.push("links.related_plan_ids_must_be_array");
+    } else {
       const ids = links.related_plan_ids as unknown[];
-      for (let i = 1; i < ids.length; i++) {
-        if (
-          typeof ids[i] === "string" &&
-          typeof ids[i - 1] === "string" &&
-          (ids[i] as string).localeCompare(ids[i - 1] as string) < 0
-        )
-          issues.push("links.related_plan_ids_not_sorted");
+      for (let i = 0; i < ids.length; i++) {
+        if (typeof ids[i] !== "string") {
+          issues.push(`links.related_plan_ids[${i}]_must_be_string`);
+          continue;
+        }
+        if (i > 0 && typeof ids[i - 1] === "string") {
+          const cmp = (ids[i] as string).localeCompare(ids[i - 1] as string);
+          if (cmp < 0) issues.push("links.related_plan_ids_not_sorted");
+          if (cmp === 0) issues.push(`links.related_plan_ids_duplicate:${ids[i]}`);
+        }
       }
     }
-    if (Array.isArray(links.related_audit_ids)) {
+    if (!Array.isArray(links.related_audit_ids)) {
+      issues.push("links.related_audit_ids_must_be_array");
+    } else {
       const ids = links.related_audit_ids as unknown[];
-      for (let i = 1; i < ids.length; i++) {
-        if (
-          typeof ids[i] === "string" &&
-          typeof ids[i - 1] === "string" &&
-          (ids[i] as string).localeCompare(ids[i - 1] as string) < 0
-        )
-          issues.push("links.related_audit_ids_not_sorted");
+      for (let i = 0; i < ids.length; i++) {
+        if (typeof ids[i] !== "string") {
+          issues.push(`links.related_audit_ids[${i}]_must_be_string`);
+          continue;
+        }
+        if (i > 0 && typeof ids[i - 1] === "string") {
+          const cmp = (ids[i] as string).localeCompare(ids[i - 1] as string);
+          if (cmp < 0) issues.push("links.related_audit_ids_not_sorted");
+          if (cmp === 0) issues.push(`links.related_audit_ids_duplicate:${ids[i]}`);
+        }
       }
     }
-    if (Array.isArray(links.related_pr_numbers)) {
+    if (!Array.isArray(links.related_pr_numbers)) {
+      issues.push("links.related_pr_numbers_must_be_array");
+    } else {
       const nums = links.related_pr_numbers as unknown[];
-      for (let i = 1; i < nums.length; i++) {
-        if (
-          typeof nums[i] === "number" &&
-          typeof nums[i - 1] === "number" &&
-          (nums[i] as number) < (nums[i - 1] as number)
-        )
-          issues.push("links.related_pr_numbers_not_sorted");
+      for (let i = 0; i < nums.length; i++) {
+        if (typeof nums[i] !== "number") {
+          issues.push(`links.related_pr_numbers[${i}]_must_be_number`);
+          continue;
+        }
+        if (i > 0 && typeof nums[i - 1] === "number") {
+          if ((nums[i] as number) < (nums[i - 1] as number))
+            issues.push("links.related_pr_numbers_not_sorted");
+          if ((nums[i] as number) === (nums[i - 1] as number))
+            issues.push(`links.related_pr_numbers_duplicate:${nums[i]}`);
+        }
       }
     }
   }

@@ -494,6 +494,24 @@ export function validateWorkingMemoryUpdate(
     }
   }
 
+  const retention = asRecord(r.retention);
+  if (retention === null) {
+    issues.push("retention_must_be_object");
+  } else {
+    if (typeof retention.ttl_days !== "number" || retention.ttl_days <= 0)
+      issues.push("retention.ttl_days_must_be_positive_number");
+    if (
+      typeof retention.keep_last_accepted !== "number" ||
+      retention.keep_last_accepted < 0
+    )
+      issues.push("retention.keep_last_accepted_must_be_non_negative_number");
+    if (
+      typeof retention.keep_last_rejected !== "number" ||
+      retention.keep_last_rejected < 0
+    )
+      issues.push("retention.keep_last_rejected_must_be_non_negative_number");
+  }
+
   const approval = asRecord(r.approval);
   if (approval === null) {
     issues.push("approval_must_be_object");
