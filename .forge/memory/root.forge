@@ -1,0 +1,49 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:memory_index:v1
+kind: memory_index
+id: forge://hiroshitanaka-creator/ForgeRoot/memory_index/root
+revision: 01KQ0000000000000000000001
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: seeded
+title: ForgeRoot Root Memory Index
+summary: Bootstrap memory index for Phase 2. Records declared memory sources and empty initial entries without writing runtime memory state.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-06-21T00:00:00Z
+updated_at: 2026-06-21T00:00:00Z
+index_name: root
+sources:
+  - source_id: forge-mind
+    source_ref: .forge/mind.forge
+    source_kind: mind
+    authority: git
+    read_only: true
+  - source_id: agent-genomes
+    source_ref: .forge/agents/
+    source_kind: agent_genome_directory
+    authority: git
+    read_only: true
+entries: []
+retention_policy:
+  inline_entry_limit: 0
+  pack_required_after: unknown
+  curated_updates: pull_request_only
+  runtime_database_source_of_truth: false
+  missing_values: unknown
+provenance:
+  task_id: T042
+  source: docs/ops/thread-handoff-after-genome-integrity.md
+  generated_by: codex
+  manifest_only: true
+integrity:
+  canonical_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  attachment_hashes: []
+  signatures: []
+extensions:
+  t042_guards:
+    no_runtime_memory_write: true
+    no_eval_score_calculation: true
+    no_github_api_call: true
+    no_federation: true

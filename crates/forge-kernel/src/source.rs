@@ -109,7 +109,11 @@ fn detect_duplicate_mapping_keys(body: &str) -> Result<()> {
 
         if let Some(item_content) = content.strip_prefix("- ") {
             let item_map_indent = indent + 2;
-            while stack.last().map(|f| f.indent >= item_map_indent).unwrap_or(false) {
+            while stack
+                .last()
+                .map(|f| f.indent >= item_map_indent)
+                .unwrap_or(false)
+            {
                 stack.pop();
             }
             stack.push(MappingFrame {
@@ -171,7 +175,10 @@ fn parse_mapping_key(content: &str) -> Result<Option<String>> {
             '"' if !single => double = !double,
             ':' if !single && !double => {
                 let after = content[idx + 1..].chars().next();
-                if after.map(|c| c.is_whitespace() || c == '\0' || c == '[' || c == '{').unwrap_or(true) {
+                if after
+                    .map(|c| c.is_whitespace() || c == '\0' || c == '[' || c == '{')
+                    .unwrap_or(true)
+                {
                     let raw_key = content[..idx].trim();
                     if raw_key.is_empty() {
                         return Ok(None);

@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use forge_kernel::{parse_file, parse_str, validate_document_shape_for_path, verify_integrity, IntegrityStatus};
+use forge_kernel::{
+    parse_file, parse_str, validate_document_shape_for_path, verify_integrity, IntegrityStatus,
+};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -25,8 +27,14 @@ fn t003_bootstrap_files_are_parseable() {
     let policy = parse_file(repo_root().join(".forge/policies/constitution.forge"))
         .expect("constitution parses");
 
-    assert_eq!(mind.canonical_hash, "sha256:3f2e4e4793194d00e1c73982e79591633349e3b47a64db7e01af464103b81702");
-    assert_eq!(policy.canonical_hash, "sha256:a9f49b52c71bc8be774885d37e814f0a6a7ceeae524aa9f6f95d7fd5636bdeaf");
+    assert_eq!(
+        mind.canonical_hash,
+        "sha256:3f2e4e4793194d00e1c73982e79591633349e3b47a64db7e01af464103b81702"
+    );
+    assert_eq!(
+        policy.canonical_hash,
+        "sha256:a9f49b52c71bc8be774885d37e814f0a6a7ceeae524aa9f6f95d7fd5636bdeaf"
+    );
 }
 
 #[test]
@@ -36,7 +44,10 @@ fn comments_and_source_order_do_not_change_hash() {
 
     assert_eq!(a.canonical, b.canonical);
     assert_eq!(a.canonical_hash, b.canonical_hash);
-    assert_eq!(a.canonical_hash, "sha256:acd78ed7aa1e0ae9025c2b00c5bcbc2a1eb7687a9b7888c97d1c60d332924c4d");
+    assert_eq!(
+        a.canonical_hash,
+        "sha256:acd78ed7aa1e0ae9025c2b00c5bcbc2a1eb7687a9b7888c97d1c60d332924c4d"
+    );
 }
 
 #[test]
@@ -44,7 +55,6 @@ fn invalid_shape_missing_revision_is_rejected() {
     let err = parse_file(fixture("invalid/missing-revision.forge")).unwrap_err();
     assert!(err.to_string().contains("revision"));
 }
-
 
 #[test]
 fn bad_magic_is_rejected() {
@@ -89,11 +99,11 @@ fn integrity_absent_returns_external_hash() {
     assert_eq!(
         status,
         IntegrityStatus::Absent {
-            hash: "sha256:acd78ed7aa1e0ae9025c2b00c5bcbc2a1eb7687a9b7888c97d1c60d332924c4d".to_string(),
+            hash: "sha256:acd78ed7aa1e0ae9025c2b00c5bcbc2a1eb7687a9b7888c97d1c60d332924c4d"
+                .to_string(),
         }
     );
 }
-
 
 #[test]
 fn integrity_hash_and_signatures_are_normalized_for_hashing() {
@@ -165,8 +175,7 @@ fn path_aware_species_mismatch_at_executor_path_is_rejected() {
     let doc = parse_file(fixture("invalid/agent-species-mismatch.forge"))
         .expect("species-mismatch fixture passes base validation");
     let path = Path::new(".forge/agents/executor.alpha.forge");
-    let err = validate_document_shape_for_path(&doc.value, Some(path))
-        .unwrap_err();
+    let err = validate_document_shape_for_path(&doc.value, Some(path)).unwrap_err();
     assert!(
         err.to_string().contains("species"),
         "expected 'species' in error, got: {err}"
@@ -212,6 +221,27 @@ fn path_aware_valid_policy_at_policies_path() {
         Some(Path::new(".forge/policies/constitution.forge")),
     )
     .expect("policy at .forge/policies/constitution.forge should pass");
+}
+
+#[test]
+fn path_aware_valid_memory_index_at_memory_path() {
+    let memory_path = repo_root().join(".forge/memory/root.forge");
+    let doc = parse_file(&memory_path).expect("root memory index parses");
+    validate_document_shape_for_path(&doc.value, Some(Path::new(".forge/memory/root.forge")))
+        .expect("memory index at .forge/memory/root.forge should pass");
+}
+
+#[test]
+fn path_aware_memory_index_name_mismatch_is_rejected() {
+    let doc =
+        parse_file(repo_root().join(".forge/memory/root.forge")).expect("root memory index parses");
+    let err =
+        validate_document_shape_for_path(&doc.value, Some(Path::new(".forge/memory/other.forge")))
+            .unwrap_err();
+    assert!(
+        err.to_string().contains("index_name") || err.to_string().contains("id"),
+        "expected index name or id mismatch in error, got: {err}"
+    );
 }
 
 #[test]
