@@ -245,6 +245,27 @@ fn path_aware_memory_index_name_mismatch_is_rejected() {
 }
 
 #[test]
+fn path_aware_valid_eval_suite_at_evals_path() {
+    let eval_path = repo_root().join(".forge/evals/root.forge");
+    let doc = parse_file(&eval_path).expect("root eval suite parses");
+    validate_document_shape_for_path(&doc.value, Some(Path::new(".forge/evals/root.forge")))
+        .expect("eval suite at .forge/evals/root.forge should pass");
+}
+
+#[test]
+fn path_aware_eval_suite_name_mismatch_is_rejected() {
+    let doc =
+        parse_file(repo_root().join(".forge/evals/root.forge")).expect("root eval suite parses");
+    let err =
+        validate_document_shape_for_path(&doc.value, Some(Path::new(".forge/evals/other.forge")))
+            .unwrap_err();
+    assert!(
+        err.to_string().contains("suite_name") || err.to_string().contains("id"),
+        "expected suite name or id mismatch in error, got: {err}"
+    );
+}
+
+#[test]
 fn path_none_skips_path_consistency_check() {
     let doc = parse_file(fixture("invalid/agent-species-mismatch.forge"))
         .expect("species-mismatch fixture passes base validation");
