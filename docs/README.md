@@ -56,3 +56,6 @@ Current specs and reports:
 - `specs/fixtures/security-gates/invalid/*.json` — invalid T041 security gate fixtures
 - `specs/fixtures/task-source/t029-t039-canonical.json` — machine-readable T029-T039 task source fixture
 - `specs/fixtures/task-source/t042-readiness.json` — machine-readable T042 readiness fixture
+
+- `specs/t042-memory-index-bootstrap-validation-report.md` — T042 memory index bootstrap validation report
+- `ops/thread-handoff-after-t042.md` — handoff summary after T042

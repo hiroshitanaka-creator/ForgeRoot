@@ -91,7 +91,10 @@ fn yaml_to_json(value: serde_yaml::Value, path: &str) -> Result<Value> {
         }
         serde_yaml::Value::Tagged(tagged) => Err(Error::UnsupportedYaml {
             path: path.to_string(),
-            message: format!("tagged YAML value is not in the v1 subset: {:?}", tagged.tag),
+            message: format!(
+                "tagged YAML value is not in the v1 subset: {:?}",
+                tagged.tag
+            ),
         }),
     }
 }

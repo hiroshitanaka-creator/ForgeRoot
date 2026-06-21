@@ -162,7 +162,10 @@ fn emit_mapping(
     Ok(())
 }
 
-fn ordered_entries<'a>(map: &'a Map<String, Value>, top_level: bool) -> Vec<(&'a String, &'a Value)> {
+fn ordered_entries<'a>(
+    map: &'a Map<String, Value>,
+    top_level: bool,
+) -> Vec<(&'a String, &'a Value)> {
     let mut out = Vec::with_capacity(map.len());
     if top_level {
         for reserved in TOP_LEVEL_KEY_ORDER {
@@ -282,10 +285,34 @@ fn is_plain_safe(value: &str) -> bool {
         return false;
     }
     let first = value.chars().next().expect("not empty");
-    if matches!(first, '-' | '?' | ':' | ',' | '[' | ']' | '{' | '}' | '#' | '&' | '*' | '!' | '|' | '>' | '@' | '`' | '"' | '\'') {
+    if matches!(
+        first,
+        '-' | '?'
+            | ':'
+            | ','
+            | '['
+            | ']'
+            | '{'
+            | '}'
+            | '#'
+            | '&'
+            | '*'
+            | '!'
+            | '|'
+            | '>'
+            | '@'
+            | '`'
+            | '"'
+            | '\''
+    ) {
         return false;
     }
-    if value.ends_with(':') || value.contains(" #") || value.contains('\n') || value.contains('\r') || value.contains('\t') {
+    if value.ends_with(':')
+        || value.contains(" #")
+        || value.contains('\n')
+        || value.contains('\r')
+        || value.contains('\t')
+    {
         return false;
     }
     value.chars().all(|ch| {

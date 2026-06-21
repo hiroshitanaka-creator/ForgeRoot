@@ -32,7 +32,13 @@ const KINDS: &[&str] = &[
     "memory_index",
 ];
 
-const STATUSES: &[&str] = &["seeded", "active", "quarantined", "deprecated", "fossilized"];
+const STATUSES: &[&str] = &[
+    "seeded",
+    "active",
+    "quarantined",
+    "deprecated",
+    "fossilized",
+];
 
 pub fn validate_document_shape(value: &Value) -> Result<()> {
     let root = value.as_object().ok_or(Error::RootNotMapping)?;
@@ -170,7 +176,13 @@ pub fn validate_document_shape(value: &Value) -> Result<()> {
         ),
         "memory_index" => require_keys(
             root,
-            &["index_name", "sources", "entries", "retention_policy", "provenance"],
+            &[
+                "index_name",
+                "sources",
+                "entries",
+                "retention_policy",
+                "provenance",
+            ],
         ),
         _ => unreachable!(),
     }?;
@@ -190,6 +202,7 @@ pub fn validate_document_shape(value: &Value) -> Result<()> {
 /// - `.forge/agents/<species>.forge`  → kind=agent, species matches, role_name matches prefix, id ends with `/agent/<species>`
 /// - `.forge/mind.forge`              → kind=mind
 /// - `.forge/policies/<slug>.forge`   → kind=policy
+/// - `.forge/memory/<slug>.forge`     → kind=memory_index, index_name and id match slug
 ///
 /// When `path` is `None` the function is identical to `validate_document_shape`.
 pub fn validate_document_shape_for_path(value: &Value, path: Option<&Path>) -> Result<()> {
@@ -220,17 +233,21 @@ fn validate_path_kind_consistency(value: &Value, path: &Path) -> Result<()> {
             );
         }
         if let Some(identity) = root.get("identity").and_then(Value::as_object) {
-            let doc_species = identity.get("species").and_then(Value::as_str).unwrap_or("");
+            let doc_species = identity
+                .get("species")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             if doc_species != species {
                 return shape(
                     "$.identity.species",
-                    format!(
-                        "species '{doc_species}' does not match path basename '{species}'"
-                    ),
+                    format!("species '{doc_species}' does not match path basename '{species}'"),
                 );
             }
             let expected_role = species.split('.').next().unwrap_or("");
-            let role_name = identity.get("role_name").and_then(Value::as_str).unwrap_or("");
+            let role_name = identity
+                .get("role_name")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             if role_name != expected_role {
                 return shape(
                     "$.identity.role_name",
@@ -252,6 +269,32 @@ fn validate_path_kind_consistency(value: &Value, path: &Path) -> Result<()> {
             return shape(
                 "$.kind",
                 format!("path is under .forge/policies/ but kind is '{kind}', expected 'policy'"),
+            );
+        }
+    } else if let Some(index_name) = find_forge_memory_basename(path) {
+        if kind != "memory_index" {
+            return shape(
+                "$.kind",
+                format!(
+                    "path is under .forge/memory/ but kind is '{kind}', expected 'memory_index'"
+                ),
+            );
+        }
+        let id = root.get("id").and_then(Value::as_str).unwrap_or("");
+        let expected_suffix = format!("/memory_index/{index_name}");
+        if !id.ends_with(&expected_suffix) {
+            return shape(
+                "$.id",
+                format!("id must end with '/memory_index/{index_name}' for .forge/memory/{index_name}.forge"),
+            );
+        }
+        let doc_index_name = root.get("index_name").and_then(Value::as_str).unwrap_or("");
+        if doc_index_name != index_name {
+            return shape(
+                "$.index_name",
+                format!(
+                    "index_name '{doc_index_name}' does not match path basename '{index_name}'"
+                ),
             );
         }
     }
@@ -337,12 +380,49 @@ fn is_forge_policies_file(path: &Path) -> bool {
     false
 }
 
+fn find_forge_memory_basename(path: &Path) -> Option<String> {
+    let components: Vec<_> = path.components().collect();
+    let n = components.len();
+    if n < 3 {
+        return None;
+    }
+    for i in 0..n - 2 {
+        let c0 = match &components[i] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c1 = match &components[i + 1] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c2 = match &components[i + 2] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        if c0 == ".forge" && c1 == "memory" {
+            if let Some(base) = c2.strip_suffix(".forge") {
+                if !base.is_empty() {
+                    return Some(base.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 fn validate_mind(root: &serde_json::Map<String, Value>) -> Result<()> {
     let profile = require_object(root.get("repo_profile"), "$.repo_profile")?;
     require_enum(
         profile.get("default_mode"),
         "$.repo_profile.default_mode",
-        &["observe", "propose", "evolve", "federate", "quarantine", "halted"],
+        &[
+            "observe",
+            "propose",
+            "evolve",
+            "federate",
+            "quarantine",
+            "halted",
+        ],
     )?;
     require_enum(
         profile.get("network_mode"),
@@ -354,7 +434,10 @@ fn validate_mind(root: &serde_json::Map<String, Value>) -> Result<()> {
         "$.repo_profile.spawn_mode",
         &["off", "lab-only", "allowlisted", "open"],
     )?;
-    require(profile.get("maintenance_sla"), "$.repo_profile.maintenance_sla")?;
+    require(
+        profile.get("maintenance_sla"),
+        "$.repo_profile.maintenance_sla",
+    )?;
 
     let approvals = require_object(root.get("approval_matrix"), "$.approval_matrix")?;
     for class in ["A", "B", "C", "D"] {
