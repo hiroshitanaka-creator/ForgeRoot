@@ -266,6 +266,32 @@ fn path_aware_eval_suite_name_mismatch_is_rejected() {
 }
 
 #[test]
+fn path_aware_valid_eval_result_at_eval_results_path() {
+    let result_path = repo_root().join(".forge/evals/results/root-baseline.forge");
+    let doc = parse_file(&result_path).expect("root baseline eval result parses");
+    validate_document_shape_for_path(
+        &doc.value,
+        Some(Path::new(".forge/evals/results/root-baseline.forge")),
+    )
+    .expect("eval result at .forge/evals/results/root-baseline.forge should pass");
+}
+
+#[test]
+fn path_aware_eval_result_name_mismatch_is_rejected() {
+    let doc = parse_file(repo_root().join(".forge/evals/results/root-baseline.forge"))
+        .expect("root baseline eval result parses");
+    let err = validate_document_shape_for_path(
+        &doc.value,
+        Some(Path::new(".forge/evals/results/other.forge")),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("result_name") || err.to_string().contains("id"),
+        "expected result name or id mismatch in error, got: {err}"
+    );
+}
+
+#[test]
 fn path_none_skips_path_consistency_check() {
     let doc = parse_file(fixture("invalid/agent-species-mismatch.forge"))
         .expect("species-mismatch fixture passes base validation");
