@@ -203,6 +203,7 @@ pub fn validate_document_shape(value: &Value) -> Result<()> {
 /// - `.forge/mind.forge`              → kind=mind
 /// - `.forge/policies/<slug>.forge`   → kind=policy
 /// - `.forge/memory/<slug>.forge`     → kind=memory_index, index_name and id match slug
+/// - `.forge/evals/<slug>.forge`      → kind=eval_suite, suite_name and id match slug
 ///
 /// When `path` is `None` the function is identical to `validate_document_shape`.
 pub fn validate_document_shape_for_path(value: &Value, path: Option<&Path>) -> Result<()> {
@@ -297,6 +298,34 @@ fn validate_path_kind_consistency(value: &Value, path: &Path) -> Result<()> {
                 ),
             );
         }
+    } else if let Some(suite_name) = find_forge_evals_basename(path) {
+        if kind != "eval_suite" {
+            return shape(
+                "$.kind",
+                format!(
+                    "path is under .forge/evals/ but kind is '{kind}', expected 'eval_suite'"
+                ),
+            );
+        }
+        let id = root.get("id").and_then(Value::as_str).unwrap_or("");
+        let expected_suffix = format!("/eval_suite/{suite_name}");
+        if !id.ends_with(&expected_suffix) {
+            return shape(
+                "$.id",
+                format!(
+                    "id must end with '/eval_suite/{suite_name}' for .forge/evals/{suite_name}.forge"
+                ),
+            );
+        }
+        let doc_suite_name = root.get("suite_name").and_then(Value::as_str).unwrap_or("");
+        if doc_suite_name != suite_name {
+            return shape(
+                "$.suite_name",
+                format!(
+                    "suite_name '{doc_suite_name}' does not match path basename '{suite_name}'"
+                ),
+            );
+        }
     }
 
     Ok(())
@@ -381,6 +410,14 @@ fn is_forge_policies_file(path: &Path) -> bool {
 }
 
 fn find_forge_memory_basename(path: &Path) -> Option<String> {
+    find_forge_directory_basename(path, "memory")
+}
+
+fn find_forge_evals_basename(path: &Path) -> Option<String> {
+    find_forge_directory_basename(path, "evals")
+}
+
+fn find_forge_directory_basename(path: &Path, directory: &str) -> Option<String> {
     let components: Vec<_> = path.components().collect();
     let n = components.len();
     if n < 3 {
@@ -399,7 +436,7 @@ fn find_forge_memory_basename(path: &Path) -> Option<String> {
             Component::Normal(s) => s.to_string_lossy(),
             _ => continue,
         };
-        if c0 == ".forge" && c1 == "memory" {
+        if c0 == ".forge" && c1 == directory {
             if let Some(base) = c2.strip_suffix(".forge") {
                 if !base.is_empty() {
                     return Some(base.to_string());

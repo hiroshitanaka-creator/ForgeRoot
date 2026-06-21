@@ -1,0 +1,41 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:eval_suite:v1
+kind: eval_suite
+id: forge://hiroshitanaka-creator/ForgeRoot/eval_suite/root
+revision: 01KQ0000000000000000000002
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: seeded
+title: ForgeRoot Root Eval Suite
+summary: Bootstrap eval suite for Phase 2. Defines the seeded evaluation surface without calculating scores or enabling self-evolution.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-06-21T00:00:00Z
+updated_at: 2026-06-21T00:00:00Z
+suite_name: root
+tasks: []
+graders: []
+risk_class: B
+success_metrics:
+  deterministic_manifest_outputs: unknown
+  policy_compliance: unknown
+  reviewability: unknown
+  low_blast_radius: unknown
+shadow_only: true
+provenance:
+  task_id: T043
+  source: docs/ops/thread-handoff-after-t042.md
+  generated_by: codex
+  manifest_only: true
+integrity:
+  canonical_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  attachment_hashes: []
+  signatures: []
+extensions:
+  t043_guards:
+    no_eval_score_calculation: true
+    no_runtime_memory_write: true
+    no_github_api_call: true
+    no_federation: true
+    no_self_evolution: true
