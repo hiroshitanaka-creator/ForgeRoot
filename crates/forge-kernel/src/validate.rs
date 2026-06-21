@@ -27,6 +27,7 @@ const KINDS: &[&str] = &[
     "agent",
     "policy",
     "eval_suite",
+    "eval_result",
     "lineage",
     "treaty",
     "memory_index",
@@ -71,7 +72,7 @@ pub fn validate_document_shape(value: &Value) -> Result<()> {
 
     validate_regex(
         require_string(root.get("id"), "$.id")?,
-        r"^forge://[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(mind|agent|policy|eval_suite|lineage|treaty|memory_index)/[a-z0-9._-]+$",
+        r"^forge://[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(mind|agent|policy|eval_suite|eval_result|lineage|treaty|memory_index)/[a-z0-9._-]+$",
         "$.id",
         "invalid forge URI",
     )?;
@@ -86,7 +87,7 @@ pub fn validate_document_shape(value: &Value) -> Result<()> {
         Some(Value::Null) => {}
         Some(Value::String(s)) => validate_regex(
             s,
-            r"^forge://[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(mind|agent|policy|eval_suite|lineage|treaty|memory_index)/[a-z0-9._-]+$",
+            r"^forge://[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(mind|agent|policy|eval_suite|eval_result|lineage|treaty|memory_index)/[a-z0-9._-]+$",
             "$.mind_ref",
             "invalid forge URI or null expected",
         )?,
@@ -160,6 +161,21 @@ pub fn validate_document_shape(value: &Value) -> Result<()> {
                 "provenance",
             ],
         ),
+        "eval_result" => require_keys(
+            root,
+            &[
+                "result_name",
+                "suite_ref",
+                "evaluated_ref",
+                "run_ref",
+                "inputs",
+                "outcome",
+                "score",
+                "artifacts",
+                "limitations",
+                "provenance",
+            ],
+        ),
         "lineage" => require_keys(root, &["lineage_type", "entries", "provenance"]),
         "treaty" => require_keys(
             root,
@@ -204,6 +220,7 @@ pub fn validate_document_shape(value: &Value) -> Result<()> {
 /// - `.forge/policies/<slug>.forge`   → kind=policy
 /// - `.forge/memory/<slug>.forge`     → kind=memory_index, index_name and id match slug
 /// - `.forge/evals/<slug>.forge`      → kind=eval_suite, suite_name and id match slug
+/// - `.forge/evals/results/<slug>.forge` → kind=eval_result, result_name and id match slug
 ///
 /// When `path` is `None` the function is identical to `validate_document_shape`.
 pub fn validate_document_shape_for_path(value: &Value, path: Option<&Path>) -> Result<()> {
@@ -298,13 +315,42 @@ fn validate_path_kind_consistency(value: &Value, path: &Path) -> Result<()> {
                 ),
             );
         }
+    } else if let Some(result_name) = find_forge_eval_results_basename(path) {
+        if kind != "eval_result" {
+            return shape(
+                "$.kind",
+                format!(
+                    "path is under .forge/evals/results/ but kind is '{kind}', expected 'eval_result'"
+                ),
+            );
+        }
+        let id = root.get("id").and_then(Value::as_str).unwrap_or("");
+        let expected_suffix = format!("/eval_result/{result_name}");
+        if !id.ends_with(&expected_suffix) {
+            return shape(
+                "$.id",
+                format!(
+                    "id must end with '/eval_result/{result_name}' for .forge/evals/results/{result_name}.forge"
+                ),
+            );
+        }
+        let doc_result_name = root
+            .get("result_name")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if doc_result_name != result_name {
+            return shape(
+                "$.result_name",
+                format!(
+                    "result_name '{doc_result_name}' does not match path basename '{result_name}'"
+                ),
+            );
+        }
     } else if let Some(suite_name) = find_forge_evals_basename(path) {
         if kind != "eval_suite" {
             return shape(
                 "$.kind",
-                format!(
-                    "path is under .forge/evals/ but kind is '{kind}', expected 'eval_suite'"
-                ),
+                format!("path is under .forge/evals/ but kind is '{kind}', expected 'eval_suite'"),
             );
         }
         let id = root.get("id").and_then(Value::as_str).unwrap_or("");
@@ -417,6 +463,10 @@ fn find_forge_evals_basename(path: &Path) -> Option<String> {
     find_forge_directory_basename(path, "evals")
 }
 
+fn find_forge_eval_results_basename(path: &Path) -> Option<String> {
+    find_forge_nested_directory_basename(path, "evals", "results")
+}
+
 fn find_forge_directory_basename(path: &Path, directory: &str) -> Option<String> {
     let components: Vec<_> = path.components().collect();
     let n = components.len();
@@ -438,6 +488,44 @@ fn find_forge_directory_basename(path: &Path, directory: &str) -> Option<String>
         };
         if c0 == ".forge" && c1 == directory {
             if let Some(base) = c2.strip_suffix(".forge") {
+                if !base.is_empty() {
+                    return Some(base.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn find_forge_nested_directory_basename(
+    path: &Path,
+    parent: &str,
+    directory: &str,
+) -> Option<String> {
+    let components: Vec<_> = path.components().collect();
+    let n = components.len();
+    if n < 4 {
+        return None;
+    }
+    for i in 0..n - 3 {
+        let c0 = match &components[i] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c1 = match &components[i + 1] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c2 = match &components[i + 2] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        let c3 = match &components[i + 3] {
+            Component::Normal(s) => s.to_string_lossy(),
+            _ => continue,
+        };
+        if c0 == ".forge" && c1 == parent && c2 == directory {
+            if let Some(base) = c3.strip_suffix(".forge") {
                 if !base.is_empty() {
                     return Some(base.to_string());
                 }

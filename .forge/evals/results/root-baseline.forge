@@ -1,0 +1,51 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:eval_result:v1
+kind: eval_result
+id: forge://hiroshitanaka-creator/ForgeRoot/eval_result/root-baseline
+revision: 01KQ0000000000000000000003
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: seeded
+title: ForgeRoot Root Baseline Eval Result
+summary: Bootstrap eval result manifest for Phase 2. Records source references and unknown baseline outcomes without executing graders or authorizing self-evolution.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-06-21T00:00:00Z
+updated_at: 2026-06-21T00:00:00Z
+result_name: root-baseline
+suite_ref: forge://hiroshitanaka-creator/ForgeRoot/eval_suite/root
+evaluated_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+run_ref: manifest-only-bootstrap
+inputs:
+  source_task: T044
+  suite_path: .forge/evals/root.forge
+  evaluated_path: .forge/mind.forge
+outcome:
+  status: not_run
+  reason: manifest_foundation_only
+score:
+  value: null
+  unit: none
+  confidence: unknown
+artifacts: []
+limitations:
+  - no_grader_execution
+  - no_fitness_calculation
+  - no_runtime_database_authority
+provenance:
+  task_id: T044
+  source: docs/ops/thread-handoff-after-t043.md
+  generated_by: codex
+  manifest_only: true
+integrity:
+  canonical_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  attachment_hashes: []
+  signatures: []
+extensions:
+  t044_guards:
+    no_grader_execution: true
+    no_fitness_calculation: true
+    no_runtime_memory_write: true
+    no_github_api_call: true
+    no_self_evolution: true
