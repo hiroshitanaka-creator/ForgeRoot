@@ -1,34 +1,32 @@
 # TASK_PROGRESS
 
 ## Current phase
-T044 — Eval result manifest foundation (manifest-only Phase 2 report surface).
+T045 — Shadow-run harness foundation (deterministic eval dry-run surface).
 
 ## Initial assessment summary
-- ForgeRoot's non-negotiable architecture remains Git source of truth, `.forge` genome/memory, PR-native evolution, and GitHub App + sandbox circulation.
-- Phase 1 deterministic manifest chain is implemented through T028 across planner, executor, auditor, PR composer, GitHub PR adapter, approval checkpoint, rate governor, and forge demo packages.
-- Later safety/docs work exists for T040/T041, and T042 bootstrapped `.forge/memory/root.forge` plus forge-kernel path-aware validation for memory indexes.
-- The T043 handoff recommends T044 as the next target: eval result manifest foundation.
+- T044 eval result manifest foundation was already committed on the current branch.
+- The T044 handoff recommends T045 as the next target: a dry-run harness that consumes eval suite/result manifests without live evolution authority.
+- The blueprint notes T045 depends on later eval DSL/fitness canonicalization, so this implementation is deliberately bounded to manifest reference validation and non-authoritative dry-run output.
 
 ## Selected work
-Implement T044 — Eval result manifest foundation.
+Implement T045 — Shadow-run harness foundation.
 
 ## Why this work
-- The blueprint requires selection pressure/evaluation before self-evolution.
-- T044 is the safest next step after T043 because it is manifest-only and validator-focused.
-- It avoids workflow, policy, permission, branch protection, live transport, federation, and self-evolution changes.
+- It advances Phase 2 evaluation plumbing while preserving safety boundaries.
+- It gives later eval DSL, benchmark, and fitness work a deterministic manifest surface to compose with.
+- It avoids grader execution, authoritative score writes, runtime memory writes, GitHub API calls, federation, and live self-evolution.
 
 ## Intended scope
-- Create `.forge/evals/results/root-baseline.forge` as the seeded root eval result manifest.
-- Add a valid fixture for the eval result shape.
-- Extend forge-kernel path-aware validation for `.forge/evals/results/<result>.forge`.
-- Add conformance tests for valid placement and path/name mismatch rejection.
-- Add validation report and handoff docs.
+- Add a `packages/eval` TypeScript package.
+- Implement `runEvalShadowRun` and validation helpers in `src/shadow-run.ts`.
+- Validate canonical eval suite/result/candidate Forge document references.
+- Block attempts to enable authoritative scores, runtime writes, or live evolution.
+- Add tests, validation report, and handoff docs.
 
 ## Verification plan
-- Run `cargo test --manifest-path crates/forge-kernel/Cargo.toml`.
+- Run `npm --prefix packages/eval test`.
 
 ## Current status
-- Initial assessment complete.
-- T044 implementation complete: seeded eval result manifest, fixture, path-aware validator support, conformance tests, validation report, and handoff docs added.
-- Verification passed: `cargo test --manifest-path crates/forge-kernel/Cargo.toml`.
+- T045 implementation complete.
+- Verification passed: `npm --prefix packages/eval test`.
 - Ready for commit and PR record.

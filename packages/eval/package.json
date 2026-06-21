@@ -1,0 +1,17 @@
+{
+  "name": "@forgeroot/eval",
+  "version": "0.0.0-t045",
+  "private": true,
+  "type": "module",
+  "description": "ForgeRoot deterministic eval and shadow-run harnesses.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
