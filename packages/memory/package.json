@@ -1,0 +1,18 @@
+{
+  "name": "@forgeroot/memory",
+  "version": "0.0.0-t031",
+  "private": true,
+  "type": "module",
+  "description": "ForgeRoot Phase 2 memory foundation: deterministic working memory update and episode digest manifests.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^5.8.3"
+  }
+}

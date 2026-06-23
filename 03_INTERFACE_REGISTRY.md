@@ -2,7 +2,7 @@
 
 This file is the canonical registry of inter-agent data contracts in ForgeRoot. It is the source of truth for what each agent produces and consumes.
 
-**Last updated:** 2026-06-17 (T041-3 Genome Integrity)
+**Last updated:** 2026-06-17 (T029–T033 Memory Foundation)
 
 ---
 
@@ -130,3 +130,36 @@ Fields: action (dispatch | queue | block | cooldown), dispatch_at (timestamp), r
 - `trusted_transport_authorization.decision == authorized` requires non-self human approval for class B, C, D surfaces.
 - `rate_governor_dispatch_decision.action != dispatch` if `retry_after` is set.
 - No agent in the pipeline performs live GitHub API transport. Only the downstream trusted transport worker (not yet implemented) may do so.
+
+---
+
+## packages/memory
+
+**Phase 2 Memory Foundation — T029–T033**
+
+| API | Task | Input | Output | Forbidden |
+|---|---:|---|---|---|
+| `createWorkingMemoryUpdate(input, options?)` | T030 | source refs (task_id, artifact_sha256, reason) + facts array | `WorkingMemoryUpdate` manifest | `.forge` direct write; GitHub API; eval score |
+| `validateWorkingMemoryUpdate(update)` | T030 | `WorkingMemoryUpdate` manifest | `{ ok, issues? }` validation result | guessed source refs; secret-like keys |
+| `createEpisodeDigest(input, options?)` | T031 | PR/audit/outcome refs + episode metadata | `EpisodeDigest` manifest | source-less digest; guessed source refs |
+| `validateEpisodeDigest(digest)` | T031 | `EpisodeDigest` manifest | `{ ok, issues? }` validation result | missing source guessing; preserve_rejected:false |
+| `createMemoryArchivePack(input, options?)` | T032 | source refs + records array | `MemoryArchivePack` manifest with `raw_jsonl_sha256` | live zstd compression; GitHub API; destructive delete |
+| `validateMemoryArchivePack(pack)` | T032 | `MemoryArchivePack` manifest | `{ ok, issues? }` validation result | secret/destructive keys; `compression_performed:true` |
+| `verifyMemoryArchivePack(pack, records)` | T032 | pack manifest + raw record refs | `{ ok, verified_count?, issues? }` | tamper tolerance; missing record tolerance |
+| `createMemoryRetrievalRequest(input, options?)` | T033 | query text + intent + optional token_budget | `MemoryRetrievalRequest` | negative budget; secret keys |
+| `retrieveMemoryContext(input, options?)` | T033 | query + candidates + optional missing_memory | `MemoryRetrievalResult` with ranked items | vector DB; embedding providers; memory mutation |
+| `validateMemoryRetrievalResult(value)` | T033 | `MemoryRetrievalResult` manifest | `{ ok, issues? }` validation result | vector_index_used:true; invented missing_memory values |
+
+### Memory Invariants
+
+- `working_memory_update.approval.direct_write_allowed` is always `false`
+- `working_memory_update.approval.update_requires_pr` is always `true`
+- `episode_digest.retention.preserve_rejected` is always `true`
+- `episode_digest.retention.preserve_blocked` is always `true`
+- All manifest types carry `guards.no_eval_score_update: true` and `guards.no_github_api_call: true`
+- `memory_archive_pack.pack.compression_performed` is always `false`
+- `memory_archive_pack.guards.no_destructive_delete` is always `true`
+- `memory_retrieval_result.derived_indexes.*` are all always `false`
+- Runtime DB and vector index are derived state — `.forge` + PR is the authoritative memory surface
+- Missing `source.task_id` or `source.artifact_sha256` always causes rejection
+- Retrieved items are never mutated, synthesized, or invented

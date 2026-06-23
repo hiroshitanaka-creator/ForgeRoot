@@ -1,0 +1,169 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:policy:v1
+kind: policy
+id: forge://hiroshitanaka-creator/ForgeRoot/policy/memory
+revision: 01JPEY670TPMEMR0PHASE2T029
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: active
+title: ForgeRoot Memory Policy
+summary: >
+  Memory layer governance for ForgeRoot Phase 2. Defines source-of-truth rules,
+  curated update requirements, source ref obligations, and preservation rules
+  for rejected and blocked memory events. Does not enable self-evolution or
+  autonomous federation.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-06-17T00:00:00Z
+updated_at: 2026-06-18T00:00:00Z
+policy_type: memory
+rules:
+  - id: memory-source-of-truth
+    statement: >
+      The .forge genome files and reviewable pull requests are the authoritative
+      memory surface. Runtime DB, vector index, and in-process caches are
+      reconstructible derivatives. No derivative store may be treated as the
+      primary source of truth for agent memory.
+    pass_conditions:
+      forge_is_authoritative_memory_surface: true
+      runtime_db_is_derived: true
+      vector_index_is_derived: true
+    fail_conditions:
+      runtime_db_becomes_memory_authority: true
+      vector_index_becomes_memory_authority: true
+    required_approval_class: B
+
+  - id: curated-memory-update-requires-pr
+    statement: >
+      A curated working memory update or episode digest that modifies the
+      canonical memory surface must move through a reviewable pull request.
+      Direct writes to .forge memory surfaces are prohibited.
+    pass_conditions:
+      memory_update_has_pull_request: true
+      direct_forge_write: false
+    fail_conditions:
+      direct_forge_write: true
+      memory_update_bypasses_pr: true
+    required_approval_class: B
+
+  - id: source-refs-required
+    statement: >
+      Every working memory update must carry a source task_id, an
+      artifact_sha256, and a human-readable reason. Updates without source
+      refs are rejected by the manifest writer.
+    pass_conditions:
+      source_task_id_present: true
+      artifact_sha256_present: true
+      reason_present: true
+    fail_conditions:
+      source_task_id_missing: true
+      artifact_sha256_missing: true
+    required_approval_class: B
+
+  - id: rejected-and-blocked-events-preserved
+    statement: >
+      Rejected, blocked, quarantined, failed, and reverted episodes are
+      first-class memory events and must be preserved in the episodic layer.
+      Selective erasure of negative outcomes is prohibited.
+    pass_conditions:
+      preserve_rejected: true
+      preserve_blocked: true
+      preserve_quarantined: true
+    fail_conditions:
+      selective_erasure_of_negative_outcomes: true
+    required_approval_class: B
+
+  - id: runtime-db-derived-only
+    statement: >
+      Any runtime database or vector index used by ForgeRoot agents is a
+      derived, reconstructible artifact. It must not be the authoritative
+      record for agent memory, policy state, or behavioral genome.
+    pass_conditions:
+      runtime_db_is_derivative: true
+      vector_db_is_derivative: true
+      git_remains_authoritative: true
+    fail_conditions:
+      runtime_db_becomes_authoritative: true
+    required_approval_class: B
+
+  - id: memory-eval-separation
+    statement: >
+      Memory recording and fitness evaluation are separate concerns. A memory
+      manifest must not include eval scores, fitness ratings, or self-evolution
+      triggers. Eval pipelines consume memory as input; they do not write back
+      into memory manifests.
+    pass_conditions:
+      memory_manifest_contains_no_eval_score: true
+      eval_does_not_mutate_memory_manifest: true
+      self_evolution_not_triggered_by_memory_write: true
+    fail_conditions:
+      memory_manifest_contains_eval_score: true
+      memory_write_triggers_self_evolution: true
+    required_approval_class: B
+
+thresholds:
+  path_class_floors:
+    ".forge/policies/memory.forge": C
+
+actions_on_breach:
+  memory-source-of-truth:
+    - reject_change
+    - open_incident_issue
+  curated-memory-update-requires-pr:
+    - reject_change
+    - require_reviewable_pull_request
+  source-refs-required:
+    - reject_change
+  rejected-and-blocked-events-preserved:
+    - reject_change
+    - hold_for_human_governance
+  runtime-db-derived-only:
+    - reject_change
+  memory-eval-separation:
+    - reject_change
+    - hold_for_human_governance
+
+required_approvals:
+  A:
+    summary: docs, tests, comments, and low-risk refactors
+    min_human_approvals: 0
+    auto_pr_allowed: true
+    merge_requires_human: false
+  B:
+    summary: memory manifest changes, source ref updates, and retention policy tuning
+    min_human_approvals: 1
+    auto_pr_allowed: true
+    merge_requires_human: true
+  C:
+    summary: memory governance policy, memory.forge, and memory partition contract changes
+    min_human_approvals: 2
+    auto_pr_allowed: false
+    codeowner_required: true
+
+cooldowns:
+  secondary_rate_limit_backoff_seconds:
+    - 60
+    - 300
+    - 1800
+    - 7200
+  restore_requires_human_ack_after_step: 4
+  mode_downgrade_order:
+    - federate_to_propose
+    - evolve_to_propose
+    - propose_to_observe
+
+quarantine_triggers:
+  - memory_authority_drift
+  - eval_score_injected_in_memory_manifest
+  - direct_forge_memory_write
+  - source_ref_missing_on_committed_manifest
+  - self_evolution_triggered_by_memory_write
+
+provenance:
+  seed_task: T029
+  seed_basis:
+    - docs/specs/memory-model.md
+    - 00_ForgeRoot_blueprint_設計書.md
+  created_by: github://hiroshitanaka-creator
+extensions: {}
