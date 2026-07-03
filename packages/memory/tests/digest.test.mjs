@@ -16,3 +16,15 @@ test('unknown type requires unknown reliability',()=>{ assert.equal(createEpisod
 test('summary length cap',()=>{ assert.equal(createEpisodeDigest(input('accepted',{episode:{type:'accepted',title:'t',summary:'x'.repeat(1201),reliability:'high'}})).ok,false); });
 test('deterministic ordering',()=>{ const r=createEpisodeDigest(input('accepted')); assert.deepEqual(r.digest.links.related_plan_ids,['p1','p2']); assert.deepEqual(r.digest.links.related_pr_numbers,[1,2]); });
 test('secret-like field rejected',()=>{ assert.equal(createEpisodeDigest(input('accepted',{PRIVATE_KEY:'x'})).ok,false); });
+test('github token shaped secret rejected',()=>{ assert.equal(createEpisodeDigest(input('accepted',{episode:{type:'accepted',title:'t',summary:'ghp_'+'x'.repeat(36),reliability:'high'}})).ok,false); });
+test('digest_id does not collide across distinct episodes',()=>{
+  const a = createEpisodeDigest(input('accepted',{episode:{type:'accepted',title:'t',summary:'short summary A',reliability:'high'}}));
+  const b = createEpisodeDigest(input('accepted',{episode:{type:'accepted',title:'t',summary:'a much longer summary that still shares the same prefix B',reliability:'high'}}));
+  assert.equal(a.ok,true); assert.equal(b.ok,true);
+  assert.notEqual(a.digest.digest_id, b.digest.digest_id);
+});
+test('outcome_ref is preserved when provided',()=>{
+  const r = createEpisodeDigest(input('accepted',{source:{repository:'r',task_id:'T031',artifact_sha256:hash,pr_number:1,outcome_ref:'outcome-123'}}));
+  assert.equal(r.ok,true);
+  assert.equal(r.digest.source.outcome_ref,'outcome-123');
+});

@@ -2,7 +2,8 @@ export const WORKING_MEMORY_UPDATE_VERSION = 1;
 export const WORKING_MEMORY_UPDATE_SCHEMA_REF = "urn:forgeroot:working-memory-update:v1";
 const HASH_RE = /^sha256:[0-9a-f]{64}$/;
 const UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
-const SECRET_RE = /(TOKEN|SECRET|PASSWORD|PRIVATE_KEY|CREDENTIAL)/i;
+const SECRET_RE = /(TOKEN|SECRET|PASSWORD|PRIVATE_KEY|CREDENTIAL|API[_-]?KEY|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghu_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|ghr_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/i;
+const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
 
 export function createWorkingMemoryUpdate(input, options: any = {}) {
   const issues = [];
@@ -18,6 +19,7 @@ export function createWorkingMemoryUpdate(input, options: any = {}) {
     schema_ref: WORKING_MEMORY_UPDATE_SCHEMA_REF,
     update_id: stringOr(r.update_id, `forge-memory-update://${stableId([r.source, facts, createdAt])}`),
     created_at: createdAt,
+    max_items: maxItems,
     target: {
       repository: nullableString(r.target?.repository),
       mind_id: stringOr(r.target?.mind_id, "forge://hiroshitanaka-creator/ForgeRoot/mind/root"),
@@ -73,18 +75,29 @@ export function validateWorkingMemoryUpdate(value, options: any = {}) {
     if (!nonEmpty(id)) issues.push(issue(`facts.${idx}.id`, "required"));
     if (!nonEmpty(f?.text)) issues.push(issue(`facts.${idx}.text`, "required"));
     if (!nonEmpty(f?.source_ref)) issues.push(issue(`facts.${idx}.source_ref`, "required"));
-    if (typeof f?.confidence !== "number" || f.confidence < 0 || f.confidence > 1) issues.push(issue(`facts.${idx}.confidence`, "must_be_0_to_1"));
+    if (!Number.isFinite(f?.confidence) || f.confidence < 0 || f.confidence > 1) issues.push(issue(`facts.${idx}.confidence`, "must_be_0_to_1"));
     const tags = Array.isArray(f?.tags) ? f.tags : [];
     if (!tags.every((t) => typeof t === "string") || !isSorted(tags) || new Set(tags).size !== tags.length) issues.push(issue(`facts.${idx}.tags`, "must_be_sorted_unique_strings"));
   });
   if (!positiveNumber(r.retention?.ttl_days)) issues.push(issue("retention.ttl_days", "required_positive"));
+  if (r.max_items !== undefined && !positiveNumber(r.max_items)) issues.push(issue("max_items", "must_be_positive_number"));
+  if (!APPROVAL_CLASSES.has(stringOr(r.approval?.approval_class, ""))) issues.push(issue("approval.approval_class", "must_be_one_of_a_b_c_d"));
   if (r.approval?.update_requires_pr !== true || r.approval?.direct_write_allowed !== false) issues.push(issue("approval", "must_require_pr_and_disallow_direct_write"));
   ["no_direct_forge_write","no_runtime_db_authority","source_refs_required","deterministic_ordering","max_items_enforced","no_eval_score_update","no_github_api_call"].forEach((g) => { if (r.guards?.[g] !== true) issues.push(issue(`guards.${g}`, "must_be_true")); });
   return { ok: issues.length === 0, issues };
 }
 function dedupeFacts(facts) { const m = new Map(); for (const f of facts) { const id = stringOr(f?.id, "").trim(); const k = normalizeId(id); if (!m.has(k)) m.set(k, { id, text: stringOr(f?.text, "").trim(), confidence: Number(f?.confidence), source_ref: stringOr(f?.source_ref, "").trim(), tags: uniqueSorted(Array.isArray(f?.tags) ? f.tags.map(String) : []) }); } return [...m.values()].sort((a,b)=>a.id.localeCompare(b.id)); }
 function hasSecretLike(v) { if (Array.isArray(v)) return v.some(hasSecretLike); if (v && typeof v === "object") return Object.entries(v).some(([k,val]) => SECRET_RE.test(k) || hasSecretLike(val)); return typeof v === "string" && SECRET_RE.test(v); }
-function stableId(parts) { return encodeURIComponent(JSON.stringify(parts)).replace(/%/g, "").slice(0,48); }
+function stableId(parts) {
+  const s = JSON.stringify(parts);
+  let h1 = 0x811c9dc5, h2 = 0x9e3779b9;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 16777619) >>> 0;
+    h2 = Math.imul((h2 ^ c) + ((h2 << 6) + (h2 >>> 2)), 2654435761) >>> 0;
+  }
+  return h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
+}
 function invalid(codes) { return { ok: false, issues: [...new Set(codes)].map((code) => ({ path: "", code })) }; }
 function asRecord(v): any { return v && typeof v === "object" && !Array.isArray(v) ? v : null; }
-function stringOr(v,d){ return typeof v === "string" ? v : d; } function nullableString(v){ return typeof v === "string" ? v : null; } function nullableNumber(v){ return typeof v === "number" ? v : null; } function numberOr(v,d){ return typeof v === "number" && Number.isFinite(v) ? v : d; } function nonEmpty(v){ return typeof v === "string" && v.trim().length > 0; } function positiveNumber(v){ return typeof v === "number" && v > 0; } function starts(v,p){ return typeof v === "string" && v.startsWith(p); } function normalizeId(v){ return stringOr(v, "").trim().toLowerCase(); } function uniqueSorted(a){ return [...new Set(a.map((x)=>x.trim()).filter(Boolean))].sort(); } function isSorted(a){ return a.every((x,i)=>i===0 || String(a[i-1]).localeCompare(String(x)) <= 0); } function issue(path, code){ return { path, code }; }
+function stringOr(v,d){ return typeof v === "string" ? v : d; } function nullableString(v){ return typeof v === "string" ? v : null; } function nullableNumber(v){ return typeof v === "number" ? v : null; } function numberOr(v,d){ return typeof v === "number" && Number.isFinite(v) ? v : d; } function nonEmpty(v){ return typeof v === "string" && v.trim().length > 0; } function positiveNumber(v){ return typeof v === "number" && v > 0; } function starts(v,p){ return typeof v === "string" && v.startsWith(p); } function normalizeId(v){ return stringOr(v, "").trim().toLowerCase(); } function uniqueSorted(a){ return [...new Set(a.map((x)=>x.trim()).filter(Boolean))].sort((x: any,y: any)=>x.localeCompare(y)); } function isSorted(a){ return a.every((x,i)=>i===0 || String(a[i-1]).localeCompare(String(x)) <= 0); } function issue(path, code){ return { path, code }; }

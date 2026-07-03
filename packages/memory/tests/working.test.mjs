@@ -14,4 +14,31 @@ test('max_items exceeded rejected',()=>{ const r=createWorkingMemoryUpdate(input
 test('duplicate facts deduped',()=>{ const r=createWorkingMemoryUpdate(input({facts:[{id:'A',text:'1',confidence:1,source_ref:'s',tags:[]},{id:'a',text:'2',confidence:1,source_ref:'s',tags:[]}]})); assert.equal(r.ok,true); assert.equal(r.update.facts.length,1); });
 test('deterministic ordering',()=>{ const r=createWorkingMemoryUpdate(input()); assert.deepEqual(r.update.facts.map(f=>f.id),['a','b']); assert.deepEqual(r.update.facts[1].tags,['a','z']); });
 test('secret-like field rejected',()=>{ assert.equal(createWorkingMemoryUpdate(input({TOKEN:'x'})).ok,false); });
+test('github token shaped secret rejected',()=>{ assert.equal(createWorkingMemoryUpdate(input({facts:[{id:'a',text:'ghp_'+'x'.repeat(36),confidence:1,source_ref:'s',tags:[]}]})).ok,false); });
 test('direct .forge write not performed',()=>{ const r=createWorkingMemoryUpdate(input()); assert.equal(r.ok,true); assert.equal(r.update.approval.direct_write_allowed,false); assert.equal(r.update.guards.no_direct_forge_write,true); });
+test('update_id does not collide across distinct facts',()=>{
+  const a = createWorkingMemoryUpdate(input({facts:[{id:'a',text:'A',confidence:1,source_ref:'s',tags:[]}]}));
+  const b = createWorkingMemoryUpdate(input({facts:[{id:'a',text:'A different long text value that shares a prefix',confidence:1,source_ref:'s',tags:[]}]}));
+  assert.equal(a.ok,true); assert.equal(b.ok,true);
+  assert.notEqual(a.update.update_id, b.update.update_id);
+});
+test('non-numeric confidence rejected instead of coerced to NaN',()=>{
+  const r = createWorkingMemoryUpdate(input({facts:[{id:'a',text:'A',confidence:'not-a-number',source_ref:'s',tags:[]}]}));
+  assert.equal(r.ok,false);
+});
+test('mixed-case tags use consistent ordering between create and validate',()=>{
+  const r = createWorkingMemoryUpdate(input({facts:[{id:'a',text:'A',confidence:1,source_ref:'s',tags:['Z','a']}]}));
+  assert.equal(r.ok,true);
+  assert.equal(validateWorkingMemoryUpdate(r.update).ok,true);
+});
+test('unknown approval class rejected',()=>{
+  const r = createWorkingMemoryUpdate(input({approval:{approval_class:'Z'}}));
+  assert.equal(r.ok,false);
+});
+test('custom max_items is persisted for standalone re-validation',()=>{
+  const facts = Array.from({length:60},(_,i)=>({id:`f${String(i).padStart(3,'0')}`,text:'x',confidence:1,source_ref:'s',tags:[]}));
+  const r = createWorkingMemoryUpdate(input({facts}),{max_items:100});
+  assert.equal(r.ok,true);
+  assert.equal(r.update.max_items,100);
+  assert.equal(validateWorkingMemoryUpdate(r.update).ok,true);
+});

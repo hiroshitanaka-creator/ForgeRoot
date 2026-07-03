@@ -2,7 +2,7 @@ export const EPISODE_DIGEST_VERSION = 1;
 export const EPISODE_DIGEST_SCHEMA_REF = "urn:forgeroot:episode-digest:v1";
 const HASH_RE = /^sha256:[0-9a-f]{64}$/;
 const UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
-const SECRET_RE = /(TOKEN|SECRET|PASSWORD|PRIVATE_KEY|CREDENTIAL)/i;
+const SECRET_RE = /(TOKEN|SECRET|PASSWORD|PRIVATE_KEY|CREDENTIAL|API[_-]?KEY|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghu_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|ghr_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/i;
 const TYPES = new Set(["accepted","rejected","blocked","quarantined","failed","reverted","unknown"]);
 const RELIABILITY = new Set(["high","medium","low","unknown"]);
 export function createEpisodeDigest(input, options: any = {}) {
@@ -15,7 +15,7 @@ export function createEpisodeDigest(input, options: any = {}) {
     digest_id: stringOr(r.digest_id, `forge-episode-digest://${stableId([r.source, r.episode, createdAt])}`),
     created_at: createdAt,
     episode: { type: stringOr(r.episode?.type, "unknown"), title: stringOr(r.episode?.title, ""), summary: stringOr(r.episode?.summary, ""), reliability: stringOr(r.episode?.reliability, "unknown") },
-    source: { repository: nullableString(r.source?.repository), task_id: stringOr(r.source?.task_id, ""), plan_id: nullableString(r.source?.plan_id), audit_id: nullableString(r.source?.audit_id), pr_number: nullableNumber(r.source?.pr_number), commit_sha: nullableString(r.source?.commit_sha), artifact_sha256: stringOr(r.source?.artifact_sha256, "") },
+    source: { repository: nullableString(r.source?.repository), task_id: stringOr(r.source?.task_id, ""), plan_id: nullableString(r.source?.plan_id), audit_id: nullableString(r.source?.audit_id), pr_number: nullableNumber(r.source?.pr_number), commit_sha: nullableString(r.source?.commit_sha), outcome_ref: nullableString(r.source?.outcome_ref), artifact_sha256: stringOr(r.source?.artifact_sha256, "") },
     links: { related_plan_ids: uniqueSorted(Array.isArray(r.links?.related_plan_ids) ? r.links.related_plan_ids.map(String) : []), related_audit_ids: uniqueSorted(Array.isArray(r.links?.related_audit_ids) ? r.links.related_audit_ids.map(String) : []), related_pr_numbers: uniqueSortedNumbers(Array.isArray(r.links?.related_pr_numbers) ? r.links.related_pr_numbers : []) },
     retention: { preserve_rejected: true, preserve_blocked: true, pack_candidate: Boolean(r.retention?.pack_candidate) },
     guards: { source_refs_required: true, no_missing_source_guessing: true, deterministic_ordering: true, no_eval_score_update: true, no_mutation_generation: true, no_github_api_call: true },
@@ -49,5 +49,5 @@ export function validateEpisodeDigest(value) {
 function validateSortedUniqueStrings(v,path,issues){ if (!Array.isArray(v) || !v.every((x)=>typeof x === "string") || !isSorted(v) || new Set(v).size !== v.length) issues.push(issue(path,"must_be_sorted_unique_strings")); }
 function validateSortedUniqueNumbers(v,path,issues){ if (!Array.isArray(v) || !v.every((x)=>typeof x === "number") || !isSorted(v) || new Set(v).size !== v.length) issues.push(issue(path,"must_be_sorted_unique_numbers")); }
 function hasSecretLike(v){ if (Array.isArray(v)) return v.some(hasSecretLike); if (v && typeof v === "object") return Object.entries(v).some(([k,val]) => SECRET_RE.test(k) || hasSecretLike(val)); return typeof v === "string" && SECRET_RE.test(v); }
-function stableId(parts){ return encodeURIComponent(JSON.stringify(parts)).replace(/%/g, "").slice(0,48); } function invalid(codes){ return { ok:false, issues:[...new Set(codes)].map((code)=>({path:"", code}))}; }
+function stableId(parts){ const s=JSON.stringify(parts); let h1=0x811c9dc5, h2=0x9e3779b9; for (let i=0;i<s.length;i++){ const c=s.charCodeAt(i); h1=Math.imul(h1^c,16777619)>>>0; h2=Math.imul((h2^c)+((h2<<6)+(h2>>>2)),2654435761)>>>0; } return h1.toString(16).padStart(8,"0")+h2.toString(16).padStart(8,"0"); } function invalid(codes){ return { ok:false, issues:[...new Set(codes)].map((code)=>({path:"", code}))}; }
 function asRecord(v): any { return v && typeof v === "object" && !Array.isArray(v) ? v : null; } function stringOr(v,d){ return typeof v === "string" ? v : d; } function nullableString(v){ return typeof v === "string" ? v : null; } function nullableNumber(v){ return typeof v === "number" ? v : null; } function nonEmpty(v){ return typeof v === "string" && v.trim().length > 0; } function starts(v,p){ return typeof v === "string" && v.startsWith(p); } function uniqueSorted(a){ return [...new Set(a.map((x)=>x.trim()).filter(Boolean))].sort(); } function uniqueSortedNumbers(a){ return [...new Set(a.filter((x)=>typeof x === "number"))].sort((x: any,y: any)=>x-y); } function isSorted(a){ return a.every((x,i)=>i===0 || a[i-1] <= x); } function issue(path, code){ return { path, code }; }
