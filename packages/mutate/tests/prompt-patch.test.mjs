@@ -1,0 +1,123 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  PROMPT_PATCH_CONTRACT,
+  applyPromptPatchDryRun,
+  runPromptPatchDryRun,
+  runT046PromptPatchDryRun,
+  validatePromptPatchDryRun,
+  validateT046PromptPatchDryRun,
+} from "../dist/index.js";
+
+const NOW = "2026-06-22T00:00:00Z";
+
+const AGENT_DOCUMENT = {
+  title: "Planner Alpha",
+  summary: "Deterministic bounded planner runtime.",
+  identity: { role_name: "planner", species: "planner.alpha", persona: "conservative-scoper" },
+  role: { mission: "Convert one accepted intake candidate into one bounded Plan Spec.", forbidden_actions: ["branch_creation"] },
+  constitution: { approval_class: "B", mutable_paths: [".forge/agents/planner.alpha.forge"] },
+  context_recipe: { static_slots: ["mind_summary"], compaction_policy: "deterministic-summary-then-bounded-path-hints" },
+  memory: { working_memory: { facts: ["T017 planner runtime is deterministic."] }, semantic_digests: [], forget_rules: { working_memory_ttl_days: 14 } },
+  tools: [{ namespace: "repo", name: "repo.read_tree" }],
+};
+
+function baseInput(operations) {
+  return { now: NOW, target: { path: ".forge/agents/planner.alpha.forge", species: "planner.alpha", content: AGENT_DOCUMENT }, operations };
+}
+
+describe("T046 prompt genome patcher", () => {
+  it("declares an allowlisted, dry-run-only contract", () => {
+    assert.equal(PROMPT_PATCH_CONTRACT.dryRunOnly, true);
+    assert.equal(PROMPT_PATCH_CONTRACT.deterministic, true);
+    assert.ok(PROMPT_PATCH_CONTRACT.forbids.includes("policy_document_target"));
+    assert.ok(PROMPT_PATCH_CONTRACT.forbids.includes("identity_or_species_target"));
+    assert.ok(PROMPT_PATCH_CONTRACT.forbids.includes("live_file_write"));
+  });
+
+  it("produces a deterministic dry-run diff for allowed prompt/context-recipe fields", () => {
+    const result = applyPromptPatchDryRun(baseInput([
+      { op: "replace", path: "role.mission", value: "Convert one accepted intake candidate into one bounded Plan Spec, deterministically." },
+      { op: "add", path: "context_recipe.dynamic_slots", value: ["source_issue_or_event"] },
+    ]));
+
+    assert.equal(result.status, "dry_run_valid", JSON.stringify(result, null, 2));
+    assert.equal(result.decision, "prompt_patch_dry_run_ready");
+    assert.equal(result.diff.length, 2);
+    assert.equal(result.diff[0].before, AGENT_DOCUMENT.role.mission);
+    assert.notEqual(result.before_digest, result.after_digest);
+    assert.deepEqual(validatePromptPatchDryRun(result), { ok: true, issues: [] });
+
+    const replay = applyPromptPatchDryRun(baseInput([
+      { op: "replace", path: "role.mission", value: "Convert one accepted intake candidate into one bounded Plan Spec, deterministically." },
+      { op: "add", path: "context_recipe.dynamic_slots", value: ["source_issue_or_event"] },
+    ]));
+    assert.equal(replay.patch_id, result.patch_id);
+    assert.equal(replay.after_digest, result.after_digest);
+  });
+
+  it("rejects patches targeting anything outside .forge/agents/<species>.forge", () => {
+    const result = applyPromptPatchDryRun({
+      now: NOW,
+      target: { path: ".forge/policies/constitution.forge", species: "constitution", content: {} },
+      operations: [{ op: "replace", path: "title", value: "tampered" }],
+    });
+
+    assert.equal(result.status, "rejected", JSON.stringify(result, null, 2));
+    assert.equal(result.decision, "blocked_by_forbidden_target");
+    assert.ok(result.reasons.includes("forbidden_document_path"));
+    assert.deepEqual(validatePromptPatchDryRun(result), { ok: true, issues: [] });
+  });
+
+  it("rejects patches targeting identity, constitution, or tool-routing fields", () => {
+    for (const path of ["identity.role_name", "identity.species", "constitution.approval_class", "constitution.mutable_paths", "tools", "role.forbidden_actions"]) {
+      const result = applyPromptPatchDryRun(baseInput([{ op: "replace", path, value: "anything" }]));
+      assert.equal(result.status, "rejected", `${path} should be rejected`);
+      assert.equal(result.decision, "blocked_by_forbidden_target");
+      assert.ok(result.reasons.includes("path_not_in_allowed_prompt_fields"), `${path} -> ${JSON.stringify(result.reasons)}`);
+    }
+  });
+
+  it("rejects malformed operations", () => {
+    const badOp = applyPromptPatchDryRun(baseInput([{ op: "move", path: "role.mission", value: "x" }]));
+    assert.equal(badOp.decision, "invalid_prompt_patch_input");
+    assert.ok(badOp.reasons.includes("invalid_op_type"));
+
+    const missingValue = applyPromptPatchDryRun(baseInput([{ op: "add", path: "role.mission" }]));
+    assert.ok(missingValue.reasons.includes("missing_patch_value"));
+
+    const duplicate = applyPromptPatchDryRun(baseInput([
+      { op: "replace", path: "role.mission", value: "a" },
+      { op: "replace", path: "role.mission", value: "b" },
+    ]));
+    assert.ok(duplicate.reasons.includes("duplicate_patch_target_path"));
+
+    const empty = applyPromptPatchDryRun(baseInput([]));
+    assert.ok(empty.reasons.includes("empty_operations"));
+  });
+
+  it("rejects a species/path mismatch", () => {
+    const result = applyPromptPatchDryRun({
+      now: NOW,
+      target: { path: ".forge/agents/planner.alpha.forge", species: "auditor.alpha", content: AGENT_DOCUMENT },
+      operations: [{ op: "replace", path: "title", value: "x" }],
+    });
+    assert.ok(result.reasons.includes("species_path_mismatch"));
+  });
+
+  it("never claims file writes, GitHub calls, or auto-merge", () => {
+    const result = applyPromptPatchDryRun(baseInput([{ op: "replace", path: "title", value: "Planner Alpha (patched)" }]));
+    assert.deepEqual(result.dry_run, { file_written: false, github_api_called: false, auto_merged: false, policy_or_workflow_targeted: false });
+    assert.equal(result.mutation_record.class, "prompt_patch");
+    assert.equal(result.mutation_record.decision, "proposed");
+    assert.equal(result.mutation_record.patch_ref, null);
+  });
+
+  it("supports stable aliases", () => {
+    for (const fn of [runPromptPatchDryRun, runT046PromptPatchDryRun]) {
+      const result = fn(baseInput([{ op: "replace", path: "summary", value: "updated" }]));
+      assert.equal(result.status, "dry_run_valid");
+      assert.deepEqual(validateT046PromptPatchDryRun(result), { ok: true, issues: [] });
+    }
+  });
+});
