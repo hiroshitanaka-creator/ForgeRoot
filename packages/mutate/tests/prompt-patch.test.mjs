@@ -12,6 +12,8 @@ import {
 const NOW = "2026-06-22T00:00:00Z";
 
 const AGENT_DOCUMENT = {
+  kind: "agent",
+  id: "forge://hiroshitanaka-creator/ForgeRoot/agent/planner.alpha",
   title: "Planner Alpha",
   summary: "Deterministic bounded planner runtime.",
   identity: { role_name: "planner", species: "planner.alpha", persona: "conservative-scoper" },
@@ -54,6 +56,17 @@ describe("T046 prompt genome patcher", () => {
     ]));
     assert.equal(replay.patch_id, result.patch_id);
     assert.equal(replay.after_digest, result.after_digest);
+  });
+
+  it("includes canonicalized patch values in generated IDs", () => {
+    const first = applyPromptPatchDryRun(baseInput([{ op: "replace", path: "title", value: "Planner Alpha A" }]));
+    const second = applyPromptPatchDryRun(baseInput([{ op: "replace", path: "title", value: "Planner Alpha B" }]));
+
+    assert.equal(first.status, "dry_run_valid");
+    assert.equal(second.status, "dry_run_valid");
+    assert.notEqual(first.patch_id, second.patch_id);
+    assert.notEqual(first.mutation_record.mutation_id, second.mutation_record.mutation_id);
+    assert.notEqual(first.after_digest, second.after_digest);
   });
 
   it("rejects patches targeting anything outside .forge/agents/<species>.forge", () => {
@@ -129,12 +142,55 @@ describe("T046 prompt genome patcher", () => {
     assert.ok(result.reasons.includes("species_path_mismatch"));
   });
 
+  it("rejects non-canonical target content identity", () => {
+    const cases = [
+      { name: "non-agent kind", content: { ...AGENT_DOCUMENT, kind: "policy" }, reason: "target_content_kind_must_be_agent" },
+      { name: "wrong id", content: { ...AGENT_DOCUMENT, id: "forge://hiroshitanaka-creator/ForgeRoot/agent/auditor.alpha" }, reason: "target_content_id_mismatch" },
+      { name: "wrong identity species", content: { ...AGENT_DOCUMENT, identity: { ...AGENT_DOCUMENT.identity, species: "auditor.alpha" } }, reason: "target_content_species_mismatch" },
+      { name: "wrong role name", content: { ...AGENT_DOCUMENT, identity: { ...AGENT_DOCUMENT.identity, role_name: "auditor" } }, reason: "target_content_role_name_mismatch" },
+      { name: "missing identity", content: { ...AGENT_DOCUMENT, identity: null }, reason: "target_content_identity_must_be_object" },
+    ];
+
+    for (const { name, content, reason } of cases) {
+      const result = applyPromptPatchDryRun({
+        now: NOW,
+        target: { path: ".forge/agents/planner.alpha.forge", species: "planner.alpha", content },
+        operations: [{ op: "replace", path: "title", value: "x" }],
+      });
+      assert.equal(result.status, "rejected", name);
+      assert.equal(result.mutation_record.decision, "rejected", name);
+      assert.ok(result.reasons.includes(reason), `${name} -> ${JSON.stringify(result.reasons)}`);
+    }
+  });
+
+  it("rejects replace and remove operations for missing target paths", () => {
+    for (const op of ["replace", "remove"]) {
+      const result = applyPromptPatchDryRun(baseInput([{ op, path: "context_recipe.dynamic_slots", value: ["late_slot"] }]));
+      assert.equal(result.status, "rejected", op);
+      assert.equal(result.mutation_record.decision, "rejected", op);
+      assert.ok(result.reasons.includes("missing_patch_target_path"), `${op} -> ${JSON.stringify(result.reasons)}`);
+    }
+  });
+
   it("never claims file writes, GitHub calls, or auto-merge", () => {
     const result = applyPromptPatchDryRun(baseInput([{ op: "replace", path: "title", value: "Planner Alpha (patched)" }]));
     assert.deepEqual(result.dry_run, { file_written: false, github_api_called: false, auto_merged: false, policy_or_workflow_targeted: false });
     assert.equal(result.mutation_record.class, "prompt_patch");
     assert.equal(result.mutation_record.decision, "proposed");
     assert.equal(result.mutation_record.patch_ref, null);
+  });
+
+  it("clones operation values before returning the dry-run manifest", () => {
+    const value = ["source_issue_or_event", { nested: ["initial"] }];
+    const request = baseInput([{ op: "add", path: "context_recipe.dynamic_slots", value }]);
+    const result = applyPromptPatchDryRun(request);
+
+    assert.equal(result.status, "dry_run_valid", JSON.stringify(result, null, 2));
+    value[0] = "mutated_after_dry_run";
+    value[1].nested.push("mutated_after_dry_run");
+
+    assert.deepEqual(result.operations[0].value, ["source_issue_or_event", { nested: ["initial"] }]);
+    assert.deepEqual(result.diff[0].after, ["source_issue_or_event", { nested: ["initial"] }]);
   });
 
   it("supports stable aliases", () => {

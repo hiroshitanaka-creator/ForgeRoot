@@ -130,29 +130,31 @@ export function applyPromptPatchDryRun(input: unknown): PromptPatchDryRunResult 
   if (envelope.input === null) return invalidResult(createdAt, envelope.target, envelope.operations, [{ path: "input", code: "input_must_be_object", message: "prompt patch input must be an object" }]);
 
   const validInput = envelope.input;
+  const operations = validInput.operations.map(cloneOperation);
   const before = deepClone(validInput.target.content);
   const after = deepClone(validInput.target.content);
   const diff: PromptPatchDiffEntry[] = [];
-  for (const operation of validInput.operations) {
-    diff.push({ op: operation.op, path: operation.path, before: getIn(before, operation.path), after: operation.op === "remove" ? undefined : operation.value });
+  for (const operation of operations) {
+    diff.push({ op: operation.op, path: operation.path, before: cloneValue(getIn(before, operation.path)), after: operation.op === "remove" ? undefined : cloneValue(operation.value) });
     applyOp(after, operation);
   }
 
+  const operationFingerprints = operations.map(canonicalOperationFingerprint);
   return {
     manifest_version: PROMPT_PATCH_VERSION,
     schema_ref: PROMPT_PATCH_SCHEMA_REF,
-    patch_id: stableId("prompt-patch", [validInput.target.path, ...validInput.operations.map((operation) => `${operation.op}:${operation.path}`)]),
+    patch_id: stableId("prompt-patch", [validInput.target.path, ...operationFingerprints]),
     created_at: createdAt,
     status: "dry_run_valid",
     decision: "prompt_patch_dry_run_ready",
     reasons: ["prompt_patch_dry_run_valid", "allowed_prompt_fields_only"],
     target: envelope.target,
-    operations: validInput.operations,
+    operations,
     diff,
     before_digest: canonicalDigest(before),
     after_digest: canonicalDigest(after),
     mutation_record: {
-      mutation_id: stableId("mut", [validInput.target.path, ...validInput.operations.map((operation) => operation.path)]),
+      mutation_id: stableId("mut", [validInput.target.path, ...operationFingerprints]),
       class: "prompt_patch",
       target_paths: [validInput.target.path],
       patch_format: "forgeroot-prompt-patch-v1",
@@ -183,6 +185,7 @@ function validateInput(input: PromptPatchInput): PromptPatchValidationIssue[] {
   } else if (match[1] !== input.target.species) {
     issue(issues, "target.species", "species_path_mismatch", "target.species must match the document path species segment");
   }
+  validateCanonicalAgentContent(input, issues);
 
   if (input.operations.length === 0) {
     issue(issues, "operations", "empty_operations", "a prompt patch must contain at least one operation");
@@ -210,8 +213,35 @@ function validateInput(input: PromptPatchInput): PromptPatchValidationIssue[] {
     if ((operation.op === "add" || operation.op === "replace") && operation.value === undefined) {
       issue(issues, `${prefix}.value`, "missing_patch_value", "add and replace operations require a value");
     }
+    if ((operation.op === "replace" || operation.op === "remove") && !hasIn(input.target.content, operation.path)) {
+      issue(issues, `${prefix}.path`, "missing_patch_target_path", `${operation.op} requires ${operation.path} to already exist on the target content`);
+    }
   }
   return issues;
+}
+
+function validateCanonicalAgentContent(input: PromptPatchInput, issues: PromptPatchValidationIssue[]): void {
+  const content = input.target.content;
+  const expectedId = `forge://hiroshitanaka-creator/ForgeRoot/agent/${input.target.species}`;
+  const expectedRoleName = input.target.species.split(".")[0];
+
+  if (content.kind !== "agent") {
+    issue(issues, "target.content.kind", "target_content_kind_must_be_agent", "target.content.kind must be agent");
+  }
+  if (content.id !== expectedId) {
+    issue(issues, "target.content.id", "target_content_id_mismatch", "target.content.id must match the canonical agent id for target.species");
+  }
+
+  if (!isRecord(content.identity)) {
+    issue(issues, "target.content.identity", "target_content_identity_must_be_object", "target.content.identity must be an object");
+    return;
+  }
+  if (content.identity.species !== input.target.species) {
+    issue(issues, "target.content.identity.species", "target_content_species_mismatch", "target.content.identity.species must match target.species");
+  }
+  if (content.identity.role_name !== expectedRoleName) {
+    issue(issues, "target.content.identity.role_name", "target_content_role_name_mismatch", "target.content.identity.role_name must match the role segment of target.species");
+  }
 }
 
 function normalizeInputEnvelope(input: unknown): {
@@ -311,10 +341,29 @@ function deleteIn(document: Record<string, unknown>, path: string): void {
   delete cursor[segments[segments.length - 1]];
 }
 
-function deepClone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
+function hasIn(document: Readonly<Record<string, unknown>>, path: string): boolean {
+  let cursor: unknown = document;
+  for (const segment of path.split(".")) {
+    if (cursor === null || typeof cursor !== "object" || !Object.prototype.hasOwnProperty.call(cursor, segment)) return false;
+    cursor = (cursor as Record<string, unknown>)[segment];
+  }
+  return true;
+}
+
+function cloneOperation(operation: PromptPatchOperation): PromptPatchOperation {
+  return { op: operation.op, path: operation.path, ...(operation.value === undefined ? {} : { value: cloneValue(operation.value) }) };
+}
+
+function cloneValue<T>(value: T): T {
+  if (value === undefined) return value;
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function deepClone<T>(value: T): T { return cloneValue(value); }
 function canonicalDigest(value: unknown): string { return `sha-fnv1a-${fnv1a(canonicalStringify(value)).toString(16).padStart(8, "0")}`; }
 
 function canonicalStringify(value: unknown): string {
+  if (value === undefined) return "undefined";
   if (Array.isArray(value)) return `[${value.map(canonicalStringify).join(",")}]`;
   if (value !== null && typeof value === "object") {
     const keys = Object.keys(value as Record<string, unknown>).sort();
@@ -324,21 +373,23 @@ function canonicalStringify(value: unknown): string {
 }
 
 function invalidResult(createdAt: string, target: { path: string; species: string }, operations: readonly PromptPatchOperation[], issues: readonly PromptPatchValidationIssue[]): PromptPatchDryRunResult {
+  const normalizedOperations = operations.map(cloneOperation);
+  const operationFingerprints = normalizedOperations.map(canonicalOperationFingerprint);
   return {
     manifest_version: PROMPT_PATCH_VERSION,
     schema_ref: PROMPT_PATCH_SCHEMA_REF,
-    patch_id: stableId("prompt-patch", [target.path, ...operations.map((operation) => `${operation.op}:${operation.path}`)]),
+    patch_id: stableId("prompt-patch", [target.path, ...operationFingerprints]),
     created_at: createdAt,
     status: "rejected",
     decision: "invalid_prompt_patch_input",
     reasons: unique(issues.map((entry) => entry.code)),
     target,
-    operations,
+    operations: normalizedOperations,
     diff: [],
     before_digest: canonicalDigest(null),
     after_digest: canonicalDigest(null),
     mutation_record: {
-      mutation_id: stableId("mut", [target.path, ...operations.map((operation) => operation.path)]),
+      mutation_id: stableId("mut", [target.path, ...operationFingerprints]),
       class: "prompt_patch",
       target_paths: [target.path],
       patch_format: "forgeroot-prompt-patch-v1",
@@ -354,6 +405,7 @@ function issue(issues: PromptPatchValidationIssue[], path: string, code: string,
 function resolveTimestamp(value: string | undefined, fallback: string): string | null { return value === undefined ? fallback : RFC3339_UTC.test(value) ? value : null; }
 function isRecord(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function unique(values: readonly string[]): string[] { return [...new Set(values)]; }
+function canonicalOperationFingerprint(operation: PromptPatchOperation): string { return canonicalStringify({ op: operation.op, path: operation.path, ...(operation.op === "remove" ? {} : { value: operation.value }) }); }
 function stableId(prefix: string, parts: readonly string[]): string { return `${prefix}-${fnv1a(parts.join("")).toString(16).padStart(8, "0")}`; }
 function fnv1a(value: string): number { let hash = 0x811c9dc5; for (let index = 0; index < value.length; index += 1) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 0x01000193) >>> 0; } return hash >>> 0; }
 
