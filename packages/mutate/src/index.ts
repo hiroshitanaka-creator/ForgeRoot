@@ -20,3 +20,32 @@ export type {
   PromptPatchValidationIssue,
   PromptPatchValidationResult,
 } from "./prompt-patch.js";
+
+export {
+  TOOL_ROUTING_CONTRACT,
+  TOOL_ROUTING_SCHEMA_REF,
+  TOOL_ROUTING_VERSION,
+  applyToolRoutingDryRun,
+  runT047ToolRoutingDryRun,
+  runToolRoutingDryRun,
+  validateT047ToolRoutingDryRun,
+  validateToolRoutingDryRun,
+} from "./tool-routing.js";
+export type {
+  ToolRouteApproval,
+  ToolRouteDecision,
+  ToolRouteIdentity,
+  ToolRouteMode,
+  ToolRoutePatchOpType,
+  ToolRouteStatus,
+  ToolRouteValue,
+  ToolRoutingDiffEntry,
+  ToolRoutingDryRunResult,
+  ToolRoutingInput,
+  ToolRoutingMutationRecord,
+  ToolRoutingPatchOperation,
+  ToolRoutingReviewGate,
+  ToolRoutingTarget,
+  ToolRoutingValidationIssue,
+  ToolRoutingValidationResult,
+} from "./tool-routing.js";
