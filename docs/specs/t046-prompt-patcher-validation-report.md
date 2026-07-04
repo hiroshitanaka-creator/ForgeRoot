@@ -26,6 +26,9 @@ identity, constitution, tool-routing, evolution, score, or provenance fields.
 - Only the fixed prompt/context-recipe field allowlist can be targeted;
   identity, constitution, tools, evolution, scores, and provenance fields are
   rejected with `path_not_in_allowed_prompt_fields`.
+- Structurally invalid request envelopes (non-object input, missing target,
+  non-array operations, non-object content, malformed operation entries, and
+  invalid timestamps) are rejected as manifests instead of throwing.
 - Malformed operations (unknown `op`, missing `value` on add/replace,
   duplicate target paths, empty operation lists, species/path mismatches)
   are rejected before any diff is produced.
@@ -36,4 +39,4 @@ identity, constitution, tool-routing, evolution, score, or provenance fields.
 
 ## Verification
 
-- `npm --prefix packages/mutate test` — 8/8 passing.
+- `npm --prefix packages/mutate test` — 9/9 passing.

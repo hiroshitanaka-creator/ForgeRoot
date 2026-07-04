@@ -117,21 +117,23 @@ export const PROMPT_PATCH_CONTRACT = {
 const DEFAULT_NOW = "2026-06-22T00:00:00Z";
 const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 
-export function applyPromptPatchDryRun(input: PromptPatchInput): PromptPatchDryRunResult {
-  const createdAt = resolveTimestamp(input.now, DEFAULT_NOW);
-  const target = { path: input.target.path, species: input.target.species };
-  if (createdAt === null) return invalidResult(DEFAULT_NOW, target, input.operations, [{ path: "now", code: "now_must_be_rfc3339_utc", message: "now must be an RFC3339 UTC timestamp" }]);
+export function applyPromptPatchDryRun(input: unknown): PromptPatchDryRunResult {
+  const envelope = normalizeInputEnvelope(input);
+  const createdAt = resolveTimestamp(envelope.now, DEFAULT_NOW);
+  if (createdAt === null) return invalidResult(DEFAULT_NOW, envelope.target, envelope.operations, [{ path: "now", code: "now_must_be_rfc3339_utc", message: "now must be an RFC3339 UTC timestamp" }]);
 
-  const issues = validateInput(input);
+  const issues = envelope.input === null ? envelope.issues : [...envelope.issues, ...validateInput(envelope.input)];
   if (issues.length > 0) {
     const decision: PromptPatchDecision = issues.some((issue) => issue.code === "forbidden_document_path" || issue.code === "path_not_in_allowed_prompt_fields") ? "blocked_by_forbidden_target" : "invalid_prompt_patch_input";
-    return { ...invalidResult(createdAt, target, input.operations, issues), decision };
+    return { ...invalidResult(createdAt, envelope.target, envelope.operations, issues), decision };
   }
+  if (envelope.input === null) return invalidResult(createdAt, envelope.target, envelope.operations, [{ path: "input", code: "input_must_be_object", message: "prompt patch input must be an object" }]);
 
-  const before = deepClone(input.target.content);
-  const after = deepClone(input.target.content);
+  const validInput = envelope.input;
+  const before = deepClone(validInput.target.content);
+  const after = deepClone(validInput.target.content);
   const diff: PromptPatchDiffEntry[] = [];
-  for (const operation of input.operations) {
+  for (const operation of validInput.operations) {
     diff.push({ op: operation.op, path: operation.path, before: getIn(before, operation.path), after: operation.op === "remove" ? undefined : operation.value });
     applyOp(after, operation);
   }
@@ -139,20 +141,20 @@ export function applyPromptPatchDryRun(input: PromptPatchInput): PromptPatchDryR
   return {
     manifest_version: PROMPT_PATCH_VERSION,
     schema_ref: PROMPT_PATCH_SCHEMA_REF,
-    patch_id: stableId("prompt-patch", [input.target.path, ...input.operations.map((operation) => `${operation.op}:${operation.path}`)]),
+    patch_id: stableId("prompt-patch", [validInput.target.path, ...validInput.operations.map((operation) => `${operation.op}:${operation.path}`)]),
     created_at: createdAt,
     status: "dry_run_valid",
     decision: "prompt_patch_dry_run_ready",
     reasons: ["prompt_patch_dry_run_valid", "allowed_prompt_fields_only"],
-    target,
-    operations: input.operations,
+    target: envelope.target,
+    operations: validInput.operations,
     diff,
     before_digest: canonicalDigest(before),
     after_digest: canonicalDigest(after),
     mutation_record: {
-      mutation_id: stableId("mut", [input.target.path, ...input.operations.map((operation) => operation.path)]),
+      mutation_id: stableId("mut", [validInput.target.path, ...validInput.operations.map((operation) => operation.path)]),
       class: "prompt_patch",
-      target_paths: [input.target.path],
+      target_paths: [validInput.target.path],
       patch_format: "forgeroot-prompt-patch-v1",
       patch_ref: null,
       decision: "proposed",
@@ -210,6 +212,66 @@ function validateInput(input: PromptPatchInput): PromptPatchValidationIssue[] {
     }
   }
   return issues;
+}
+
+function normalizeInputEnvelope(input: unknown): {
+  readonly input: PromptPatchInput | null;
+  readonly now?: string;
+  readonly target: { readonly path: string; readonly species: string };
+  readonly operations: readonly PromptPatchOperation[];
+  readonly issues: readonly PromptPatchValidationIssue[];
+} {
+  const issues: PromptPatchValidationIssue[] = [];
+  if (!isRecord(input)) {
+    issue(issues, "input", "input_must_be_object", "prompt patch input must be an object");
+    return { input: null, target: { path: "", species: "" }, operations: [], issues };
+  }
+
+  let now: string | undefined;
+  if (input.now !== undefined) {
+    if (typeof input.now === "string") now = input.now;
+    else issue(issues, "now", "now_must_be_string", "now must be a string when provided");
+  }
+
+  const targetValue = input.target;
+  let targetPath = "";
+  let targetSpecies = "";
+  let targetContent: Readonly<Record<string, unknown>> | null = null;
+  if (!isRecord(targetValue)) {
+    issue(issues, "target", "target_must_be_object", "target must be an object");
+  } else {
+    if (typeof targetValue.path === "string") targetPath = targetValue.path;
+    else issue(issues, "target.path", "target_path_must_be_string", "target.path must be a string");
+    if (typeof targetValue.species === "string") targetSpecies = targetValue.species;
+    else issue(issues, "target.species", "target_species_must_be_string", "target.species must be a string");
+    if (isRecord(targetValue.content)) targetContent = targetValue.content;
+    else issue(issues, "target.content", "target_content_must_be_object", "target.content must be an object");
+  }
+
+  const operations = normalizeOperations(input.operations, issues);
+  const target = { path: targetPath, species: targetSpecies };
+  if (targetContent === null) return { input: null, now, target, operations, issues };
+  return { input: { now, target: { ...target, content: targetContent }, operations }, now, target, operations, issues };
+}
+
+function normalizeOperations(value: unknown, issues: PromptPatchValidationIssue[]): readonly PromptPatchOperation[] {
+  if (!Array.isArray(value)) {
+    issue(issues, "operations", "operations_must_be_array", "operations must be an array");
+    return [];
+  }
+
+  return value.map((operation, index) => {
+    const prefix = `operations[${index}]`;
+    if (!isRecord(operation)) {
+      issue(issues, prefix, "operation_must_be_object", "each operation must be an object");
+      return { op: "" as PromptPatchOpType, path: "" };
+    }
+    return {
+      op: typeof operation.op === "string" ? operation.op as PromptPatchOpType : "" as PromptPatchOpType,
+      path: typeof operation.path === "string" ? operation.path : "",
+      value: operation.value,
+    };
+  });
 }
 
 function applyOp(document: Record<string, unknown>, operation: PromptPatchOperation): void {
@@ -290,6 +352,7 @@ function invalidResult(createdAt: string, target: { path: string; species: strin
 
 function issue(issues: PromptPatchValidationIssue[], path: string, code: string, message: string): void { issues.push({ path, code, message }); }
 function resolveTimestamp(value: string | undefined, fallback: string): string | null { return value === undefined ? fallback : RFC3339_UTC.test(value) ? value : null; }
+function isRecord(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function unique(values: readonly string[]): string[] { return [...new Set(values)]; }
 function stableId(prefix: string, parts: readonly string[]): string { return `${prefix}-${fnv1a(parts.join("")).toString(16).padStart(8, "0")}`; }
 function fnv1a(value: string): number { let hash = 0x811c9dc5; for (let index = 0; index < value.length; index += 1) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 0x01000193) >>> 0; } return hash >>> 0; }

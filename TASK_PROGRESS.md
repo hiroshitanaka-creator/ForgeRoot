@@ -43,5 +43,5 @@ Implement T046 — Prompt genome patcher foundation.
 
 ## Current status
 - T046 implementation complete.
-- Verification passed: `npm --prefix packages/mutate test` (8/8).
+- Verification passed: `npm --prefix packages/mutate test` (9/9).
 - Ready for commit and PR record.

@@ -96,6 +96,28 @@ describe("T046 prompt genome patcher", () => {
     assert.ok(empty.reasons.includes("empty_operations"));
   });
 
+  it("rejects structurally invalid request envelopes instead of throwing", () => {
+    const cases = [
+      { name: "null input", input: null, reason: "input_must_be_object" },
+      { name: "empty input", input: {}, reason: "target_must_be_object" },
+      { name: "non-object target", input: { target: null, operations: [] }, reason: "target_must_be_object" },
+      { name: "non-array operations", input: { target: { path: ".forge/agents/planner.alpha.forge", species: "planner.alpha", content: AGENT_DOCUMENT }, operations: null }, reason: "operations_must_be_array" },
+      { name: "non-object content", input: { target: { path: ".forge/agents/planner.alpha.forge", species: "planner.alpha", content: null }, operations: [] }, reason: "target_content_must_be_object" },
+      { name: "non-object operation", input: { target: { path: ".forge/agents/planner.alpha.forge", species: "planner.alpha", content: AGENT_DOCUMENT }, operations: [null] }, reason: "operation_must_be_object" },
+      { name: "non-string timestamp", input: { now: 1, target: { path: ".forge/agents/planner.alpha.forge", species: "planner.alpha", content: AGENT_DOCUMENT }, operations: [] }, reason: "now_must_be_string" },
+      { name: "invalid timestamp", input: { now: "not-a-date", target: { path: ".forge/agents/planner.alpha.forge", species: "planner.alpha", content: AGENT_DOCUMENT }, operations: [] }, reason: "now_must_be_rfc3339_utc" },
+    ];
+
+    for (const { name, input, reason } of cases) {
+      let result;
+      assert.doesNotThrow(() => { result = applyPromptPatchDryRun(input); }, name);
+      assert.equal(result.status, "rejected", name);
+      assert.equal(result.decision, "invalid_prompt_patch_input", name);
+      assert.ok(result.reasons.includes(reason), `${name} -> ${JSON.stringify(result.reasons)}`);
+      assert.deepEqual(validatePromptPatchDryRun(result), { ok: true, issues: [] }, name);
+    }
+  });
+
   it("rejects a species/path mismatch", () => {
     const result = applyPromptPatchDryRun({
       now: NOW,
