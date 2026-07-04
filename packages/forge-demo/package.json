@@ -6,7 +6,7 @@
   "description": "ForgeRoot T028 end-to-end forged PR demo harness wiring the Phase 1 deterministic manifest chain.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+    "test": "npm run build && node --test tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22.5"

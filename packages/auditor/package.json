@@ -6,7 +6,7 @@
   "description": "ForgeRoot auditor runtime and T040 deterministic SARIF-like finding bridge.",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+    "test": "npm run build && node --test tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22.5"

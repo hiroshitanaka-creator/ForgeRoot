@@ -6,7 +6,7 @@
   "description": "ForgeRoot approval checkpoint: deterministic trusted transport authorization from GitHub PR creation request manifests.",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+    "test": "npm run build && node --test tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22.5"

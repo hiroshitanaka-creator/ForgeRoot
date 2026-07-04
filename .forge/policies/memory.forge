@@ -1,0 +1,75 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:policy:v1
+kind: policy
+id: forge://hiroshitanaka-creator/ForgeRoot/policy/memory
+revision: 7XV0XNM3FDFFBECQ25E0FPHTX0
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: active
+title: ForgeRoot Memory Policy
+summary: Enforces source-of-truth, PR-gated curated updates, and derived-state rules for the Phase 2 memory surface (working memory, episodic digests, packs, semantic digests).
+owners:
+  - github://hiroshitanaka-creator
+created_at: 2026-06-18T00:00:00Z
+updated_at: 2026-06-18T00:00:00Z
+policy_type: memory
+rules:
+  - id: memory-source-of-truth
+    approval_class: C
+    statement: ".forge and committed memory artifacts are the curated memory source of truth."
+  - id: curated-memory-update-requires-pr
+    approval_class: B
+    statement: "Curated memory updates must move through PR review before acceptance."
+  - id: source-refs-required
+    approval_class: B
+    statement: "Memory manifests require task refs, source refs, and artifact hashes."
+  - id: rejected-and-blocked-events-preserved
+    approval_class: B
+    statement: "Rejected and blocked events are preserved as first-class episodic memory."
+  - id: runtime-db-derived-only
+    approval_class: C
+    statement: "Runtime databases, caches, and vector indexes are derived state only."
+  - id: memory-eval-separation
+    approval_class: C
+    statement: "Memory records provenance and outcomes but does not calculate eval scores."
+thresholds:
+  memory_manifest_limits:
+    working_memory_max_items_default: 50
+    episode_summary_max_chars: 1200
+    episode_title_max_chars: 160
+actions_on_breach:
+  memory-source-of-truth:
+    - reject_change
+    - open_incident_issue
+  curated-memory-update-requires-pr:
+    - reject_change
+    - require_reviewable_pull_request
+  runtime-db-derived-only:
+    - reject_change
+    - quarantine_candidate
+required_approvals:
+  B:
+    summary: routine memory manifests (working memory updates, episode digests)
+    min_human_approvals: 1
+    auto_pr_allowed: true
+    merge_requires_human: true
+  C:
+    summary: memory policy changes and broad semantic digest curation
+    min_human_approvals: 2
+    auto_pr_allowed: false
+    codeowner_required: true
+cooldowns:
+  restore_requires_human_ack_after_step: 2
+quarantine_triggers:
+  - source_less_memory_update
+  - missing_artifact_hash
+  - secret_scanning_alert
+provenance:
+  seed_task: T029
+  seed_basis:
+    - docs/specs/memory-model.md
+  created_by: github://hiroshitanaka-creator
+extensions:
+  constitution_compatibility:
+    must_not_weaken_constitution: true
+    direct_forge_write_allowed: false

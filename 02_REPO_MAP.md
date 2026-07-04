@@ -91,3 +91,15 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 | `minimal-agent.forge` | T007 validation report with wrong `.forge` extension |
 | `missing-revision.forge` | T006 validation report with wrong `.forge` extension |
 | `README (1).md` … `README (31).md` | Stale duplicate README copies |
+
+---
+
+## Phase 2 Memory Foundation Surface
+
+| Path | Purpose |
+|---|---|
+| `packages/memory/` | T030/T031 deterministic memory manifest writer and validator package; no MemoryKeeper runtime, no GitHub transport, no `.forge` direct write |
+| `packages/memory/src/working.ts` | Working memory update manifest creation and validation |
+| `packages/memory/src/digest.ts` | Episode digest manifest creation and validation |
+| `docs/specs/memory-model.md` | T029 memory partition contract |
+| `.forge/policies/memory.forge` | Memory policy declaring source-of-truth, PR, source-ref, derived-state, and memory/eval separation rules |
