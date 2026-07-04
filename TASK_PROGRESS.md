@@ -2,40 +2,39 @@
 
 ## Current phase
 
-T047 - Tool-routing mutator (allowlisted, dry-run tool route mutation surface).
+T048 - Role split/merge speciation proposal.
 
 ## Initial assessment summary
 
-- PR #8 merged T046 prompt genome patcher into `origin/main`.
-- The latest T046 handoff recommends T047 as the next target.
-- The canonical task source in the continuation issue file defines T047 as a bounded
-  mutation surface for agent tool namespace, `max_calls`, timeout, and approval
-  requirements.
-- T047 is Class C / high risk by task definition, so the implementation must
-  remain manifest-only and must not perform live tool execution, `.forge`
-  writes, policy changes, workflow changes, GitHub transport, approval, or
-  merge.
+- PR #14 merged T047 tool-routing mutator into `origin/main`.
+- The latest T047 handoff recommends T048 as the next target.
+- The blueprint interface registry defines the T048 package API as
+  `createSpeciationProposal(input)`.
+- T048 is Class C / high risk because role split/merge changes agent lineage,
+  so the implementation must remain manifest-only and must not create child
+  genomes, replace parent genomes, write `.forge` files, call GitHub APIs,
+  approve, or merge.
 
 ## Selected work
 
-Implement T047 - Tool-routing mutator.
+Implement T048 - Role split/merge speciation proposal.
 
 ## Why this work
 
-- It advances the Evolution loop's mutation proposal layer after T046 while
-  preserving explicit human review gates.
-- It gives later speciation and EvolutionGuard work a concrete tool-routing
-  manifest to inspect.
-- It keeps tool implementation, MCP server implementation, external network
-  permission expansion, and policy weakening out of scope.
+- It advances the Evolution loop after T046 prompt patching and T047
+  tool-routing by adding explicit lineage proposals.
+- It gives later EvolutionGuard and lineage-threshold work a concrete
+  speciation manifest to inspect.
+- It keeps live role mutation, child genome creation, parent replacement,
+  GitHub transport, approval, and merge out of scope.
 
 ## Intended scope
 
-- Add `packages/mutate/src/tool-routing.ts`.
-- Add `packages/mutate/tests/tool-routing.test.mjs`.
-- Export T047 APIs from `packages/mutate/src/index.ts`.
-- Document the T047 schema and validation result under `docs/specs/`.
-- Add `docs/ops/thread-handoff-after-t047.md`.
+- Add `packages/mutate/src/speciation.ts`.
+- Add `packages/mutate/tests/speciation.test.mjs`.
+- Export T048 APIs from `packages/mutate/src/index.ts`.
+- Document the T048 schema and validation result under `docs/specs/`.
+- Add `docs/ops/thread-handoff-after-t048.md`.
 
 ## Verification plan
 
@@ -44,6 +43,6 @@ Implement T047 - Tool-routing mutator.
 
 ## Current status
 
-- T047 implementation complete.
-- Verification passed: `npm.cmd --prefix packages\mutate test` (24/24).
+- T048 implementation complete.
+- Verification passed: `npm.cmd --prefix packages\mutate test` (37/37).
 - Ready for commit and draft PR record.
