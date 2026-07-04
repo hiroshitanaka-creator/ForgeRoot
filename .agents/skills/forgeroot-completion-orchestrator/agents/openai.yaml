@@ -1,0 +1,6 @@
+interface:
+  display_name: "ForgeRoot Completion Orchestrator"
+  short_description: "Audit ForgeRoot, choose bounded next tasks, prepare draft PRs, validate changes, and produce Japanese handoffs for a non-engineer owner."
+  default_prompt: "ForgeRootを進めて。現在地を監査し、次のbounded taskを1つだけ選び、必要ならdraft PRとhandoffまで作って、User Decision Cardで日本語報告してください。mainには直接書き込まないでください。"
+policy:
+  allow_implicit_invocation: true
