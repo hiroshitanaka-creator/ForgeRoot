@@ -28,3 +28,27 @@ test('outcome_ref is preserved when provided',()=>{
   assert.equal(r.ok,true);
   assert.equal(r.digest.source.outcome_ref,'outcome-123');
 });
+test('digest_id is independent of source/episode key insertion order',()=>{
+  const a = createEpisodeDigest(input('accepted'));
+  const b = createEpisodeDigest(input('accepted',{source:{task_id:'T031',artifact_sha256:hash,pr_number:1,repository:'r'}}));
+  assert.equal(a.ok,true); assert.equal(b.ok,true);
+  assert.equal(a.digest.digest_id, b.digest.digest_id);
+});
+test('non-finite related pr numbers rejected',()=>{
+  const r = createEpisodeDigest(input('accepted',{links:{related_plan_ids:[],related_audit_ids:[],related_pr_numbers:[NaN]}}));
+  assert.equal(r.ok,false);
+});
+test('negative related pr numbers rejected',()=>{
+  const r = createEpisodeDigest(input('accepted',{links:{related_plan_ids:[],related_audit_ids:[],related_pr_numbers:[-1]}}));
+  assert.equal(r.ok,false);
+});
+test('negative source pr_number rejected',()=>{
+  const r = createEpisodeDigest(input('accepted',{source:{repository:'r',task_id:'T031',artifact_sha256:hash,pr_number:-1}}));
+  assert.equal(r.ok,false);
+});
+test('stripped provenance rejected on standalone validation',()=>{
+  const r = createEpisodeDigest(input('accepted'));
+  assert.equal(r.ok,true);
+  const stripped = { ...r.digest, provenance: {} };
+  assert.equal(validateEpisodeDigest(stripped).ok,false);
+});

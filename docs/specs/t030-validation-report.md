@@ -50,3 +50,16 @@ Codex flagged 6 issues on this package after rebase onto current main; all confi
 | `SECRET_RE` only matched a few literal words and missed token-shaped secrets (`ghp_...`, `github_pat_...`, `AKIA...`, PEM private-key headers, `api_key` field name) | Extended the pattern to cover these shapes |
 
 Regression tests were added for each case in `packages/memory/tests/working.test.mjs`. Re-verified: `node --test --test-force-exit packages/memory/tests/*.test.mjs` (24/24 pass across working+digest), `npx tsc -p packages/memory/tsconfig.json` (clean).
+
+## Second post-review round (Codex review, 2026-07-03, on the fix commit itself)
+
+Codex re-reviewed the fix commit and flagged 6 more issues (4 shared with `digest.ts`, listed once here and once there); all confirmed and fixed:
+
+| Finding | Fix |
+|---|---|
+| The new collision-safe `stableId` hashed the raw, caller-supplied `r.source` object instead of the normalized `source` the manifest actually emits, so two calls describing the same source with keys in a different order (or with an extra ignored field) produced different `update_id`s | `source` is now built once as a local variable and both the hash input and the emitted `update.source` reuse that same canonical object |
+| `keep_last_accepted` / `keep_last_rejected` accepted negative or non-integer values with no validation | `validateWorkingMemoryUpdate` now requires non-negative integers for both fields; creation only supplies the default 10 when the field is entirely absent, so a bad value present in the input is preserved and rejected rather than silently replaced |
+| `source.pr_number` accepted negative/non-integer values with no validation | Must now be `null` or a positive integer |
+| `validateWorkingMemoryUpdate` never checked `provenance` at all, so a stripped or hand-authored `provenance: {}` still validated `ok: true` | Now requires non-empty `provenance.generated_by` and `provenance.task` |
+
+Regression tests added: key-order/extra-field independence of `update_id`, negative/non-integer retention counts rejected, negative `source.pr_number` rejected, `null` `source.pr_number` still allowed, stripped `provenance` rejected. Re-verified: `node --test --test-force-exit packages/memory/tests/*.test.mjs` (35/35 pass across working+digest), adjacent `planner`/`executor`/`auditor`/`forge-demo` suites (84/84 pass, no regressions), `npx tsc -p packages/memory/tsconfig.json` (clean).

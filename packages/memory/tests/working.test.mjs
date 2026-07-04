@@ -42,3 +42,32 @@ test('custom max_items is persisted for standalone re-validation',()=>{
   assert.equal(r.update.max_items,100);
   assert.equal(validateWorkingMemoryUpdate(r.update).ok,true);
 });
+test('update_id is independent of source key insertion order and extra ignored fields',()=>{
+  const a = createWorkingMemoryUpdate(input({source:{task_id:'T030',artifact_sha256:hash,reason:'audited artifact'}}));
+  const b = createWorkingMemoryUpdate(input({source:{reason:'audited artifact',task_id:'T030',artifact_sha256:hash,ignored_extra:'noise'}}));
+  assert.equal(a.ok,true); assert.equal(b.ok,true);
+  assert.equal(a.update.update_id, b.update.update_id);
+});
+test('negative retention counts rejected',()=>{
+  const r = createWorkingMemoryUpdate(input({retention:{ttl_days:7,keep_last_accepted:-5,keep_last_rejected:1}}));
+  assert.equal(r.ok,false);
+});
+test('non-integer retention counts rejected',()=>{
+  const r = createWorkingMemoryUpdate(input({retention:{ttl_days:7,keep_last_accepted:1.5,keep_last_rejected:1}}));
+  assert.equal(r.ok,false);
+});
+test('negative source pr_number rejected',()=>{
+  const r = createWorkingMemoryUpdate(input({source:{task_id:'T030',artifact_sha256:hash,reason:'audited artifact',pr_number:-1}}));
+  assert.equal(r.ok,false);
+});
+test('null source pr_number is allowed',()=>{
+  const r = createWorkingMemoryUpdate(input());
+  assert.equal(r.ok,true);
+  assert.equal(r.update.source.pr_number,null);
+});
+test('stripped provenance rejected on standalone validation',()=>{
+  const r = createWorkingMemoryUpdate(input());
+  assert.equal(r.ok,true);
+  const stripped = { ...r.update, provenance: {} };
+  assert.equal(validateWorkingMemoryUpdate(stripped).ok,false);
+});

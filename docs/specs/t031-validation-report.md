@@ -42,3 +42,16 @@ Codex flagged 2 issues on this package after rebase onto current main; both conf
 `SECRET_RE` was also extended to match `working.ts` (token-shaped secrets: `ghp_`, `github_pat_`, `AKIA...`, PEM private-key headers, `api_key`).
 
 Regression tests were added for each case in `packages/memory/tests/digest.test.mjs`. Re-verified: `node --test --test-force-exit packages/memory/tests/*.test.mjs` (24/24 pass across working+digest). `cargo test` remains **not run** in this environment (sandboxed network blocks crates.io downloads); this package change does not touch Rust code, so the forge-kernel test surface is unaffected.
+
+## Second post-review round (Codex review, 2026-07-03, on the fix commit itself)
+
+Codex re-reviewed the fix commit and flagged 4 more issues; all confirmed and fixed:
+
+| Finding | Fix |
+|---|---|
+| The new collision-safe `stableId` hashed the raw, caller-supplied `r.source`/`r.episode` instead of the normalized objects the manifest actually emits, so key-order or extra ignored fields changed `digest_id` for an otherwise-identical digest | `source` and `episode` are now built once as local variables and both the hash input and the emitted `digest.source`/`digest.episode` reuse those same canonical objects |
+| `related_pr_numbers` accepted `NaN`/`Infinity`/negative values; a single bad entry still produced `ok: true` | `uniqueSortedNumbers` no longer filters by type (so bad values survive into validation instead of being silently dropped), and both it and `validateSortedUniqueNumbers` now require positive integers, so a bad value causes rejection |
+| `source.pr_number` accepted negative/non-integer values with no validation | Must now be `null` or a positive integer |
+| `validateEpisodeDigest` never checked `provenance` at all, so a stripped or hand-authored `provenance: {}` still validated `ok: true` | Now requires non-empty `provenance.generated_by` and `provenance.task` |
+
+Regression tests added: key-order independence of `digest_id`, non-finite and negative `related_pr_numbers` rejected, negative `source.pr_number` rejected, stripped `provenance` rejected. Re-verified: `node --test --test-force-exit packages/memory/tests/*.test.mjs` (35/35 pass across working+digest), adjacent `planner`/`executor`/`auditor`/`forge-demo` suites (84/84 pass, no regressions), `npx tsc -p packages/memory/tsconfig.json` (clean).
