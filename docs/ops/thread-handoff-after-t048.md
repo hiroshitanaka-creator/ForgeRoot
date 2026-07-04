@@ -14,8 +14,9 @@ T048 - Role split/merge speciation proposal.
 - `packages/mutate/tests/speciation.test.mjs` coverage for split/merge
   cardinality, parent identity validation, child uniqueness, silent replacement
   rejection, lineage-cycle rejection, read-back lineage/digest/target tamper
-  rejection, Class C gates, dry-run side-effect flags, deterministic replay,
-  cloning, and aliases.
+  rejection, deterministic ID tamper rejection, status downgrade rejection,
+  review-gate risk downgrade rejection, Class C gates, dry-run side-effect
+  flags, deterministic replay, cloning, and aliases.
 - `docs/specs/speciation-proposal.md` and
   `docs/specs/t048-validation-report.md`.
 - `packages/mutate` exports for T048 aliases:
@@ -35,7 +36,7 @@ rejected.
 ## Verification
 
 - `npm.cmd --prefix packages\mutate test` - 38/38 passing after PR review
-  fixes.
+  fixes, including the second Codex Review pass.
 
 ## Recommended Next Target
 

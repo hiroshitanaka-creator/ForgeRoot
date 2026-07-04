@@ -247,6 +247,18 @@ describe("T048 speciation proposal", () => {
     assert.equal(forbiddenChild.decision, "blocked_by_forbidden_target");
     assert.ok(forbiddenChild.reasons.includes("forbidden_document_path"));
 
+    const invalidTimestampForbiddenChild = createSpeciationProposal(splitInput({
+      now: "2026-99-99T99:99:99Z",
+      children: [
+        child({ path: ".forge/policies/constitution.forge", species: "constitution.root" }),
+        child({ path: ".forge/agents/planner.scheduler.forge", species: "planner.scheduler", speciation_id: "sp_planner_scheduler" }),
+      ],
+    }));
+    assert.equal(invalidTimestampForbiddenChild.status, "rejected");
+    assert.equal(invalidTimestampForbiddenChild.decision, "blocked_by_forbidden_target");
+    assert.ok(invalidTimestampForbiddenChild.reasons.includes("now_must_be_rfc3339_utc"));
+    assert.ok(invalidTimestampForbiddenChild.reasons.includes("forbidden_document_path"));
+
     const wrongParent = createSpeciationProposal(splitInput({
       parents: [parent(
         { ...PLANNER_PARENT, identity: { ...PLANNER_PARENT.identity, species: "auditor.alpha" } },
@@ -308,6 +320,15 @@ describe("T048 speciation proposal", () => {
     };
     assert.equal(validateSpeciationProposal(withoutReviewGate).ok, false);
     assert.ok(validateSpeciationProposal(withoutReviewGate).issues.some((entry) => entry.code === "human_review_before_merge_required"));
+
+    const downgradedReviewGate = {
+      ...result,
+      review_gate: { ...result.review_gate, risk: "medium", reasons: [] },
+    };
+    const downgradedReviewGateValidation = validateSpeciationProposal(downgradedReviewGate);
+    assert.equal(downgradedReviewGateValidation.ok, false);
+    assert.ok(downgradedReviewGateValidation.issues.some((entry) => entry.code === "high_risk_required"));
+    assert.ok(downgradedReviewGateValidation.issues.some((entry) => entry.code === "review_gate_reasons_mismatch"));
 
     const withoutApprovalGate = {
       ...result,
@@ -372,6 +393,31 @@ describe("T048 speciation proposal", () => {
     };
     assert.equal(validateSpeciationProposal(withImpossibleCreatedAt).ok, false);
     assert.ok(validateSpeciationProposal(withImpossibleCreatedAt).issues.some((entry) => entry.code === "invalid_created_at"));
+
+    const withUnknownStatus = {
+      ...result,
+      status: "superseded",
+    };
+    assert.equal(validateSpeciationProposal(withUnknownStatus).ok, false);
+    assert.ok(validateSpeciationProposal(withUnknownStatus).issues.some((entry) => entry.code === "invalid_status"));
+
+    const withAcceptedPayloadDowngradedToRejected = {
+      ...result,
+      status: "rejected",
+    };
+    assert.equal(validateSpeciationProposal(withAcceptedPayloadDowngradedToRejected).ok, false);
+    assert.ok(validateSpeciationProposal(withAcceptedPayloadDowngradedToRejected).issues.some((entry) => entry.code === "invalid_rejected_mutation_record_decision"));
+    assert.ok(validateSpeciationProposal(withAcceptedPayloadDowngradedToRejected).issues.some((entry) => entry.code === "rejected_lineage_events_forbidden"));
+
+    const withTamperedIds = {
+      ...result,
+      proposal_id: "speciation-proposal-deadbeef",
+      mutation_record: { ...result.mutation_record, mutation_id: "mut-deadbeef" },
+    };
+    const tamperedIdValidation = validateSpeciationProposal(withTamperedIds);
+    assert.equal(tamperedIdValidation.ok, false);
+    assert.ok(tamperedIdValidation.issues.some((entry) => entry.code === "proposal_id_mismatch"));
+    assert.ok(tamperedIdValidation.issues.some((entry) => entry.code === "mutation_id_mismatch"));
   });
 
   it("supports stable aliases", () => {

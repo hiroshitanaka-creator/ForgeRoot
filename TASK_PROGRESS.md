@@ -45,5 +45,5 @@ Implement T048 - Role split/merge speciation proposal.
 
 - T048 implementation complete.
 - Verification passed: `npm.cmd --prefix packages\mutate test` (38/38 after
-  PR review fixes).
-- Ready for commit and draft PR record.
+  second PR review fixes).
+- Ready for PR #15 update.

@@ -33,8 +33,11 @@ workflows, approve, merge, or perform live speciation.
   scoped to parent or child agent paths.
 - Read-back validation rejects tampered review gates, approval gates, child
   genome writes, parent replacement, GitHub calls, auto-merge, non-agent
-  targets, lineage event mismatches, stale proposal digests, and impossible
-  RFC3339 timestamps.
+  targets, lineage event mismatches, stale proposal digests, tampered
+  deterministic IDs, invalid or downgraded statuses, downgraded risk metadata,
+  and impossible RFC3339 timestamps.
+- Malformed timestamps do not suppress target-path validation; requests that
+  also target non-agent documents still classify as `blocked_by_forbidden_target`.
 - Deterministic lineage events, proposal digests, and generated IDs are stable
   across replay.
 

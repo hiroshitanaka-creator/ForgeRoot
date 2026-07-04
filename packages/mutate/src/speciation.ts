@@ -183,21 +183,24 @@ const MUTATION_ID = /^mut-[0-9a-f]{8}$/;
 export function createSpeciationProposal(input: unknown): SpeciationProposalResult {
   const envelope = normalizeInputEnvelope(input);
   const createdAt = resolveTimestamp(envelope.now, DEFAULT_NOW);
-  if (createdAt === null) return invalidResult(DEFAULT_NOW, envelope.input, [{ path: "now", code: "now_must_be_rfc3339_utc", message: "now must be an RFC3339 UTC timestamp" }]);
+  const timestampIssues: SpeciationValidationIssue[] = createdAt === null
+    ? [{ path: "now", code: "now_must_be_rfc3339_utc", message: "now must be an RFC3339 UTC timestamp" }]
+    : [];
 
-  const issues = envelope.input === null ? envelope.issues : [...envelope.issues, ...validateInput(envelope.input)];
+  const issues = envelope.input === null ? [...timestampIssues, ...envelope.issues] : [...timestampIssues, ...envelope.issues, ...validateInput(envelope.input)];
   if (issues.length > 0) {
     const decision: SpeciationDecision = issues.some((entry) => ["forbidden_document_path", "silent_replacement_forbidden"].includes(entry.code)) ? "blocked_by_forbidden_target" : "invalid_speciation_input";
-    return { ...invalidResult(createdAt, envelope.input, issues), decision };
+    return { ...invalidResult(createdAt ?? DEFAULT_NOW, envelope.input, issues), decision };
   }
-  if (envelope.input === null) return invalidResult(createdAt, null, [{ path: "input", code: "input_must_be_object", message: "speciation input must be an object" }]);
+  if (envelope.input === null) return invalidResult(createdAt ?? DEFAULT_NOW, null, [{ path: "input", code: "input_must_be_object", message: "speciation input must be an object" }]);
 
   const validInput = envelope.input;
+  const validCreatedAt = createdAt ?? DEFAULT_NOW;
   const parents = summarizeParents(validInput.parents);
   const children = validInput.children.map(cloneChildSummary);
   const supportingMutations = (validInput.supporting_mutations ?? []).map(cloneSupportingMutation);
   const lineageEvent = createLineageEvent(validInput.mode, parents, children, validInput.rationale, supportingMutations);
-  const fingerprint = canonicalStringify({ mode: validInput.mode, parents, children, rationale: validInput.rationale, approval: validInput.approval, supportingMutations });
+  const fingerprint = acceptedProposalFingerprint(validInput.mode, parents, children, validInput.rationale, validInput.approval, supportingMutations);
   const proposalPayload = proposalDigestPayload(parents, children, validInput.rationale, validInput.approval, supportingMutations, lineageEvent);
   const targetPaths = unique([...parents.map((entry) => entry.path), ...children.map((entry) => entry.path)]);
 
@@ -205,7 +208,7 @@ export function createSpeciationProposal(input: unknown): SpeciationProposalResu
     manifest_version: SPECIATION_VERSION,
     schema_ref: SPECIATION_SCHEMA_REF,
     proposal_id: stableId("speciation-proposal", [fingerprint]),
-    created_at: createdAt,
+    created_at: validCreatedAt,
     status: "dry_run_valid",
     decision: "speciation_proposal_ready",
     reasons: ["speciation_proposal_valid", "class_c_human_review_required", "silent_replacement_prevented"],
@@ -225,17 +228,25 @@ export function createSpeciationProposal(input: unknown): SpeciationProposalResu
 
 export function validateSpeciationProposal(result: SpeciationProposalResult): SpeciationValidationResult {
   const issues: SpeciationValidationIssue[] = [];
+  const status = result.status as string;
+  const expectedReviewGate = reviewGate();
+  const reviewGateRisk = result.review_gate.risk as string;
+  const reviewGateReasons = Array.isArray(result.review_gate.reasons) ? result.review_gate.reasons : [];
   if (result.manifest_version !== SPECIATION_VERSION) issue(issues, "manifest_version", "invalid_manifest_version", "manifest_version must be 1");
   if (result.schema_ref !== SPECIATION_SCHEMA_REF) issue(issues, "schema_ref", "invalid_schema_ref", "schema_ref must identify speciation v1");
   if (!isRfc3339Utc(result.created_at)) issue(issues, "created_at", "invalid_created_at", "created_at must be RFC3339 UTC");
+  if (status !== "dry_run_valid" && status !== "rejected") issue(issues, "status", "invalid_status", "status must be dry_run_valid or rejected");
+  if (reviewGateRisk !== "high") issue(issues, "review_gate.risk", "high_risk_required", "speciation proposals must remain high risk");
   if (result.review_gate.approval_class !== "C" || result.review_gate.escalation_required !== true) issue(issues, "review_gate", "class_c_required", "speciation proposals must remain Class C review-gated");
   if (result.review_gate.human_review_required_before_execution !== true) issue(issues, "review_gate.human_review_required_before_execution", "human_review_before_execution_required", "speciation proposals must require human review before execution");
   if (result.review_gate.human_review_required_before_merge !== true) issue(issues, "review_gate.human_review_required_before_merge", "human_review_before_merge_required", "speciation proposals must require human review before merge");
-  if (result.status === "dry_run_valid" && result.approval.approval_class !== "C") issue(issues, "approval.approval_class", "class_c_approval_required", "approval metadata must remain Class C");
-  if (result.status === "dry_run_valid" && result.approval.human_review_required_before_execution !== true) issue(issues, "approval.human_review_required_before_execution", "approval_execution_gate_required", "approval metadata must require human review before execution");
-  if (result.status === "dry_run_valid" && result.approval.human_review_required_before_merge !== true) issue(issues, "approval.human_review_required_before_merge", "approval_merge_gate_required", "approval metadata must require human review before merge");
+  if (!arraysEqual(reviewGateReasons, expectedReviewGate.reasons)) issue(issues, "review_gate.reasons", "review_gate_reasons_mismatch", "review gate reasons must remain the canonical speciation review reasons");
+  if (status === "dry_run_valid" && result.approval.approval_class !== "C") issue(issues, "approval.approval_class", "class_c_approval_required", "approval metadata must remain Class C");
+  if (status === "dry_run_valid" && result.approval.human_review_required_before_execution !== true) issue(issues, "approval.human_review_required_before_execution", "approval_execution_gate_required", "approval metadata must require human review before execution");
+  if (status === "dry_run_valid" && result.approval.human_review_required_before_merge !== true) issue(issues, "approval.human_review_required_before_merge", "approval_merge_gate_required", "approval metadata must require human review before merge");
   if (result.mutation_record.class !== "speciation" || result.mutation_record.approval_class !== "C") issue(issues, "mutation_record", "invalid_mutation_record", "mutation record must be Class C speciation");
-  if (result.status === "dry_run_valid") validateAcceptedProposalShape(result, issues);
+  if (status === "dry_run_valid") validateAcceptedProposalShape(result, issues);
+  else if (status === "rejected") validateRejectedProposalShape(result, issues);
   if (result.dry_run.file_written !== false) issue(issues, "dry_run.file_written", "file_write_forbidden", "speciation dry-run must not write files");
   if (result.dry_run.child_genomes_written !== false) issue(issues, "dry_run.child_genomes_written", "child_genome_write_forbidden", "speciation dry-run must not write child genomes");
   if (result.dry_run.parent_genomes_replaced !== false) issue(issues, "dry_run.parent_genomes_replaced", "parent_replacement_forbidden", "speciation dry-run must not replace parent genomes");
@@ -258,8 +269,16 @@ function validateAcceptedProposalShape(result: SpeciationProposalResult, issues:
   validateAcceptedTargetPaths(result, issues);
   validateAcceptedLineageEvent(result, issues);
   validateAcceptedProposalDigest(result, issues);
+  validateAcceptedDeterministicIds(result, issues);
   validateAcceptedChildUniqueness(result.parents, result.children, issues);
   validateSupportingMutations(result.supporting_mutations, [...result.parents.map((entry) => entry.path), ...result.children.map((entry) => entry.path)], issues);
+}
+
+function validateRejectedProposalShape(result: SpeciationProposalResult, issues: SpeciationValidationIssue[]): void {
+  if (result.decision === "speciation_proposal_ready") issue(issues, "decision", "invalid_rejected_decision", "rejected speciation proposals must not use speciation_proposal_ready");
+  if (result.mutation_record.decision !== "rejected") issue(issues, "mutation_record.decision", "invalid_rejected_mutation_record_decision", "rejected speciation mutation records must remain rejected");
+  if (result.lineage_events.length !== 0) issue(issues, "lineage_events", "rejected_lineage_events_forbidden", "rejected speciation proposals must not carry accepted lineage events");
+  if (result.proposal_digest !== canonicalDigest(null)) issue(issues, "proposal_digest", "rejected_proposal_digest_mismatch", "rejected speciation proposals must use the rejected proposal digest sentinel");
 }
 
 function validateAcceptedParentSummaries(parents: readonly SpeciationParentSummary[], issues: SpeciationValidationIssue[]): void {
@@ -324,6 +343,12 @@ function validateAcceptedProposalDigest(result: SpeciationProposalResult, issues
   if (result.lineage_events.length !== 1) return;
   const expectedDigest = canonicalDigest(proposalDigestPayload(result.parents, result.children, result.rationale, result.approval, result.supporting_mutations, result.lineage_events[0]));
   if (result.proposal_digest !== expectedDigest) issue(issues, "proposal_digest", "proposal_digest_mismatch", "proposal_digest must cover parents, children, rationale, approval, supporting mutations, and lineage event");
+}
+
+function validateAcceptedDeterministicIds(result: SpeciationProposalResult, issues: SpeciationValidationIssue[]): void {
+  const fingerprint = acceptedProposalFingerprint(result.mode, result.parents, result.children, result.rationale, result.approval, result.supporting_mutations);
+  if (result.proposal_id !== stableId("speciation-proposal", [fingerprint])) issue(issues, "proposal_id", "proposal_id_mismatch", "proposal_id must match the deterministic accepted proposal fingerprint");
+  if (result.mutation_record.mutation_id !== stableId("mut", [fingerprint])) issue(issues, "mutation_record.mutation_id", "mutation_id_mismatch", "mutation_record.mutation_id must match the deterministic accepted proposal fingerprint");
 }
 
 function validateAcceptedChildUniqueness(parents: readonly SpeciationParentSummary[], children: readonly SpeciationChildSummary[], issues: SpeciationValidationIssue[]): void {
@@ -679,6 +704,10 @@ function createLineageEvent(mode: SpeciationMode, parents: readonly SpeciationPa
 
 function proposalDigestPayload(parents: readonly SpeciationParentSummary[], children: readonly SpeciationChildSummary[], rationale: SpeciationRationale, approval: SpeciationApprovalMetadata, supportingMutations: readonly SpeciationSupportingMutation[], lineageEvent: SpeciationLineageEvent): Readonly<Record<string, unknown>> {
   return { parents, children, rationale, approval, supportingMutations, lineageEvent };
+}
+
+function acceptedProposalFingerprint(mode: SpeciationProposalResult["mode"], parents: readonly SpeciationParentSummary[], children: readonly SpeciationChildSummary[], rationale: SpeciationRationale, approval: SpeciationApprovalMetadata, supportingMutations: readonly SpeciationSupportingMutation[]): string {
+  return canonicalStringify({ mode, parents, children, rationale, approval, supportingMutations });
 }
 
 function reviewGate(): SpeciationReviewGate {
