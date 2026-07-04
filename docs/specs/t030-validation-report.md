@@ -63,3 +63,16 @@ Codex re-reviewed the fix commit and flagged 6 more issues (4 shared with `diges
 | `validateWorkingMemoryUpdate` never checked `provenance` at all, so a stripped or hand-authored `provenance: {}` still validated `ok: true` | Now requires non-empty `provenance.generated_by` and `provenance.task` |
 
 Regression tests added: key-order/extra-field independence of `update_id`, negative/non-integer retention counts rejected, negative `source.pr_number` rejected, `null` `source.pr_number` still allowed, stripped `provenance` rejected. Re-verified: `node --test --test-force-exit packages/memory/tests/*.test.mjs` (35/35 pass across working+digest), adjacent `planner`/`executor`/`auditor`/`forge-demo` suites (84/84 pass, no regressions), `npx tsc -p packages/memory/tsconfig.json` (clean).
+
+## Third post-review round (Codex review, 2026-07-04, on the second fix commit)
+
+Codex flagged 4 more issues (2 shared with `digest.ts`); all confirmed and fixed:
+
+| Finding | Fix |
+|---|---|
+| `isSorted`/`uniqueSorted` used `String.prototype.localeCompare` with no explicit locale, so fact-tag ordering (and therefore `stableId`'s input) could differ across hosts with different default ICU locales | Both now use plain codepoint (`<`/`>`) comparison, which is locale-independent per the ECMA-262 spec, matching the approach already used in `digest.ts` |
+| `UTC_RE` only checked digit positions/shape, so calendar-impossible timestamps like `2026-13-99T99:99:99Z` were accepted | Replaced with `isValidRfc3339Utc`, which captures the numeric fields and range-checks month/day (via `Date.UTC(year, month, 0)` day-count, which correctly handles leap years)/hour/minute/second |
+| `SECRET_RE`'s bare `TOKEN` alternative matched the substring anywhere in any string value, so ordinary facts merely mentioning something like "token_source" were rejected as secret-like | Split into `SECRET_FIELD_RE` (broad word match, applied only to field **names**) and `SECRET_VALUE_RE` (shaped-secret patterns only, applied to string **values**) |
+| `update_id` was derived from `source`/`facts`/`created_at` only, ignoring `target`, so two updates for different `target.mind_id` with the same source/facts/timestamp collided on the same id | `target` is now included in the `stableId` input |
+
+Regression tests added: `update_id` differs across distinct targets, impossible calendar timestamp rejected, real leap-day accepted vs. non-leap-year Feb 29 rejected, ordinary text mentioning "token" no longer rejected, tag ordering is ordinal not locale-collated. Re-verified: `node --test --test-force-exit packages/memory/tests/*.test.mjs` (43/43 pass across working+digest), adjacent `planner`/`executor`/`auditor`/`forge-demo` suites (84/84 pass, no regressions), `npx tsc -p packages/memory/tsconfig.json` (clean).

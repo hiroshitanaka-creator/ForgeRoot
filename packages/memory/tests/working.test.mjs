@@ -71,3 +71,26 @@ test('stripped provenance rejected on standalone validation',()=>{
   const stripped = { ...r.update, provenance: {} };
   assert.equal(validateWorkingMemoryUpdate(stripped).ok,false);
 });
+test('update_id differs across distinct targets for the same source/facts',()=>{
+  const a = createWorkingMemoryUpdate(input({target:{mind_id:'forge://x/y/mind/root'}}));
+  const b = createWorkingMemoryUpdate(input({target:{mind_id:'forge://x/y/mind/other'}}));
+  assert.equal(a.ok,true); assert.equal(b.ok,true);
+  assert.notEqual(a.update.update_id, b.update.update_id);
+});
+test('impossible calendar timestamp rejected',()=>{
+  const r = createWorkingMemoryUpdate(input({created_at:'2026-13-99T99:99:99Z'}));
+  assert.equal(r.ok,false);
+});
+test('leap day timestamp accepted, non-leap-year Feb 29 rejected',()=>{
+  assert.equal(createWorkingMemoryUpdate(input({created_at:'2024-02-29T00:00:00.000Z'})).ok,true);
+  assert.equal(createWorkingMemoryUpdate(input({created_at:'2026-02-29T00:00:00.000Z'})).ok,false);
+});
+test('non-secret fact mentioning "token" in ordinary text is allowed',()=>{
+  const r = createWorkingMemoryUpdate(input({facts:[{id:'a',text:'uses token_source for transport auth',confidence:1,source_ref:'s',tags:[]}]}));
+  assert.equal(r.ok,true);
+});
+test('ordinal tag ordering is used, not locale-sensitive collation',()=>{
+  const r = createWorkingMemoryUpdate(input({facts:[{id:'a',text:'A',confidence:1,source_ref:'s',tags:['a','Z']}]}));
+  assert.equal(r.ok,true);
+  assert.deepEqual(r.update.facts[0].tags,['Z','a']);
+});

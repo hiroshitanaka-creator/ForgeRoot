@@ -52,3 +52,17 @@ test('stripped provenance rejected on standalone validation',()=>{
   const stripped = { ...r.digest, provenance: {} };
   assert.equal(validateEpisodeDigest(stripped).ok,false);
 });
+test('digest_id differs across distinct links for the same source/episode',()=>{
+  const a = createEpisodeDigest(input('accepted',{links:{related_plan_ids:['p1'],related_audit_ids:[],related_pr_numbers:[]}}));
+  const b = createEpisodeDigest(input('accepted',{links:{related_plan_ids:['p2'],related_audit_ids:[],related_pr_numbers:[]}}));
+  assert.equal(a.ok,true); assert.equal(b.ok,true);
+  assert.notEqual(a.digest.digest_id, b.digest.digest_id);
+});
+test('impossible calendar timestamp rejected',()=>{
+  const r = createEpisodeDigest(input('accepted',{created_at:'2026-13-99T99:99:99Z'}));
+  assert.equal(r.ok,false);
+});
+test('non-secret episode summary mentioning "token" in ordinary text is allowed',()=>{
+  const r = createEpisodeDigest(input('accepted',{episode:{type:'accepted',title:'t',summary:'uses token_source for transport auth',reliability:'high'}}));
+  assert.equal(r.ok,true);
+});

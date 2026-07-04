@@ -1,8 +1,9 @@
 export const WORKING_MEMORY_UPDATE_VERSION = 1;
 export const WORKING_MEMORY_UPDATE_SCHEMA_REF = "urn:forgeroot:working-memory-update:v1";
 const HASH_RE = /^sha256:[0-9a-f]{64}$/;
-const UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
-const SECRET_RE = /(TOKEN|SECRET|PASSWORD|PRIVATE_KEY|CREDENTIAL|API[_-]?KEY|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghu_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|ghr_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/i;
+const UTC_STRUCTURE_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{3})?Z$/;
+const SECRET_FIELD_RE = /(TOKEN|SECRET|PASSWORD|PRIVATE_KEY|CREDENTIAL|API[_-]?KEY)/i;
+const SECRET_VALUE_RE = /(ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghu_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|ghr_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/;
 const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
 
 export function createWorkingMemoryUpdate(input, options: any = {}) {
@@ -22,18 +23,19 @@ export function createWorkingMemoryUpdate(input, options: any = {}) {
     artifact_sha256: stringOr(r.source?.artifact_sha256, ""),
     reason: stringOr(r.source?.reason, ""),
   };
+  const target = {
+    repository: nullableString(r.target?.repository),
+    mind_id: stringOr(r.target?.mind_id, "forge://hiroshitanaka-creator/ForgeRoot/mind/root"),
+    agent_species: nullableString(r.target?.agent_species),
+    memory_layer: "working_memory",
+  };
   const update = {
     manifest_version: 1,
     schema_ref: WORKING_MEMORY_UPDATE_SCHEMA_REF,
-    update_id: stringOr(r.update_id, `forge-memory-update://${stableId([source, facts, createdAt])}`),
+    update_id: stringOr(r.update_id, `forge-memory-update://${stableId([target, source, facts, createdAt])}`),
     created_at: createdAt,
     max_items: maxItems,
-    target: {
-      repository: nullableString(r.target?.repository),
-      mind_id: stringOr(r.target?.mind_id, "forge://hiroshitanaka-creator/ForgeRoot/mind/root"),
-      agent_species: nullableString(r.target?.agent_species),
-      memory_layer: "working_memory",
-    },
+    target,
     source,
     facts,
     retention: {
@@ -57,7 +59,7 @@ export function validateWorkingMemoryUpdate(value, options: any = {}) {
   if (r.manifest_version !== 1) issues.push(issue("manifest_version", "must_equal_1"));
   if (r.schema_ref !== WORKING_MEMORY_UPDATE_SCHEMA_REF) issues.push(issue("schema_ref", "must_match_schema_ref"));
   if (!starts(stringOr(r.update_id, ""), "forge-memory-update://")) issues.push(issue("update_id", "must_use_forge_memory_update_uri"));
-  if (!UTC_RE.test(stringOr(r.created_at, ""))) issues.push(issue("created_at", "must_be_rfc3339_utc"));
+  if (!isValidRfc3339Utc(stringOr(r.created_at, ""))) issues.push(issue("created_at", "must_be_rfc3339_utc"));
   if (r.target?.memory_layer !== "working_memory") issues.push(issue("target.memory_layer", "must_be_working_memory"));
   if (!starts(stringOr(r.source?.task_id, ""), "T")) issues.push(issue("source.task_id", "required_task_id_starting_with_T"));
   if (!HASH_RE.test(stringOr(r.source?.artifact_sha256, ""))) issues.push(issue("source.artifact_sha256", "required_sha256"));
@@ -91,8 +93,19 @@ export function validateWorkingMemoryUpdate(value, options: any = {}) {
   if (!nonEmpty(r.provenance?.generated_by) || !nonEmpty(r.provenance?.task)) issues.push(issue("provenance", "required_generated_by_and_task"));
   return { ok: issues.length === 0, issues };
 }
-function dedupeFacts(facts) { const m = new Map(); for (const f of facts) { const id = stringOr(f?.id, "").trim(); const k = normalizeId(id); if (!m.has(k)) m.set(k, { id, text: stringOr(f?.text, "").trim(), confidence: Number(f?.confidence), source_ref: stringOr(f?.source_ref, "").trim(), tags: uniqueSorted(Array.isArray(f?.tags) ? f.tags.map(String) : []) }); } return [...m.values()].sort((a,b)=>a.id.localeCompare(b.id)); }
-function hasSecretLike(v) { if (Array.isArray(v)) return v.some(hasSecretLike); if (v && typeof v === "object") return Object.entries(v).some(([k,val]) => SECRET_RE.test(k) || hasSecretLike(val)); return typeof v === "string" && SECRET_RE.test(v); }
+function dedupeFacts(facts) { const m = new Map(); for (const f of facts) { const id = stringOr(f?.id, "").trim(); const k = normalizeId(id); if (!m.has(k)) m.set(k, { id, text: stringOr(f?.text, "").trim(), confidence: Number(f?.confidence), source_ref: stringOr(f?.source_ref, "").trim(), tags: uniqueSorted(Array.isArray(f?.tags) ? f.tags.map(String) : []) }); } return [...m.values()].sort(ordinalCompareByField("id")); }
+function hasSecretLike(v) { if (Array.isArray(v)) return v.some(hasSecretLike); if (v && typeof v === "object") return Object.entries(v).some(([k,val]) => SECRET_FIELD_RE.test(k) || hasSecretLike(val)); return typeof v === "string" && SECRET_VALUE_RE.test(v); }
+function ordinalCompareByField(field) { return (a,b) => { const x = a[field], y = b[field]; return x < y ? -1 : x > y ? 1 : 0; }; }
+function isValidRfc3339Utc(s) {
+  const m = UTC_STRUCTURE_RE.exec(s);
+  if (!m) return false;
+  const year = Number(m[1]), month = Number(m[2]), day = Number(m[3]);
+  const hour = Number(m[4]), minute = Number(m[5]), second = Number(m[6]);
+  if (month < 1 || month > 12) return false;
+  if (hour > 23 || minute > 59 || second > 59) return false;
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return day >= 1 && day <= daysInMonth;
+}
 function stableId(parts) {
   const s = JSON.stringify(parts);
   let h1 = 0x811c9dc5, h2 = 0x9e3779b9;
@@ -105,4 +118,4 @@ function stableId(parts) {
 }
 function invalid(codes) { return { ok: false, issues: [...new Set(codes)].map((code) => ({ path: "", code })) }; }
 function asRecord(v): any { return v && typeof v === "object" && !Array.isArray(v) ? v : null; }
-function stringOr(v,d){ return typeof v === "string" ? v : d; } function nullableString(v){ return typeof v === "string" ? v : null; } function nullableNumber(v){ return typeof v === "number" ? v : null; } function numberOr(v,d){ return typeof v === "number" && Number.isFinite(v) ? v : d; } function nonEmpty(v){ return typeof v === "string" && v.trim().length > 0; } function positiveNumber(v){ return typeof v === "number" && v > 0; } function isNonNegativeInt(v){ return Number.isInteger(v) && v >= 0; } function starts(v,p){ return typeof v === "string" && v.startsWith(p); } function normalizeId(v){ return stringOr(v, "").trim().toLowerCase(); } function uniqueSorted(a){ return [...new Set(a.map((x)=>x.trim()).filter(Boolean))].sort((x: any,y: any)=>x.localeCompare(y)); } function isSorted(a){ return a.every((x,i)=>i===0 || String(a[i-1]).localeCompare(String(x)) <= 0); } function issue(path, code){ return { path, code }; }
+function stringOr(v,d){ return typeof v === "string" ? v : d; } function nullableString(v){ return typeof v === "string" ? v : null; } function nullableNumber(v){ return typeof v === "number" ? v : null; } function numberOr(v,d){ return typeof v === "number" && Number.isFinite(v) ? v : d; } function nonEmpty(v){ return typeof v === "string" && v.trim().length > 0; } function positiveNumber(v){ return typeof v === "number" && v > 0; } function isNonNegativeInt(v){ return Number.isInteger(v) && v >= 0; } function starts(v,p){ return typeof v === "string" && v.startsWith(p); } function normalizeId(v){ return stringOr(v, "").trim().toLowerCase(); } function uniqueSorted(a){ return [...new Set(a.map((x)=>x.trim()).filter(Boolean))].sort(); } function isSorted(a){ return a.every((x,i)=>i===0 || String(a[i-1]) <= String(x)); } function issue(path, code){ return { path, code }; }
