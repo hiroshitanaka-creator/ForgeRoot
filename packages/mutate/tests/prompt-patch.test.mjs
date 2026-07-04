@@ -65,6 +65,7 @@ describe("T046 prompt genome patcher", () => {
 
     assert.equal(result.status, "rejected", JSON.stringify(result, null, 2));
     assert.equal(result.decision, "blocked_by_forbidden_target");
+    assert.equal(result.mutation_record.decision, "rejected");
     assert.ok(result.reasons.includes("forbidden_document_path"));
     assert.deepEqual(validatePromptPatchDryRun(result), { ok: true, issues: [] });
   });
@@ -113,6 +114,7 @@ describe("T046 prompt genome patcher", () => {
       assert.doesNotThrow(() => { result = applyPromptPatchDryRun(input); }, name);
       assert.equal(result.status, "rejected", name);
       assert.equal(result.decision, "invalid_prompt_patch_input", name);
+      assert.equal(result.mutation_record.decision, "rejected", name);
       assert.ok(result.reasons.includes(reason), `${name} -> ${JSON.stringify(result.reasons)}`);
       assert.deepEqual(validatePromptPatchDryRun(result), { ok: true, issues: [] }, name);
     }

@@ -42,7 +42,7 @@ export interface PromptPatchMutationRecord {
   readonly target_paths: readonly [string];
   readonly patch_format: "forgeroot-prompt-patch-v1";
   readonly patch_ref: null;
-  readonly decision: "proposed";
+  readonly decision: "proposed" | "rejected";
 }
 
 export interface PromptPatchDryRunResult {
@@ -343,7 +343,7 @@ function invalidResult(createdAt: string, target: { path: string; species: strin
       target_paths: [target.path],
       patch_format: "forgeroot-prompt-patch-v1",
       patch_ref: null,
-      decision: "proposed",
+      decision: "rejected",
     },
     dry_run: { file_written: false, github_api_called: false, auto_merged: false, policy_or_workflow_targeted: false },
     issues,

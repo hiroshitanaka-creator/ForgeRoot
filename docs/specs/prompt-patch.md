@@ -64,8 +64,9 @@ mutation targets.
 `applyPromptPatchDryRun` returns a `prompt_patch_dry_run_manifest` with a
 per-operation diff (`before` / `after`), a `mutation_record` shaped for the
 `mutation_log` entries described in `schemas/forge-v1.schema.json`
-(`class: "prompt_patch"`, `decision: "proposed"`), and a `dry_run` block that
-is always all-`false`.
+(`class: "prompt_patch"`, `decision: "proposed"` for accepted dry runs and
+`decision: "rejected"` for rejected inputs), and a `dry_run` block that is
+always all-`false`.
 
 ## Out of scope
 

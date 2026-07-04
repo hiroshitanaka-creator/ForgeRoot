@@ -34,6 +34,8 @@ identity, constitution, tool-routing, evolution, score, or provenance fields.
   are rejected before any diff is produced.
 - A valid patch produces a deterministic `patch_id`, before/after content
   digests, and a per-operation diff without mutating the caller's input.
+- Rejected patches carry `mutation_record.decision: "rejected"` so downstream
+  consumers cannot mistake an invalid patch for a proposed mutation.
 - `validatePromptPatchDryRun` confirms every `dry_run` flag stays `false` on
   both accepted and rejected results.
 
