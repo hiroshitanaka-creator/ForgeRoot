@@ -1,0 +1,17 @@
+{
+  "name": "@forgeroot/mutate",
+  "version": "0.0.0-t046",
+  "private": true,
+  "type": "module",
+  "description": "ForgeRoot deterministic mutation-proposal packages.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

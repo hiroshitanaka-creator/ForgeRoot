@@ -1,32 +1,47 @@
 # TASK_PROGRESS
 
 ## Current phase
-T045 — Shadow-run harness foundation (deterministic eval dry-run surface).
+T046 — Prompt genome patcher foundation (allowlisted, dry-run prompt/context-recipe mutation surface).
 
 ## Initial assessment summary
-- T044 eval result manifest foundation was already committed on the current branch.
-- The T044 handoff recommends T045 as the next target: a dry-run harness that consumes eval suite/result manifests without live evolution authority.
-- The blueprint notes T045 depends on later eval DSL/fitness canonicalization, so this implementation is deliberately bounded to manifest reference validation and non-authoritative dry-run output.
+- T045 eval shadow-run harness foundation was already committed on `main`.
+- The T045 handoff recommends T046 as the next target, gated on the canonical
+  task source confirming scope and keeping mutation output non-live.
+- The blueprint's original T046 (`03_issue_続き`) defines a prompt genome
+  patcher: an RFC6902-like patch over allowed `.forge/agents/*.forge` prompt
+  fields, with policy/workflow/permission fields explicitly out of scope.
+  That scope is implementable now without waiting on the blueprint's original
+  T043/T044 (mutation taxonomy / mutation budget), because this repo's actual
+  T043–T045 thread already delivered an equivalent foundation (eval suite,
+  eval result, and shadow-run manifests) that a later mutation-budget/taxonomy
+  package can compose with.
 
 ## Selected work
-Implement T045 — Shadow-run harness foundation.
+Implement T046 — Prompt genome patcher foundation.
 
 ## Why this work
-- It advances Phase 2 evaluation plumbing while preserving safety boundaries.
-- It gives later eval DSL, benchmark, and fitness work a deterministic manifest surface to compose with.
-- It avoids grader execution, authoritative score writes, runtime memory writes, GitHub API calls, federation, and live self-evolution.
+- It advances the Evolution loop (`Evaluate -> Mutate -> Shadow Eval ->
+  Evolution PR`) while preserving every existing safety boundary.
+- It gives T047 (tool-routing mutator) and T048 (speciation) a concrete,
+  narrow precedent for allowlist-first, dry-run-only mutation packages.
+- It avoids prompt generation, mutation selection, automatic merge, live file
+  writes, GitHub API calls, and any policy/workflow/identity/constitution
+  mutation surface.
 
 ## Intended scope
-- Add a `packages/eval` TypeScript package.
-- Implement `runEvalShadowRun` and validation helpers in `src/shadow-run.ts`.
-- Validate canonical eval suite/result/candidate Forge document references.
-- Block attempts to enable authoritative scores, runtime writes, or live evolution.
-- Add tests, validation report, and handoff docs.
+- Add a `packages/mutate` TypeScript package.
+- Implement `applyPromptPatchDryRun` and `validatePromptPatchDryRun` in
+  `src/prompt-patch.ts`.
+- Restrict patch targets to canonical `.forge/agents/<species>.forge`
+  documents and an explicit prompt/context-recipe field allowlist.
+- Reject any patch touching identity, species, constitution, tool-routing,
+  evolution, scores, mutation_log, or provenance fields.
+- Add tests, a spec doc, a validation report, and a handoff doc.
 
 ## Verification plan
-- Run `npm --prefix packages/eval test`.
+- Run `npm --prefix packages/mutate test`.
 
 ## Current status
-- T045 implementation complete.
-- Verification passed: `npm --prefix packages/eval test`.
+- T046 implementation complete.
+- Verification passed: `npm --prefix packages/mutate test` (9/9).
 - Ready for commit and PR record.
