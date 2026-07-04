@@ -20,7 +20,11 @@ No GitHub API call, source-less digest, eval score calculation, mutation generat
 
 ## Examples
 ```js
-createEpisodeDigest({ episode: { type: "blocked", title: "Blocked", summary: "Policy blocked.", reliability: "high" }, source: { task_id: "T031", artifact_sha256: "sha256:<64hex>" } })
+createEpisodeDigest({
+  created_at: "2026-06-18T00:00:00.000Z",
+  episode: { type: "blocked", title: "Blocked", summary: "Policy blocked.", reliability: "high" },
+  source: { task_id: "T031", artifact_sha256: "sha256:<64hex>" },
+})
 ```
 
 ## Acceptance criteria

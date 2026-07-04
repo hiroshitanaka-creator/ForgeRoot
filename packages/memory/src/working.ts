@@ -2,7 +2,7 @@ import {
   HASH_RE, hasSecretLike, isValidRfc3339Utc, stableId, invalid, issue, asRecord,
   stringOr, presentOr, nullableOr, canonicalStringArray, numberOr, nonEmpty, positiveNumber,
   isNonNegativeInt, normalizeId, uniqueSorted, isSorted, ordinalCompareByField,
-  isManifestUri, checkAllowedKeys, validateNullableNonEmptyString, validateOptionalPrNumber,
+  isManifestUri, checkAllowedKeys, validateSectionIsObject, validateNullableNonEmptyString, validateOptionalPrNumber,
 } from "./contract.js";
 
 export const WORKING_MEMORY_UPDATE_VERSION = 1;
@@ -31,7 +31,10 @@ export function createWorkingMemoryUpdate(input, options: any = {}) {
   const createdAt = options.created_at !== undefined ? options.created_at : r.created_at;
   const facts = dedupeFacts(Array.isArray(r.facts) ? r.facts : []);
   if (typeof maxItems === "number" && facts.length > maxItems) issues.push("facts_exceed_max_items");
-  const source = {
+  // A section that is present but not a plain object is preserved raw so
+  // validation fails closed, instead of optional chaining silently building
+  // a default section (e.g. target: "..." must not become the root mind).
+  const source = r.source !== undefined && !asRecord(r.source) ? r.source : {
     task_id: stringOr(r.source?.task_id, ""),
     plan_id: nullableOr(r.source?.plan_id),
     audit_id: nullableOr(r.source?.audit_id),
@@ -39,7 +42,7 @@ export function createWorkingMemoryUpdate(input, options: any = {}) {
     artifact_sha256: stringOr(r.source?.artifact_sha256, ""),
     reason: stringOr(r.source?.reason, ""),
   };
-  const target = {
+  const target = r.target !== undefined && !asRecord(r.target) ? r.target : {
     repository: nullableOr(r.target?.repository),
     mind_id: presentOr(r.target?.mind_id, "forge://hiroshitanaka-creator/ForgeRoot/mind/root"),
     agent_species: nullableOr(r.target?.agent_species),
@@ -54,25 +57,31 @@ export function createWorkingMemoryUpdate(input, options: any = {}) {
     target,
     source,
     facts,
-    retention: {
+    retention: r.retention !== undefined && !asRecord(r.retention) ? r.retention : {
       ttl_days: r.retention?.ttl_days === undefined ? 30 : r.retention.ttl_days,
       keep_last_accepted: r.retention?.keep_last_accepted === undefined ? 10 : r.retention.keep_last_accepted,
       keep_last_rejected: r.retention?.keep_last_rejected === undefined ? 10 : r.retention.keep_last_rejected,
     },
-    approval: { approval_class: presentOr(r.approval?.approval_class, "B"), update_requires_pr: true, direct_write_allowed: false },
+    approval: r.approval !== undefined && !asRecord(r.approval) ? r.approval : { approval_class: presentOr(r.approval?.approval_class, "B"), update_requires_pr: true, direct_write_allowed: false },
     guards: { no_direct_forge_write: true, no_runtime_db_authority: true, source_refs_required: true, deterministic_ordering: true, max_items_enforced: true, no_eval_score_update: true, no_github_api_call: true },
     provenance: { generated_by: "forgeroot-memory.working", task: "T030" },
   };
-  const validation = validateWorkingMemoryUpdate(update, { max_items: typeof maxItems === "number" ? maxItems : undefined });
+  const validation = validateWorkingMemoryUpdate(update);
   return validation.ok && issues.length === 0 ? { ok: true, update } : invalid([...issues, ...validation.issues.map((i) => i.code)]);
 }
 
-export function validateWorkingMemoryUpdate(value, options: any = {}) {
+export function validateWorkingMemoryUpdate(value) {
   const issues = [];
   const r = asRecord(value);
   if (!r) return { ok: false, issues: [{ path: "", code: "must_be_object" }] };
   if (hasSecretLike(value)) issues.push(issue("", "secret_like_field_or_value"));
   checkAllowedKeys(r, TOP_KEYS, "", issues);
+  validateSectionIsObject(r.target, "target", issues);
+  validateSectionIsObject(r.source, "source", issues);
+  validateSectionIsObject(r.retention, "retention", issues);
+  validateSectionIsObject(r.approval, "approval", issues);
+  validateSectionIsObject(r.guards, "guards", issues);
+  validateSectionIsObject(r.provenance, "provenance", issues);
   checkAllowedKeys(r.target, TARGET_KEYS, "target", issues);
   checkAllowedKeys(r.source, SOURCE_KEYS, "source", issues);
   checkAllowedKeys(r.retention, RETENTION_KEYS, "retention", issues);
@@ -94,7 +103,9 @@ export function validateWorkingMemoryUpdate(value, options: any = {}) {
   validateNullableNonEmptyString(r.source?.audit_id, "source.audit_id", issues);
   validateOptionalPrNumber(r.source?.pr_number, "source.pr_number", issues);
   const facts = Array.isArray(r.facts) ? r.facts : [];
-  const maxItems = numberOr(options.max_items, numberOr(r.max_items, 50));
+  // Standalone validation must enforce the manifest's own declared limit;
+  // no external option may override it.
+  const maxItems = numberOr(r.max_items, 50);
   if (facts.length === 0) issues.push(issue("facts", "required_non_empty"));
   if (facts.length > maxItems) issues.push(issue("facts", "exceeds_max_items"));
   if (!isSorted(facts.map((f) => stringOr(f?.id, "")))) issues.push(issue("facts", "must_be_sorted_by_id"));
@@ -109,8 +120,8 @@ export function validateWorkingMemoryUpdate(value, options: any = {}) {
     if (!nonEmpty(f?.text)) issues.push(issue(`facts.${idx}.text`, "required"));
     if (!nonEmpty(f?.source_ref)) issues.push(issue(`facts.${idx}.source_ref`, "required"));
     if (!Number.isFinite(f?.confidence) || f.confidence < 0 || f.confidence > 1) issues.push(issue(`facts.${idx}.confidence`, "must_be_0_to_1"));
-    const tags = Array.isArray(f?.tags) ? f.tags : [];
-    if (!tags.every((t) => typeof t === "string") || !isSorted(tags) || new Set(tags).size !== tags.length) issues.push(issue(`facts.${idx}.tags`, "must_be_sorted_unique_strings"));
+    const tags = f?.tags === undefined ? [] : f.tags;
+    if (!Array.isArray(tags) || !tags.every((t) => typeof t === "string") || !isSorted(tags) || new Set(tags).size !== tags.length) issues.push(issue(`facts.${idx}.tags`, "must_be_sorted_unique_strings"));
   });
   if (!positiveNumber(r.retention?.ttl_days)) issues.push(issue("retention.ttl_days", "required_positive"));
   if (!isNonNegativeInt(r.retention?.keep_last_accepted)) issues.push(issue("retention.keep_last_accepted", "must_be_non_negative_integer"));

@@ -1,7 +1,7 @@
 import {
   HASH_RE, hasSecretLike, isValidRfc3339Utc, stableId, invalid, issue, asRecord,
   stringOr, presentOr, nullableOr, canonicalStringArray, nonEmpty, uniqueSorted, uniqueSortedNumbers,
-  isManifestUri, checkAllowedKeys, validateNullableNonEmptyString, validateOptionalPrNumber,
+  isManifestUri, checkAllowedKeys, validateSectionIsObject, validateNullableNonEmptyString, validateOptionalPrNumber,
   validateSortedUniqueStrings, validateSortedUniqueNumbers,
 } from "./contract.js";
 
@@ -26,9 +26,11 @@ export function createEpisodeDigest(input, options: any = {}) {
   // created_at has no wall-clock default: the T031 contract requires the same
   // input to produce the same digest, so the caller must supply it.
   const createdAt = options.created_at !== undefined ? options.created_at : r.created_at;
-  const episode = { type: presentOr(r.episode?.type, "unknown"), title: stringOr(r.episode?.title, ""), summary: stringOr(r.episode?.summary, ""), reliability: presentOr(r.episode?.reliability, "unknown") };
-  const source = { repository: nullableOr(r.source?.repository), task_id: stringOr(r.source?.task_id, ""), plan_id: nullableOr(r.source?.plan_id), audit_id: nullableOr(r.source?.audit_id), pr_number: nullableOr(r.source?.pr_number), commit_sha: nullableOr(r.source?.commit_sha), outcome_ref: nullableOr(r.source?.outcome_ref), artifact_sha256: stringOr(r.source?.artifact_sha256, "") };
-  const links = { related_plan_ids: canonicalStringArray(r.links?.related_plan_ids, uniqueSorted), related_audit_ids: canonicalStringArray(r.links?.related_audit_ids, uniqueSorted), related_pr_numbers: uniqueSortedNumbers(Array.isArray(r.links?.related_pr_numbers) ? r.links.related_pr_numbers : []) };
+  // Wrong-typed sections are preserved raw so validation fails closed
+  // instead of optional chaining silently building a default section.
+  const episode = r.episode !== undefined && !asRecord(r.episode) ? r.episode : { type: presentOr(r.episode?.type, "unknown"), title: stringOr(r.episode?.title, ""), summary: stringOr(r.episode?.summary, ""), reliability: presentOr(r.episode?.reliability, "unknown") };
+  const source = r.source !== undefined && !asRecord(r.source) ? r.source : { repository: nullableOr(r.source?.repository), task_id: stringOr(r.source?.task_id, ""), plan_id: nullableOr(r.source?.plan_id), audit_id: nullableOr(r.source?.audit_id), pr_number: nullableOr(r.source?.pr_number), commit_sha: nullableOr(r.source?.commit_sha), outcome_ref: nullableOr(r.source?.outcome_ref), artifact_sha256: stringOr(r.source?.artifact_sha256, "") };
+  const links = r.links !== undefined && !asRecord(r.links) ? r.links : { related_plan_ids: canonicalStringArray(r.links?.related_plan_ids, uniqueSorted), related_audit_ids: canonicalStringArray(r.links?.related_audit_ids, uniqueSorted), related_pr_numbers: r.links?.related_pr_numbers === undefined ? [] : Array.isArray(r.links.related_pr_numbers) ? uniqueSortedNumbers(r.links.related_pr_numbers) : r.links.related_pr_numbers };
   const digest = {
     manifest_version: 1,
     schema_ref: EPISODE_DIGEST_SCHEMA_REF,
@@ -37,7 +39,7 @@ export function createEpisodeDigest(input, options: any = {}) {
     episode,
     source,
     links,
-    retention: { preserve_rejected: true, preserve_blocked: true, pack_candidate: r.retention?.pack_candidate === undefined ? false : r.retention.pack_candidate },
+    retention: r.retention !== undefined && !asRecord(r.retention) ? r.retention : { preserve_rejected: true, preserve_blocked: true, pack_candidate: r.retention?.pack_candidate === undefined ? false : r.retention.pack_candidate },
     guards: { source_refs_required: true, no_missing_source_guessing: true, deterministic_ordering: true, no_eval_score_update: true, no_mutation_generation: true, no_github_api_call: true },
     provenance: { generated_by: "forgeroot-memory.digest", task: "T031" },
   };
@@ -49,6 +51,12 @@ export function validateEpisodeDigest(value) {
   const issues = []; const r = asRecord(value); if (!r) return { ok: false, issues: [issue("", "must_be_object")] };
   if (hasSecretLike(value)) issues.push(issue("", "secret_like_field_or_value"));
   checkAllowedKeys(r, TOP_KEYS, "", issues);
+  validateSectionIsObject(r.episode, "episode", issues);
+  validateSectionIsObject(r.source, "source", issues);
+  validateSectionIsObject(r.links, "links", issues);
+  validateSectionIsObject(r.retention, "retention", issues);
+  validateSectionIsObject(r.guards, "guards", issues);
+  validateSectionIsObject(r.provenance, "provenance", issues);
   checkAllowedKeys(r.episode, EPISODE_KEYS, "episode", issues);
   checkAllowedKeys(r.source, SOURCE_KEYS, "source", issues);
   checkAllowedKeys(r.links, LINK_KEYS, "links", issues);

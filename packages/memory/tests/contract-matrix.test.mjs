@@ -99,6 +99,13 @@ const workingCreateRejects = [
   ['target.mind_id numeric must not default to root mind', wInput({ target: { mind_id: 42 } })],
   ['source.plan_id numeric must not be silently nulled', wInput(wSource({ plan_id: 7 }))],
   ['retention.ttl_days Infinity rejected', wInput({ retention: { ttl_days: Infinity, keep_last_accepted: 1, keep_last_rejected: 1 } })],
+  // section-level type attacks (Codex round 6 generalized)
+  ['target section is a string (must not default to root mind)', wInput({ target: 'forge://x/y/mind/other' })],
+  ['source section is a string', wInput({ source: 'T030' })],
+  ['retention section is a string (must not default silently)', wInput({ retention: 'forever' })],
+  ['approval section is a string', wInput({ approval: 'B' })],
+  ['target section is an array', wInput({ target: ['mind'] })],
+  ['fact.tags string must not be treated as empty array', wInput(wFact({ tags: 'not-array' }))],
 ];
 for (const [name, input] of workingCreateRejects) {
   test(`working create rejects: ${name}`, () => {
@@ -132,6 +139,10 @@ const workingTamperRejects = [
   ['provenance stripped', (u) => { u.provenance = {}; }],
   ['update_id reduced to bare scheme', (u) => { u.update_id = 'forge-memory-update://'; }],
   ['facts reordered against sort contract', (u) => { u.facts = [{ ...u.facts[0], id: 'z' }, { ...u.facts[0], id: 'a' }]; }],
+  ['target replaced with string', (u) => { u.target = 'mind'; }],
+  ['retention replaced with string', (u) => { u.retention = 'forever'; }],
+  ['fact.tags replaced with string', (u) => { u.facts[0].tags = 'not-array'; }],
+  ['max_items lowered below fact count', (u) => { u.facts = [u.facts[0], { ...u.facts[0], id: 'b' }]; u.max_items = 1; }],
 ];
 for (const [name, mutate] of workingTamperRejects) {
   test(`working validate rejects tampered manifest: ${name}`, () => {
@@ -173,6 +184,12 @@ const digestCreateRejects = [
   ['source.repository numeric must not be silently nulled', dInput(dSource({ repository: 9 }))],
   ['source.commit_sha boolean must not be silently nulled', dInput(dSource({ commit_sha: true }))],
   ['links.related_plan_ids numeric entries must not be stringified', dInput({ links: { related_plan_ids: [1], related_audit_ids: [], related_pr_numbers: [] } })],
+  // section-level type attacks (Codex round 6 generalized)
+  ['episode section is a string', dInput({ episode: 'accepted' })],
+  ['source section is a string', dInput({ source: 'T031' })],
+  ['links section is a string', dInput({ links: 'none' })],
+  ['retention section is a string (must not default silently)', dInput({ retention: 'archive' })],
+  ['links.related_pr_numbers string must not become empty list', dInput({ links: { related_plan_ids: [], related_audit_ids: [], related_pr_numbers: '7' } })],
 ];
 for (const [name, input] of digestCreateRejects) {
   test(`digest create rejects: ${name}`, () => {
@@ -207,6 +224,8 @@ const digestTamperRejects = [
   ['digest_id reduced to bare scheme', (d) => { d.digest_id = 'forge-episode-digest://'; }],
   ['links unsorted', (d) => { d.links.related_plan_ids = ['p2', 'p1']; }],
   ['links duplicated', (d) => { d.links.related_pr_numbers = [1, 1]; }],
+  ['episode replaced with string', (d) => { d.episode = 'accepted'; }],
+  ['links replaced with string', (d) => { d.links = 'none'; }],
 ];
 for (const [name, mutate] of digestTamperRejects) {
   test(`digest validate rejects tampered manifest: ${name}`, () => {
@@ -232,4 +251,11 @@ test('working: create-then-validate round trip stays valid', () => {
 test('digest: create-then-validate round trip stays valid after JSON serialization', () => {
   const r = createEpisodeDigest(dInput());
   assert.equal(validateEpisodeDigest(JSON.parse(JSON.stringify(r.digest))).ok, true);
+});
+test('working: external max_items option cannot override the manifest limit', () => {
+  const r = createWorkingMemoryUpdate(wInput());
+  const u = structuredClone(r.update);
+  u.facts = [u.facts[0], { ...u.facts[0], id: 'b' }];
+  u.max_items = 1;
+  assert.equal(validateWorkingMemoryUpdate(u, { max_items: 100 }).ok, false);
 });

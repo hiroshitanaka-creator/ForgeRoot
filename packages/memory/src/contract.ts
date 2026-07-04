@@ -67,6 +67,11 @@ export function ordinalCompareByField(field) { return (a, b) => { const x = a[fi
 export function isManifestUri(v, prefix) { return starts(v, prefix) && v.length > prefix.length; }
 
 // Fail-closed shape checks shared by both validators.
+// A section that is present but not a plain object is an error; optional
+// chaining must never make a wrong-typed section behave like an absent one.
+export function validateSectionIsObject(v, path, issues) {
+  if (v !== undefined && !asRecord(v)) issues.push(issue(path, "must_be_object"));
+}
 export function checkAllowedKeys(section, allowed, path, issues) {
   const r = asRecord(section);
   if (!r) return;

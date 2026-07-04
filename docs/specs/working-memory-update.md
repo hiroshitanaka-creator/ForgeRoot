@@ -20,7 +20,11 @@ No `.forge` direct write, GitHub API call, runtime DB authority, guessed source 
 
 ## Examples
 ```js
-createWorkingMemoryUpdate({ source: { task_id: "T030", artifact_sha256: "sha256:<64hex>", reason: "audit" }, facts: [...] })
+createWorkingMemoryUpdate({
+  created_at: "2026-06-18T00:00:00.000Z",
+  source: { task_id: "T030", artifact_sha256: "sha256:<64hex>", reason: "audit" },
+  facts: [{ id: "fact-1", text: "Merge landed cleanly.", confidence: 0.9, source_ref: "artifact#1", tags: [] }],
+})
 ```
 
 ## Acceptance criteria

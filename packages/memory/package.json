@@ -6,7 +6,7 @@
   "description": "ForgeRoot Phase 2 deterministic memory foundation manifests.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --test --test-force-exit tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs"
   },
   "engines": { "node": ">=22.5" },
   "devDependencies": { "typescript": "^5.8.3" }
