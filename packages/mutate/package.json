@@ -6,7 +6,7 @@
   "description": "ForgeRoot deterministic mutation-proposal packages.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+    "test": "npm run build && node --test tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22.5"
