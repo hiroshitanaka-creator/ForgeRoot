@@ -7,7 +7,7 @@ T031 defines deterministic digests for accepted, rejected, blocked, quarantined,
 A digest includes version, schema ref, digest id, creation time, episode, source, links, retention, guards, and provenance.
 
 ## Determinism rules
-Related plan ids, audit ids, and PR numbers are sorted and unique.
+Related plan ids, audit ids, and PR numbers are sorted and unique. `created_at` must be supplied by the caller; there is no wall-clock default, so the same input always produces the same digest. Wrong-typed caller values are never silently coerced or replaced with defaults; they are preserved and rejected by validation.
 
 ## Source ref requirements
 Task id and artifact hash are mandatory. PR, audit, outcome, commit, and related refs are preserved when provided. Missing sources are not guessed.

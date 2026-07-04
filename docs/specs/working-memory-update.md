@@ -7,7 +7,7 @@ T030 defines deterministic source-ref-required manifests for proposed working-me
 A manifest includes version, schema ref, update id, creation time, target, source, facts, retention, approval, guards, and provenance.
 
 ## Determinism rules
-Facts are deduped by normalized id, sorted by id, and tags are sorted and unique. `max_items` is enforced.
+Facts are deduped by normalized id, sorted by id, and tags are sorted and unique. `max_items` is enforced. `created_at` must be supplied by the caller; there is no wall-clock default, so the same input always produces the same manifest. Wrong-typed caller values are never silently coerced or replaced with defaults; they are preserved and rejected by validation.
 
 ## Source ref requirements
 `source.task_id`, `source.artifact_sha256`, `source.reason`, and each fact `source_ref` are required.

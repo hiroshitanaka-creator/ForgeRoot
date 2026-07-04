@@ -39,8 +39,18 @@ export function invalid(codes) { return { ok: false, issues: [...new Set(codes)]
 export function issue(path, code) { return { path, code }; }
 export function asRecord(v): any { return v && typeof v === "object" && !Array.isArray(v) ? v : null; }
 export function stringOr(v, d) { return typeof v === "string" ? v : d; }
-export function nullableString(v) { return typeof v === "string" ? v : null; }
-export function nullableNumber(v) { return typeof v === "number" ? v : null; }
+// Preserve a caller-supplied value verbatim; only absence becomes the default.
+// Silent type coercion is forbidden: a wrong-typed value must reach the
+// validator and fail closed instead of being rewritten into a passing value.
+export function presentOr(v, d) { return v === undefined ? d : v; }
+export function nullableOr(v) { return v === undefined ? null : v; }
+// Canonicalize only when the input is a clean string array; anything else is
+// preserved raw so validation rejects it instead of String()-fabricating tags.
+export function canonicalStringArray(v, uniqueSortedFn) {
+  if (v === undefined) return [];
+  if (Array.isArray(v) && v.every((x) => typeof x === "string")) return uniqueSortedFn(v);
+  return v;
+}
 export function numberOr(v, d) { return typeof v === "number" && Number.isFinite(v) ? v : d; }
 export function nonEmpty(v) { return typeof v === "string" && v.trim().length > 0; }
 export function positiveNumber(v) { return typeof v === "number" && Number.isFinite(v) && v > 0; }

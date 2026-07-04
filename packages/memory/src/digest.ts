@@ -1,6 +1,6 @@
 import {
   HASH_RE, hasSecretLike, isValidRfc3339Utc, stableId, invalid, issue, asRecord,
-  stringOr, nullableString, nullableNumber, nonEmpty, uniqueSorted, uniqueSortedNumbers,
+  stringOr, presentOr, nullableOr, canonicalStringArray, nonEmpty, uniqueSorted, uniqueSortedNumbers,
   isManifestUri, checkAllowedKeys, validateNullableNonEmptyString, validateOptionalPrNumber,
   validateSortedUniqueStrings, validateSortedUniqueNumbers,
 } from "./contract.js";
@@ -23,14 +23,16 @@ export function createEpisodeDigest(input, options: any = {}) {
   const r = asRecord(input); if (!r) return invalid(["input_must_be_object"]);
   // Preserve caller-supplied values when present so bad input fails
   // validation instead of being silently rewritten to a default.
-  const createdAt = options.created_at !== undefined ? options.created_at : r.created_at !== undefined ? r.created_at : new Date().toISOString();
-  const episode = { type: stringOr(r.episode?.type, "unknown"), title: stringOr(r.episode?.title, ""), summary: stringOr(r.episode?.summary, ""), reliability: stringOr(r.episode?.reliability, "unknown") };
-  const source = { repository: nullableString(r.source?.repository), task_id: stringOr(r.source?.task_id, ""), plan_id: nullableString(r.source?.plan_id), audit_id: nullableString(r.source?.audit_id), pr_number: nullableNumber(r.source?.pr_number), commit_sha: nullableString(r.source?.commit_sha), outcome_ref: nullableString(r.source?.outcome_ref), artifact_sha256: stringOr(r.source?.artifact_sha256, "") };
-  const links = { related_plan_ids: uniqueSorted(Array.isArray(r.links?.related_plan_ids) ? r.links.related_plan_ids.map(String) : []), related_audit_ids: uniqueSorted(Array.isArray(r.links?.related_audit_ids) ? r.links.related_audit_ids.map(String) : []), related_pr_numbers: uniqueSortedNumbers(Array.isArray(r.links?.related_pr_numbers) ? r.links.related_pr_numbers : []) };
+  // created_at has no wall-clock default: the T031 contract requires the same
+  // input to produce the same digest, so the caller must supply it.
+  const createdAt = options.created_at !== undefined ? options.created_at : r.created_at;
+  const episode = { type: presentOr(r.episode?.type, "unknown"), title: stringOr(r.episode?.title, ""), summary: stringOr(r.episode?.summary, ""), reliability: presentOr(r.episode?.reliability, "unknown") };
+  const source = { repository: nullableOr(r.source?.repository), task_id: stringOr(r.source?.task_id, ""), plan_id: nullableOr(r.source?.plan_id), audit_id: nullableOr(r.source?.audit_id), pr_number: nullableOr(r.source?.pr_number), commit_sha: nullableOr(r.source?.commit_sha), outcome_ref: nullableOr(r.source?.outcome_ref), artifact_sha256: stringOr(r.source?.artifact_sha256, "") };
+  const links = { related_plan_ids: canonicalStringArray(r.links?.related_plan_ids, uniqueSorted), related_audit_ids: canonicalStringArray(r.links?.related_audit_ids, uniqueSorted), related_pr_numbers: uniqueSortedNumbers(Array.isArray(r.links?.related_pr_numbers) ? r.links.related_pr_numbers : []) };
   const digest = {
     manifest_version: 1,
     schema_ref: EPISODE_DIGEST_SCHEMA_REF,
-    digest_id: stringOr(r.digest_id, `${DIGEST_URI_PREFIX}${stableId([source, episode, links, createdAt])}`),
+    digest_id: presentOr(r.digest_id, `${DIGEST_URI_PREFIX}${stableId([source, episode, links, createdAt])}`),
     created_at: createdAt,
     episode,
     source,

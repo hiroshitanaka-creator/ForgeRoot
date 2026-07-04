@@ -88,6 +88,17 @@ const workingCreateRejects = [
   ['github pat value deep in fact text', wInput(wFact({ text: 'leak github_pat_' + 'x'.repeat(24) }))],
   ['aws key value in reason', wInput(wSource({ reason: 'uses AKIA' + 'A'.repeat(16) }))],
   ['pem block in fact text', wInput(wFact({ text: '-----BEGIN RSA PRIVATE KEY-----' }))],
+  // silent-coercion fabrications (Codex rounds 4-5 generalized)
+  ['created_at omitted entirely (no wall-clock default)', (() => { const i = wInput(); delete i.created_at; return i; })()],
+  ['fact.confidence null must not coerce to 0', wInput(wFact({ confidence: null }))],
+  ['fact.confidence false must not coerce to 0', wInput(wFact({ confidence: false }))],
+  ['fact.confidence empty string must not coerce to 0', wInput(wFact({ confidence: '' }))],
+  ['fact.tags numeric entries must not be stringified', wInput(wFact({ tags: [1] }))],
+  ['update_id numeric must not be replaced with generated id', wInput({ update_id: 123 })],
+  ['approval.approval_class numeric must not default to B', wInput({ approval: { approval_class: 5 } })],
+  ['target.mind_id numeric must not default to root mind', wInput({ target: { mind_id: 42 } })],
+  ['source.plan_id numeric must not be silently nulled', wInput(wSource({ plan_id: 7 }))],
+  ['retention.ttl_days Infinity rejected', wInput({ retention: { ttl_days: Infinity, keep_last_accepted: 1, keep_last_rejected: 1 } })],
 ];
 for (const [name, input] of workingCreateRejects) {
   test(`working create rejects: ${name}`, () => {
@@ -154,6 +165,14 @@ const digestCreateRejects = [
   ['secret-like key at top level', dInput({ CREDENTIAL: 'x' })],
   ['secret-like key nested in links', dInput({ links: { related_plan_ids: [], related_audit_ids: [], related_pr_numbers: [], ACCESS_TOKEN: 'x' } })],
   ['github token value in summary', dInput({ episode: { type: 'accepted', title: 't', summary: 'gho_' + 'y'.repeat(24), reliability: 'high' } })],
+  // silent-coercion fabrications (Codex rounds 4-5 generalized)
+  ['created_at omitted entirely (no wall-clock default)', (() => { const i = dInput(); delete i.created_at; return i; })()],
+  ['episode.type numeric must not default to unknown', dInput({ episode: { type: 5, title: 't', summary: 's' } })],
+  ['episode.reliability numeric must not default to unknown', dInput({ episode: { type: 'accepted', title: 't', summary: 's', reliability: 5 } })],
+  ['digest_id numeric must not be replaced with generated id', dInput({ digest_id: 123 })],
+  ['source.repository numeric must not be silently nulled', dInput(dSource({ repository: 9 }))],
+  ['source.commit_sha boolean must not be silently nulled', dInput(dSource({ commit_sha: true }))],
+  ['links.related_plan_ids numeric entries must not be stringified', dInput({ links: { related_plan_ids: [1], related_audit_ids: [], related_pr_numbers: [] } })],
 ];
 for (const [name, input] of digestCreateRejects) {
   test(`digest create rejects: ${name}`, () => {

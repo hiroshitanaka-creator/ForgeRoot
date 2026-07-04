@@ -1,6 +1,6 @@
 import {
   HASH_RE, hasSecretLike, isValidRfc3339Utc, stableId, invalid, issue, asRecord,
-  stringOr, nullableString, nullableNumber, numberOr, nonEmpty, positiveNumber,
+  stringOr, presentOr, nullableOr, canonicalStringArray, numberOr, nonEmpty, positiveNumber,
   isNonNegativeInt, normalizeId, uniqueSorted, isSorted, ordinalCompareByField,
   isManifestUri, checkAllowedKeys, validateNullableNonEmptyString, validateOptionalPrNumber,
 } from "./contract.js";
@@ -26,27 +26,29 @@ export function createWorkingMemoryUpdate(input, options: any = {}) {
   // Caller-supplied values are preserved as-is when present so that invalid
   // input fails validation instead of being silently rewritten to a default.
   const maxItems = options.max_items !== undefined ? options.max_items : r.max_items !== undefined ? r.max_items : 50;
-  const createdAt = options.created_at !== undefined ? options.created_at : r.created_at !== undefined ? r.created_at : new Date().toISOString();
+  // created_at has no wall-clock default: the T030 contract requires the same
+  // input to produce the same manifest, so the caller must supply it.
+  const createdAt = options.created_at !== undefined ? options.created_at : r.created_at;
   const facts = dedupeFacts(Array.isArray(r.facts) ? r.facts : []);
   if (typeof maxItems === "number" && facts.length > maxItems) issues.push("facts_exceed_max_items");
   const source = {
     task_id: stringOr(r.source?.task_id, ""),
-    plan_id: nullableString(r.source?.plan_id),
-    audit_id: nullableString(r.source?.audit_id),
-    pr_number: nullableNumber(r.source?.pr_number),
+    plan_id: nullableOr(r.source?.plan_id),
+    audit_id: nullableOr(r.source?.audit_id),
+    pr_number: nullableOr(r.source?.pr_number),
     artifact_sha256: stringOr(r.source?.artifact_sha256, ""),
     reason: stringOr(r.source?.reason, ""),
   };
   const target = {
-    repository: nullableString(r.target?.repository),
-    mind_id: stringOr(r.target?.mind_id, "forge://hiroshitanaka-creator/ForgeRoot/mind/root"),
-    agent_species: nullableString(r.target?.agent_species),
+    repository: nullableOr(r.target?.repository),
+    mind_id: presentOr(r.target?.mind_id, "forge://hiroshitanaka-creator/ForgeRoot/mind/root"),
+    agent_species: nullableOr(r.target?.agent_species),
     memory_layer: "working_memory",
   };
   const update = {
     manifest_version: 1,
     schema_ref: WORKING_MEMORY_UPDATE_SCHEMA_REF,
-    update_id: stringOr(r.update_id, `${UPDATE_URI_PREFIX}${stableId([target, source, facts, createdAt])}`),
+    update_id: presentOr(r.update_id, `${UPDATE_URI_PREFIX}${stableId([target, source, facts, createdAt])}`),
     created_at: createdAt,
     max_items: maxItems,
     target,
@@ -57,7 +59,7 @@ export function createWorkingMemoryUpdate(input, options: any = {}) {
       keep_last_accepted: r.retention?.keep_last_accepted === undefined ? 10 : r.retention.keep_last_accepted,
       keep_last_rejected: r.retention?.keep_last_rejected === undefined ? 10 : r.retention.keep_last_rejected,
     },
-    approval: { approval_class: stringOr(r.approval?.approval_class, "B"), update_requires_pr: true, direct_write_allowed: false },
+    approval: { approval_class: presentOr(r.approval?.approval_class, "B"), update_requires_pr: true, direct_write_allowed: false },
     guards: { no_direct_forge_write: true, no_runtime_db_authority: true, source_refs_required: true, deterministic_ordering: true, max_items_enforced: true, no_eval_score_update: true, no_github_api_call: true },
     provenance: { generated_by: "forgeroot-memory.working", task: "T030" },
   };
@@ -122,4 +124,4 @@ export function validateWorkingMemoryUpdate(value, options: any = {}) {
 }
 
 function starts(v, p) { return typeof v === "string" && v.startsWith(p); }
-function dedupeFacts(facts) { const m = new Map(); for (const f of facts) { const id = stringOr(f?.id, "").trim(); const k = normalizeId(id); if (!m.has(k)) m.set(k, { id, text: stringOr(f?.text, "").trim(), confidence: Number(f?.confidence), source_ref: stringOr(f?.source_ref, "").trim(), tags: uniqueSorted(Array.isArray(f?.tags) ? f.tags.map(String) : []) }); } return [...m.values()].sort(ordinalCompareByField("id")); }
+function dedupeFacts(facts) { const m = new Map(); for (const f of facts) { const id = stringOr(f?.id, "").trim(); const k = normalizeId(id); if (!m.has(k)) m.set(k, { id, text: stringOr(f?.text, "").trim(), confidence: f?.confidence, source_ref: stringOr(f?.source_ref, "").trim(), tags: canonicalStringArray(f?.tags, uniqueSorted) }); } return [...m.values()].sort(ordinalCompareByField("id")); }
