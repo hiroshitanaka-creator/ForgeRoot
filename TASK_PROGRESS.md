@@ -1,47 +1,49 @@
 # TASK_PROGRESS
 
 ## Current phase
-T046 — Prompt genome patcher foundation (allowlisted, dry-run prompt/context-recipe mutation surface).
+
+T047 - Tool-routing mutator (allowlisted, dry-run tool route mutation surface).
 
 ## Initial assessment summary
-- T045 eval shadow-run harness foundation was already committed on `main`.
-- The T045 handoff recommends T046 as the next target, gated on the canonical
-  task source confirming scope and keeping mutation output non-live.
-- The blueprint's original T046 (`03_issue_続き`) defines a prompt genome
-  patcher: an RFC6902-like patch over allowed `.forge/agents/*.forge` prompt
-  fields, with policy/workflow/permission fields explicitly out of scope.
-  That scope is implementable now without waiting on the blueprint's original
-  T043/T044 (mutation taxonomy / mutation budget), because this repo's actual
-  T043–T045 thread already delivered an equivalent foundation (eval suite,
-  eval result, and shadow-run manifests) that a later mutation-budget/taxonomy
-  package can compose with.
+
+- PR #8 merged T046 prompt genome patcher into `origin/main`.
+- The latest T046 handoff recommends T047 as the next target.
+- The canonical task source in the continuation issue file defines T047 as a bounded
+  mutation surface for agent tool namespace, `max_calls`, timeout, and approval
+  requirements.
+- T047 is Class C / high risk by task definition, so the implementation must
+  remain manifest-only and must not perform live tool execution, `.forge`
+  writes, policy changes, workflow changes, GitHub transport, approval, or
+  merge.
 
 ## Selected work
-Implement T046 — Prompt genome patcher foundation.
+
+Implement T047 - Tool-routing mutator.
 
 ## Why this work
-- It advances the Evolution loop (`Evaluate -> Mutate -> Shadow Eval ->
-  Evolution PR`) while preserving every existing safety boundary.
-- It gives T047 (tool-routing mutator) and T048 (speciation) a concrete,
-  narrow precedent for allowlist-first, dry-run-only mutation packages.
-- It avoids prompt generation, mutation selection, automatic merge, live file
-  writes, GitHub API calls, and any policy/workflow/identity/constitution
-  mutation surface.
+
+- It advances the Evolution loop's mutation proposal layer after T046 while
+  preserving explicit human review gates.
+- It gives later speciation and EvolutionGuard work a concrete tool-routing
+  manifest to inspect.
+- It keeps tool implementation, MCP server implementation, external network
+  permission expansion, and policy weakening out of scope.
 
 ## Intended scope
-- Add a `packages/mutate` TypeScript package.
-- Implement `applyPromptPatchDryRun` and `validatePromptPatchDryRun` in
-  `src/prompt-patch.ts`.
-- Restrict patch targets to canonical `.forge/agents/<species>.forge`
-  documents and an explicit prompt/context-recipe field allowlist.
-- Reject any patch touching identity, species, constitution, tool-routing,
-  evolution, scores, mutation_log, or provenance fields.
-- Add tests, a spec doc, a validation report, and a handoff doc.
+
+- Add `packages/mutate/src/tool-routing.ts`.
+- Add `packages/mutate/tests/tool-routing.test.mjs`.
+- Export T047 APIs from `packages/mutate/src/index.ts`.
+- Document the T047 schema and validation result under `docs/specs/`.
+- Add `docs/ops/thread-handoff-after-t047.md`.
 
 ## Verification plan
-- Run `npm --prefix packages/mutate test`.
+
+- Run `npm.cmd --prefix packages\mutate test`.
+- Run `git diff --check origin/main...HEAD`.
 
 ## Current status
-- T046 implementation complete.
-- Verification passed: `npm --prefix packages/mutate test` (9/9).
-- Ready for commit and PR record.
+
+- T047 implementation complete.
+- Verification passed: `npm.cmd --prefix packages\mutate test` (24/24).
+- Ready for commit and draft PR record.

@@ -20,3 +20,25 @@ operations, and produces a manifest-only dry-run diff:
 This package does not write files, call GitHub APIs, generate prompts, select
 mutations, or auto-merge. It is a foundation for T048 speciation and the
 later T050 EvolutionGuard / T051 mutation PR generator stages.
+
+## T047 tool-routing mutator
+
+`applyToolRoutingDryRun` consumes a canonical `.forge/agents/<species>.forge`
+document reference plus a list of `add` / `replace` / `remove` operations over
+`tools[]` routes, and produces a manifest-only dry-run diff. The canonical T047
+API alias `applyToolRoutingPatchDryRun` is exported for blueprint consumers:
+
+- only the explicit namespace allowlist can be targeted
+- fallback route names must use the same namespace allowlist
+- `max_calls` must be a positive integer <= 8
+- `timeout_ms` must be a positive integer <= 8000
+- modes are restricted to `read` and `write_manifest`
+- approval requirements can stay the same or become stricter, but cannot be
+  weakened
+- the final resulting `tools[]` route set cannot contain duplicate routes
+- every valid tool-routing proposal carries a Class C review gate, and any
+  permission expansion is called out in the diff and manifest reasons
+
+T047 never mutates `.forge` files directly. It does not implement tools, create
+MCP servers, expand external network permissions, weaken policies, call GitHub
+APIs, or auto-merge.
