@@ -1,20 +1,34 @@
+import {
+  HASH_RE, hasSecretLike, isValidRfc3339Utc, stableId, invalid, issue, asRecord,
+  stringOr, nullableString, nullableNumber, numberOr, nonEmpty, positiveNumber,
+  isNonNegativeInt, normalizeId, uniqueSorted, isSorted, ordinalCompareByField,
+  isManifestUri, checkAllowedKeys, validateNullableNonEmptyString, validateOptionalPrNumber,
+} from "./contract.js";
+
 export const WORKING_MEMORY_UPDATE_VERSION = 1;
 export const WORKING_MEMORY_UPDATE_SCHEMA_REF = "urn:forgeroot:working-memory-update:v1";
-const HASH_RE = /^sha256:[0-9a-f]{64}$/;
-const UTC_STRUCTURE_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{3})?Z$/;
-const SECRET_FIELD_RE = /(TOKEN|SECRET|PASSWORD|PRIVATE_KEY|CREDENTIAL|API[_-]?KEY)/i;
-const SECRET_VALUE_RE = /(ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghu_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|ghr_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/;
+const UPDATE_URI_PREFIX = "forge-memory-update://";
 const APPROVAL_CLASSES = new Set(["A", "B", "C", "D"]);
+const TOP_KEYS = new Set(["manifest_version", "schema_ref", "update_id", "created_at", "max_items", "target", "source", "facts", "retention", "approval", "guards", "provenance"]);
+const TARGET_KEYS = new Set(["repository", "mind_id", "agent_species", "memory_layer"]);
+const SOURCE_KEYS = new Set(["task_id", "plan_id", "audit_id", "pr_number", "artifact_sha256", "reason"]);
+const FACT_KEYS = new Set(["id", "text", "confidence", "source_ref", "tags"]);
+const RETENTION_KEYS = new Set(["ttl_days", "keep_last_accepted", "keep_last_rejected"]);
+const APPROVAL_KEYS = new Set(["approval_class", "update_requires_pr", "direct_write_allowed"]);
+const GUARD_KEYS = ["no_direct_forge_write", "no_runtime_db_authority", "source_refs_required", "deterministic_ordering", "max_items_enforced", "no_eval_score_update", "no_github_api_call"];
+const PROVENANCE_KEYS = new Set(["generated_by", "task"]);
 
 export function createWorkingMemoryUpdate(input, options: any = {}) {
   const issues = [];
   if (hasSecretLike(input)) return invalid(["secret_like_field_or_value"]);
   const r = asRecord(input);
   if (!r) return invalid(["input_must_be_object"]);
-  const maxItems = numberOr(options.max_items, numberOr(r.max_items, 50));
-  const createdAt = stringOr(options.created_at, stringOr(r.created_at, new Date().toISOString()));
+  // Caller-supplied values are preserved as-is when present so that invalid
+  // input fails validation instead of being silently rewritten to a default.
+  const maxItems = options.max_items !== undefined ? options.max_items : r.max_items !== undefined ? r.max_items : 50;
+  const createdAt = options.created_at !== undefined ? options.created_at : r.created_at !== undefined ? r.created_at : new Date().toISOString();
   const facts = dedupeFacts(Array.isArray(r.facts) ? r.facts : []);
-  if (facts.length > maxItems) issues.push("facts_exceed_max_items");
+  if (typeof maxItems === "number" && facts.length > maxItems) issues.push("facts_exceed_max_items");
   const source = {
     task_id: stringOr(r.source?.task_id, ""),
     plan_id: nullableString(r.source?.plan_id),
@@ -32,14 +46,14 @@ export function createWorkingMemoryUpdate(input, options: any = {}) {
   const update = {
     manifest_version: 1,
     schema_ref: WORKING_MEMORY_UPDATE_SCHEMA_REF,
-    update_id: stringOr(r.update_id, `forge-memory-update://${stableId([target, source, facts, createdAt])}`),
+    update_id: stringOr(r.update_id, `${UPDATE_URI_PREFIX}${stableId([target, source, facts, createdAt])}`),
     created_at: createdAt,
     max_items: maxItems,
     target,
     source,
     facts,
     retention: {
-      ttl_days: numberOr(r.retention?.ttl_days, 30),
+      ttl_days: r.retention?.ttl_days === undefined ? 30 : r.retention.ttl_days,
       keep_last_accepted: r.retention?.keep_last_accepted === undefined ? 10 : r.retention.keep_last_accepted,
       keep_last_rejected: r.retention?.keep_last_rejected === undefined ? 10 : r.retention.keep_last_rejected,
     },
@@ -47,7 +61,7 @@ export function createWorkingMemoryUpdate(input, options: any = {}) {
     guards: { no_direct_forge_write: true, no_runtime_db_authority: true, source_refs_required: true, deterministic_ordering: true, max_items_enforced: true, no_eval_score_update: true, no_github_api_call: true },
     provenance: { generated_by: "forgeroot-memory.working", task: "T030" },
   };
-  const validation = validateWorkingMemoryUpdate(update, { max_items: maxItems });
+  const validation = validateWorkingMemoryUpdate(update, { max_items: typeof maxItems === "number" ? maxItems : undefined });
   return validation.ok && issues.length === 0 ? { ok: true, update } : invalid([...issues, ...validation.issues.map((i) => i.code)]);
 }
 
@@ -56,15 +70,27 @@ export function validateWorkingMemoryUpdate(value, options: any = {}) {
   const r = asRecord(value);
   if (!r) return { ok: false, issues: [{ path: "", code: "must_be_object" }] };
   if (hasSecretLike(value)) issues.push(issue("", "secret_like_field_or_value"));
+  checkAllowedKeys(r, TOP_KEYS, "", issues);
+  checkAllowedKeys(r.target, TARGET_KEYS, "target", issues);
+  checkAllowedKeys(r.source, SOURCE_KEYS, "source", issues);
+  checkAllowedKeys(r.retention, RETENTION_KEYS, "retention", issues);
+  checkAllowedKeys(r.approval, APPROVAL_KEYS, "approval", issues);
+  checkAllowedKeys(r.guards, new Set(GUARD_KEYS), "guards", issues);
+  checkAllowedKeys(r.provenance, PROVENANCE_KEYS, "provenance", issues);
   if (r.manifest_version !== 1) issues.push(issue("manifest_version", "must_equal_1"));
   if (r.schema_ref !== WORKING_MEMORY_UPDATE_SCHEMA_REF) issues.push(issue("schema_ref", "must_match_schema_ref"));
-  if (!starts(stringOr(r.update_id, ""), "forge-memory-update://")) issues.push(issue("update_id", "must_use_forge_memory_update_uri"));
-  if (!isValidRfc3339Utc(stringOr(r.created_at, ""))) issues.push(issue("created_at", "must_be_rfc3339_utc"));
+  if (!isManifestUri(stringOr(r.update_id, ""), UPDATE_URI_PREFIX)) issues.push(issue("update_id", "must_use_forge_memory_update_uri"));
+  if (!isValidRfc3339Utc(r.created_at)) issues.push(issue("created_at", "must_be_rfc3339_utc"));
   if (r.target?.memory_layer !== "working_memory") issues.push(issue("target.memory_layer", "must_be_working_memory"));
+  if (!nonEmpty(r.target?.mind_id)) issues.push(issue("target.mind_id", "required"));
+  validateNullableNonEmptyString(r.target?.repository, "target.repository", issues);
+  validateNullableNonEmptyString(r.target?.agent_species, "target.agent_species", issues);
   if (!starts(stringOr(r.source?.task_id, ""), "T")) issues.push(issue("source.task_id", "required_task_id_starting_with_T"));
   if (!HASH_RE.test(stringOr(r.source?.artifact_sha256, ""))) issues.push(issue("source.artifact_sha256", "required_sha256"));
   if (!nonEmpty(r.source?.reason)) issues.push(issue("source.reason", "required"));
-  if (r.source?.pr_number !== null && r.source?.pr_number !== undefined && !(Number.isInteger(r.source.pr_number) && r.source.pr_number > 0)) issues.push(issue("source.pr_number", "must_be_positive_integer_or_null"));
+  validateNullableNonEmptyString(r.source?.plan_id, "source.plan_id", issues);
+  validateNullableNonEmptyString(r.source?.audit_id, "source.audit_id", issues);
+  validateOptionalPrNumber(r.source?.pr_number, "source.pr_number", issues);
   const facts = Array.isArray(r.facts) ? r.facts : [];
   const maxItems = numberOr(options.max_items, numberOr(r.max_items, 50));
   if (facts.length === 0) issues.push(issue("facts", "required_non_empty"));
@@ -72,6 +98,7 @@ export function validateWorkingMemoryUpdate(value, options: any = {}) {
   if (!isSorted(facts.map((f) => stringOr(f?.id, "")))) issues.push(issue("facts", "must_be_sorted_by_id"));
   const seen = new Set();
   facts.forEach((f, idx) => {
+    checkAllowedKeys(f, FACT_KEYS, `facts.${idx}`, issues);
     const id = stringOr(f?.id, "");
     const normalized = normalizeId(id);
     if (seen.has(normalized)) issues.push(issue(`facts.${idx}.id`, "duplicate_normalized_id"));
@@ -89,33 +116,10 @@ export function validateWorkingMemoryUpdate(value, options: any = {}) {
   if (r.max_items !== undefined && !positiveNumber(r.max_items)) issues.push(issue("max_items", "must_be_positive_number"));
   if (!APPROVAL_CLASSES.has(stringOr(r.approval?.approval_class, ""))) issues.push(issue("approval.approval_class", "must_be_one_of_a_b_c_d"));
   if (r.approval?.update_requires_pr !== true || r.approval?.direct_write_allowed !== false) issues.push(issue("approval", "must_require_pr_and_disallow_direct_write"));
-  ["no_direct_forge_write","no_runtime_db_authority","source_refs_required","deterministic_ordering","max_items_enforced","no_eval_score_update","no_github_api_call"].forEach((g) => { if (r.guards?.[g] !== true) issues.push(issue(`guards.${g}`, "must_be_true")); });
+  GUARD_KEYS.forEach((g) => { if (r.guards?.[g] !== true) issues.push(issue(`guards.${g}`, "must_be_true")); });
   if (!nonEmpty(r.provenance?.generated_by) || !nonEmpty(r.provenance?.task)) issues.push(issue("provenance", "required_generated_by_and_task"));
   return { ok: issues.length === 0, issues };
 }
+
+function starts(v, p) { return typeof v === "string" && v.startsWith(p); }
 function dedupeFacts(facts) { const m = new Map(); for (const f of facts) { const id = stringOr(f?.id, "").trim(); const k = normalizeId(id); if (!m.has(k)) m.set(k, { id, text: stringOr(f?.text, "").trim(), confidence: Number(f?.confidence), source_ref: stringOr(f?.source_ref, "").trim(), tags: uniqueSorted(Array.isArray(f?.tags) ? f.tags.map(String) : []) }); } return [...m.values()].sort(ordinalCompareByField("id")); }
-function hasSecretLike(v) { if (Array.isArray(v)) return v.some(hasSecretLike); if (v && typeof v === "object") return Object.entries(v).some(([k,val]) => SECRET_FIELD_RE.test(k) || hasSecretLike(val)); return typeof v === "string" && SECRET_VALUE_RE.test(v); }
-function ordinalCompareByField(field) { return (a,b) => { const x = a[field], y = b[field]; return x < y ? -1 : x > y ? 1 : 0; }; }
-function isValidRfc3339Utc(s) {
-  const m = UTC_STRUCTURE_RE.exec(s);
-  if (!m) return false;
-  const year = Number(m[1]), month = Number(m[2]), day = Number(m[3]);
-  const hour = Number(m[4]), minute = Number(m[5]), second = Number(m[6]);
-  if (month < 1 || month > 12) return false;
-  if (hour > 23 || minute > 59 || second > 59) return false;
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  return day >= 1 && day <= daysInMonth;
-}
-function stableId(parts) {
-  const s = JSON.stringify(parts);
-  let h1 = 0x811c9dc5, h2 = 0x9e3779b9;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 16777619) >>> 0;
-    h2 = Math.imul((h2 ^ c) + ((h2 << 6) + (h2 >>> 2)), 2654435761) >>> 0;
-  }
-  return h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
-}
-function invalid(codes) { return { ok: false, issues: [...new Set(codes)].map((code) => ({ path: "", code })) }; }
-function asRecord(v): any { return v && typeof v === "object" && !Array.isArray(v) ? v : null; }
-function stringOr(v,d){ return typeof v === "string" ? v : d; } function nullableString(v){ return typeof v === "string" ? v : null; } function nullableNumber(v){ return typeof v === "number" ? v : null; } function numberOr(v,d){ return typeof v === "number" && Number.isFinite(v) ? v : d; } function nonEmpty(v){ return typeof v === "string" && v.trim().length > 0; } function positiveNumber(v){ return typeof v === "number" && v > 0; } function isNonNegativeInt(v){ return Number.isInteger(v) && v >= 0; } function starts(v,p){ return typeof v === "string" && v.startsWith(p); } function normalizeId(v){ return stringOr(v, "").trim().toLowerCase(); } function uniqueSorted(a){ return [...new Set(a.map((x)=>x.trim()).filter(Boolean))].sort(); } function isSorted(a){ return a.every((x,i)=>i===0 || String(a[i-1]) <= String(x)); } function issue(path, code){ return { path, code }; }
