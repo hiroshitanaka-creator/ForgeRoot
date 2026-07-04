@@ -25,14 +25,17 @@ later T050 EvolutionGuard / T051 mutation PR generator stages.
 
 `applyToolRoutingDryRun` consumes a canonical `.forge/agents/<species>.forge`
 document reference plus a list of `add` / `replace` / `remove` operations over
-`tools[]` routes, and produces a manifest-only dry-run diff:
+`tools[]` routes, and produces a manifest-only dry-run diff. The canonical T047
+API alias `applyToolRoutingPatchDryRun` is exported for blueprint consumers:
 
 - only the explicit namespace allowlist can be targeted
+- fallback route names must use the same namespace allowlist
 - `max_calls` must be a positive integer <= 8
 - `timeout_ms` must be a positive integer <= 8000
 - modes are restricted to `read` and `write_manifest`
 - approval requirements can stay the same or become stricter, but cannot be
   weakened
+- the final resulting `tools[]` route set cannot contain duplicate routes
 - every valid tool-routing proposal carries a Class C review gate, and any
   permission expansion is called out in the diff and manifest reasons
 

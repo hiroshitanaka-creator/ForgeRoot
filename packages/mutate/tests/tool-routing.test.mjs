@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   TOOL_ROUTING_CONTRACT,
   applyToolRoutingDryRun,
+  applyToolRoutingPatchDryRun,
   runT047ToolRoutingDryRun,
   runToolRoutingDryRun,
   validateT047ToolRoutingDryRun,
@@ -130,6 +131,28 @@ describe("T047 tool-routing mutator", () => {
     assert.ok(overTimeout.reasons.includes("timeout_budget_exceeded"));
   });
 
+  it("rejects duplicate resulting routes across multi-operation patches", () => {
+    const result = applyToolRoutingDryRun(baseInput([
+      { op: "replace", route: route("repo", "repo.read_tree"), value: value({ name: "repo.inspect_diff", max_calls: 2, timeout_ms: 4000, approval: "human" }) },
+      { op: "add", route: route("repo", "repo.inspect_diff"), value: value({ name: "repo.inspect_diff", max_calls: 2, timeout_ms: 4000, approval: "human" }) },
+    ]));
+
+    assert.equal(result.status, "rejected", JSON.stringify(result, null, 2));
+    assert.ok(result.reasons.includes("duplicate_resulting_tool_route"));
+    assert.deepEqual(validateToolRoutingDryRun(result), { ok: true, issues: [] });
+  });
+
+  it("rejects fallback routes outside the namespace allowlist", () => {
+    const result = applyToolRoutingDryRun(baseInput([
+      { op: "add", route: route("repo", "repo.inspect_diff"), value: value({ name: "repo.inspect_diff", max_calls: 2, timeout_ms: 4000, approval: "human", fallback: "browser.open" }) },
+    ]));
+
+    assert.equal(result.status, "rejected", JSON.stringify(result, null, 2));
+    assert.equal(result.decision, "invalid_tool_routing_input");
+    assert.ok(result.reasons.includes("forbidden_fallback_namespace"));
+    assert.deepEqual(validateToolRoutingDryRun(result), { ok: true, issues: [] });
+  });
+
   it("rejects approval weakening and external-network modes", () => {
     const content = {
       ...AGENT_DOCUMENT,
@@ -193,8 +216,27 @@ describe("T047 tool-routing mutator", () => {
     assert.equal(result.diff[0].after.fallback, null);
   });
 
+  it("rejects tampered human-review gates during validation", () => {
+    const result = applyToolRoutingDryRun(baseInput([{ op: "remove", route: route("gh", "gh.read_issue") }]));
+    assert.equal(result.status, "dry_run_valid", JSON.stringify(result, null, 2));
+
+    const withoutExecutionGate = {
+      ...result,
+      review_gate: { ...result.review_gate, human_review_required_before_execution: false },
+    };
+    assert.equal(validateToolRoutingDryRun(withoutExecutionGate).ok, false);
+    assert.ok(validateToolRoutingDryRun(withoutExecutionGate).issues.some((entry) => entry.code === "human_review_before_execution_required"));
+
+    const withoutMergeGate = {
+      ...result,
+      review_gate: { ...result.review_gate, human_review_required_before_merge: false },
+    };
+    assert.equal(validateToolRoutingDryRun(withoutMergeGate).ok, false);
+    assert.ok(validateToolRoutingDryRun(withoutMergeGate).issues.some((entry) => entry.code === "human_review_before_merge_required"));
+  });
+
   it("supports stable aliases", () => {
-    for (const fn of [runToolRoutingDryRun, runT047ToolRoutingDryRun]) {
+    for (const fn of [applyToolRoutingPatchDryRun, runToolRoutingDryRun, runT047ToolRoutingDryRun]) {
       const result = fn(baseInput([{ op: "remove", route: route("gh", "gh.read_issue") }]));
       assert.equal(result.status, "dry_run_valid");
       assert.deepEqual(validateT047ToolRoutingDryRun(result), { ok: true, issues: [] });

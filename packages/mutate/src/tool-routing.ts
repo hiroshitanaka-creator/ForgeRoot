@@ -210,6 +210,8 @@ export function validateToolRoutingDryRun(result: ToolRoutingDryRunResult): Tool
   if (result.schema_ref !== TOOL_ROUTING_SCHEMA_REF) issue(issues, "schema_ref", "invalid_schema_ref", "schema_ref must identify tool-routing v1");
   if (!RFC3339_UTC.test(result.created_at)) issue(issues, "created_at", "invalid_created_at", "created_at must be RFC3339 UTC");
   if (result.review_gate.approval_class !== "C" || result.review_gate.escalation_required !== true) issue(issues, "review_gate", "class_c_required", "tool-routing mutations must remain Class C review-gated");
+  if (result.review_gate.human_review_required_before_execution !== true) issue(issues, "review_gate.human_review_required_before_execution", "human_review_before_execution_required", "tool-routing dry-run manifests must require human review before execution");
+  if (result.review_gate.human_review_required_before_merge !== true) issue(issues, "review_gate.human_review_required_before_merge", "human_review_before_merge_required", "tool-routing dry-run manifests must require human review before merge");
   if (result.dry_run.file_written !== false) issue(issues, "dry_run.file_written", "file_write_forbidden", "tool routing dry-run must not write files");
   if (result.dry_run.github_api_called !== false) issue(issues, "dry_run.github_api_called", "github_api_forbidden", "tool routing dry-run must not call GitHub APIs");
   if (result.dry_run.auto_merged !== false) issue(issues, "dry_run.auto_merged", "auto_merge_forbidden", "tool routing dry-run must not auto-merge");
@@ -258,7 +260,32 @@ function validateInput(input: ToolRoutingInput): ToolRoutingValidationIssue[] {
       if (existing !== null && weakensApproval(existing.approval, operation.value.approval)) issue(issues, `${prefix}.value.approval`, "approval_requirement_weakening", "tool routing mutations must not weaken approval requirements");
     }
   }
+  validateResultingRouteSet(existingTools, input.operations, issues);
   return issues;
+}
+
+function validateResultingRouteSet(existingTools: readonly ToolRouteValue[], operations: readonly ToolRoutingPatchOperation[], issues: ToolRoutingValidationIssue[]): void {
+  const resultingTools = existingTools.map((tool) => cloneRouteValue(tool) as ToolRouteValue);
+  const originalDuplicateKeys = duplicateRouteKeys(resultingTools);
+  for (const [index, operation] of operations.entries()) {
+    if (operation.op !== "add" && operation.op !== "replace" && operation.op !== "remove") continue;
+    if (!isUsableRouteIdentity(operation.route)) continue;
+
+    const currentIndex = resultingTools.findIndex((tool) => sameRoute(tool, operation.route));
+    if (operation.op === "remove") {
+      if (currentIndex !== -1) resultingTools.splice(currentIndex, 1);
+    } else if (operation.op === "add" && isUsableToolRouteValue(operation.value)) {
+      resultingTools.push(cloneRouteValue(operation.value) as ToolRouteValue);
+    } else if (operation.op === "replace" && currentIndex !== -1 && isUsableToolRouteValue(operation.value)) {
+      resultingTools[currentIndex] = cloneRouteValue(operation.value) as ToolRouteValue;
+    }
+
+    const duplicate = firstDuplicateRouteKey(resultingTools, originalDuplicateKeys);
+    if (duplicate !== null) {
+      issue(issues, `operations[${index}].${operation.op === "remove" ? "route" : "value"}`, "duplicate_resulting_tool_route", `${duplicate} would duplicate another resulting route`);
+      return;
+    }
+  }
 }
 
 function validateCanonicalAgentContent(input: ToolRoutingInput, issues: ToolRoutingValidationIssue[]): void {
@@ -332,7 +359,7 @@ function normalizeToolRouteValue(value: unknown, path: string, issues: ToolRouti
   else if (timeoutMs > TIMEOUT_MS_UPPER_BOUND) issue(issues, `${path}.timeout_ms`, "timeout_budget_exceeded", `timeout_ms must be <= ${TIMEOUT_MS_UPPER_BOUND}`);
   const approval = stringValue(value.approval);
   if (approval !== "none" && approval !== "human" && approval !== "code_owner") issue(issues, `${path}.approval`, "invalid_approval_requirement", "approval must be none, human, or code_owner");
-  if (value.fallback !== undefined && value.fallback !== null && typeof value.fallback !== "string") issue(issues, `${path}.fallback`, "invalid_fallback", "fallback must be a string or null when provided");
+  validateFallbackRouteName(value.fallback, `${path}.fallback`, issues);
   if (issues.some((entry) => entry.path.startsWith(path))) return null;
   return {
     namespace: value.namespace as string,
@@ -343,6 +370,20 @@ function normalizeToolRouteValue(value: unknown, path: string, issues: ToolRouti
     approval: approval as ToolRouteApproval,
     fallback: value.fallback === undefined ? null : value.fallback as string | null,
   };
+}
+
+function validateFallbackRouteName(value: unknown, path: string, issues: ToolRoutingValidationIssue[]): void {
+  if (value === undefined || value === null) return;
+  if (typeof value !== "string") {
+    issue(issues, path, "invalid_fallback", "fallback must be a string or null when provided");
+    return;
+  }
+  if (!TOOL_NAME.test(value)) {
+    issue(issues, path, "invalid_fallback_route", "fallback must be a dot-separated lowercase tool name");
+    return;
+  }
+  const namespace = value.split(".")[0] ?? "";
+  if (!ALLOWED_TOOL_NAMESPACES.has(namespace)) issue(issues, path, "forbidden_fallback_namespace", `${namespace} is not in the tool routing namespace allowlist`);
 }
 
 function normalizeInputEnvelope(input: unknown): {
@@ -521,6 +562,36 @@ function cloneRouteValue(value: ToolRouteValue | null): ToolRouteValue | null { 
 function sameRoute(left: ToolRouteIdentity, right: ToolRouteIdentity): boolean { return left.namespace === right.namespace && left.name === right.name; }
 function keyFor(route: ToolRouteIdentity): string { return `${route.namespace}:${route.name}`; }
 function isUsableRouteIdentity(route: ToolRouteIdentity): boolean { return TOOL_NAMESPACE.test(route.namespace) && TOOL_NAME.test(route.name) && ALLOWED_TOOL_NAMESPACES.has(route.namespace) && route.name.startsWith(`${route.namespace}.`); }
+function isUsableToolRouteValue(value: ToolRouteValue | undefined): value is ToolRouteValue {
+  if (value === undefined) return false;
+  if (!isUsableRouteIdentity(value)) return false;
+  if (value.mode !== "read" && value.mode !== "write_manifest") return false;
+  if (!Number.isSafeInteger(value.max_calls) || value.max_calls <= 0 || value.max_calls > MAX_CALLS_UPPER_BOUND) return false;
+  if (!Number.isSafeInteger(value.timeout_ms) || value.timeout_ms <= 0 || value.timeout_ms > TIMEOUT_MS_UPPER_BOUND) return false;
+  if (value.approval !== "none" && value.approval !== "human" && value.approval !== "code_owner") return false;
+  if (value.fallback === undefined || value.fallback === null) return true;
+  if (!TOOL_NAME.test(value.fallback)) return false;
+  return ALLOWED_TOOL_NAMESPACES.has(value.fallback.split(".")[0] ?? "");
+}
+function duplicateRouteKeys(tools: readonly ToolRouteValue[]): ReadonlySet<string> {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const tool of tools) {
+    const key = keyFor(tool);
+    if (seen.has(key)) duplicates.add(key);
+    seen.add(key);
+  }
+  return duplicates;
+}
+function firstDuplicateRouteKey(tools: readonly ToolRouteValue[], ignoredKeys: ReadonlySet<string>): string | null {
+  const seen = new Set<string>();
+  for (const tool of tools) {
+    const key = keyFor(tool);
+    if (seen.has(key) && !ignoredKeys.has(key)) return key;
+    seen.add(key);
+  }
+  return null;
+}
 function weakensApproval(before: ToolRouteApproval, after: ToolRouteApproval): boolean { return APPROVAL_ORDER[after] < APPROVAL_ORDER[before]; }
 function deepClone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function canonicalDigest(value: unknown): string { return `sha-fnv1a-${fnv1a(canonicalStringify(value)).toString(16).padStart(8, "0")}`; }
@@ -550,5 +621,6 @@ function stableId(prefix: string, parts: readonly string[]): string { return `${
 function fnv1a(value: string): number { let hash = 0x811c9dc5; for (let index = 0; index < value.length; index += 1) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 0x01000193) >>> 0; } return hash >>> 0; }
 
 export const runToolRoutingDryRun = applyToolRoutingDryRun;
+export const applyToolRoutingPatchDryRun = applyToolRoutingDryRun;
 export const runT047ToolRoutingDryRun = applyToolRoutingDryRun;
 export const validateT047ToolRoutingDryRun = validateToolRoutingDryRun;

@@ -25,6 +25,7 @@ export {
   TOOL_ROUTING_CONTRACT,
   TOOL_ROUTING_SCHEMA_REF,
   TOOL_ROUTING_VERSION,
+  applyToolRoutingPatchDryRun,
   applyToolRoutingDryRun,
   runT047ToolRoutingDryRun,
   runToolRoutingDryRun,

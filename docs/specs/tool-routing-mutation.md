@@ -41,7 +41,9 @@ interface ToolRoutingInput {
 
 `add` and `replace` require a full `value`; `remove` must not include one.
 `add` requires the route to be absent. `replace` and `remove` require the route
-to already exist. Duplicate route targets in one patch are rejected.
+to already exist. Duplicate route targets in one patch are rejected, and the
+resulting `tools[]` route set must remain duplicate-free after replaying all
+operations.
 
 ## Allowed Target Document
 
@@ -73,6 +75,8 @@ Budgets are intentionally small:
 - `max_calls <= 8`
 - `timeout_ms <= 8000`
 - `mode` is only `read` or `write_manifest`
+- `fallback`, when present, must be a dot-separated tool name in the same
+  namespace allowlist
 - external network mode expansion is rejected
 
 ## Approval Escalation
@@ -97,8 +101,9 @@ policy weakening; other expansions are allowed only as Class C proposals.
   applied.
 - Stable manifest: returned operations and diff route values are cloned.
 - Fail closed: malformed input, forbidden namespaces, budget overruns,
-  external-network modes, missing routes, duplicate routes, non-canonical
-  content, and approval weakening reject the whole patch.
+  external-network modes, missing routes, duplicate routes, forbidden fallback
+  namespaces, non-canonical content, and approval weakening reject the whole
+  patch.
 
 ## Out Of Scope
 
