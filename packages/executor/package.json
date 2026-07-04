@@ -6,7 +6,7 @@
   "description": "ForgeRoot executor-side primitives: deterministic branch/worktree planning and sandbox execution request validation.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test --test-force-exit tests/*.test.mjs"
+    "test": "npm run build && node --test tests/*.test.mjs"
   },
   "engines": {
     "node": ">=22.5"
