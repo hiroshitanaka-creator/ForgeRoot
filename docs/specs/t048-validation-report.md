@@ -25,15 +25,20 @@ workflows, approve, merge, or perform live speciation.
 - Child path, species, and `speciation_id` uniqueness are enforced.
 - Child path/species/speciation ID reuse of a parent is rejected with
   `silent_replacement_forbidden`.
+- Child speciation IDs already present in parent ancestry are rejected with
+  `lineage_cycle_forbidden`.
 - Rationale summary, expected benefits, and risks are required.
 - Class C approval metadata and both human-review gates are required.
 - Supporting mutations are limited to `prompt_patch` and `tool_routing` refs
   scoped to parent or child agent paths.
 - Read-back validation rejects tampered review gates, approval gates, child
-  genome writes, parent replacement, GitHub calls, and auto-merge.
+  genome writes, parent replacement, GitHub calls, auto-merge, non-agent
+  targets, lineage event mismatches, stale proposal digests, and impossible
+  RFC3339 timestamps.
 - Deterministic lineage events, proposal digests, and generated IDs are stable
   across replay.
 
 ## Verification
 
-- `npm.cmd --prefix packages\mutate test` - 37/37 passing.
+- `npm.cmd --prefix packages\mutate test` - 38/38 passing after PR review
+  fixes.

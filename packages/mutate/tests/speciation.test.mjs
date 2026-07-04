@@ -132,6 +132,22 @@ describe("T048 speciation proposal", () => {
     assert.equal(replay.proposal_id, result.proposal_id);
     assert.equal(replay.proposal_digest, result.proposal_digest);
     assert.deepEqual(replay.lineage_events, result.lineage_events);
+
+    const changedChildTitle = createSpeciationProposal(splitInput({
+      children: [
+        child({ title: "Planner Scoper Variant" }),
+        child({
+          path: ".forge/agents/planner.scheduler.forge",
+          species: "planner.scheduler",
+          title: "Planner Scheduler",
+          summary: "Planner child focused on task sequencing.",
+          speciation_id: "sp_planner_scheduler",
+          rationale: "Keep sequencing separate from scoping.",
+        }),
+      ],
+    }));
+    assert.equal(changedChildTitle.status, "dry_run_valid", JSON.stringify(changedChildTitle, null, 2));
+    assert.notEqual(changedChildTitle.proposal_digest, result.proposal_digest);
   });
 
   it("creates a merge proposal without replacing parent genomes", () => {
@@ -204,6 +220,22 @@ describe("T048 speciation proposal", () => {
     assert.deepEqual(validateSpeciationProposal(result), { ok: true, issues: [] });
   });
 
+  it("rejects child IDs that already appear in parent ancestry", () => {
+    const result = createSpeciationProposal(splitInput({
+      parents: [parent({
+        ...PLANNER_PARENT,
+        evolution: {
+          ...PLANNER_PARENT.evolution,
+          parents: [{ speciation_id: "sp_planner_scoper" }],
+        },
+      })],
+    }));
+
+    assert.equal(result.status, "rejected", JSON.stringify(result, null, 2));
+    assert.ok(result.reasons.includes("lineage_cycle_forbidden"));
+    assert.deepEqual(validateSpeciationProposal(result), { ok: true, issues: [] });
+  });
+
   it("rejects forbidden targets and non-canonical parent identity", () => {
     const forbiddenChild = createSpeciationProposal(splitInput({
       children: [
@@ -230,6 +262,7 @@ describe("T048 speciation proposal", () => {
       { name: "null input", input: null, reason: "input_must_be_object" },
       { name: "non-array parents", input: { ...splitInput(), parents: null }, reason: "parents_must_be_array" },
       { name: "missing rationale benefits", input: splitInput({ rationale: rationale({ expected_benefits: [] }) }), reason: "missing_expected_benefits" },
+      { name: "impossible timestamp", input: splitInput({ now: "2026-99-99T99:99:99Z" }), reason: "now_must_be_rfc3339_utc" },
       { name: "non-Class-C approval", input: splitInput({ approval: approval({ approval_class: "B" }) }), reason: "class_c_approval_required" },
       { name: "missing merge gate", input: splitInput({ approval: approval({ human_review_required_before_merge: false }) }), reason: "approval_merge_gate_required" },
       { name: "bad supporting mutation", input: splitInput({ supporting_mutations: [{ type: "unknown", mutation_id: "bad", target_path: ".forge/agents/planner.scoper.forge" }] }), reason: "invalid_supporting_mutation_type" },
@@ -299,6 +332,46 @@ describe("T048 speciation proposal", () => {
     };
     assert.equal(validateSpeciationProposal(withSilentReplacement).ok, false);
     assert.ok(validateSpeciationProposal(withSilentReplacement).issues.some((entry) => entry.code === "silent_replacement_forbidden"));
+
+    const withPolicyTarget = {
+      ...result,
+      children: [
+        { ...result.children[0], path: ".forge/policies/constitution.forge", species: "constitution.root" },
+        result.children[1],
+      ],
+      mutation_record: {
+        ...result.mutation_record,
+        target_paths: [result.parents[0].path, ".forge/policies/constitution.forge", result.children[1].path],
+      },
+    };
+    assert.equal(validateSpeciationProposal(withPolicyTarget).ok, false);
+    assert.ok(validateSpeciationProposal(withPolicyTarget).issues.some((entry) => entry.code === "forbidden_document_path"));
+
+    const withTamperedLineage = {
+      ...result,
+      lineage_events: [
+        { ...result.lineage_events[0], child_species: ["auditor.alpha", "planner.scheduler"] },
+      ],
+    };
+    assert.equal(validateSpeciationProposal(withTamperedLineage).ok, false);
+    assert.ok(validateSpeciationProposal(withTamperedLineage).issues.some((entry) => entry.code === "lineage_child_species_mismatch"));
+
+    const withStaleDigest = {
+      ...result,
+      children: [
+        { ...result.children[0], summary: "Tampered child summary after digest generation." },
+        result.children[1],
+      ],
+    };
+    assert.equal(validateSpeciationProposal(withStaleDigest).ok, false);
+    assert.ok(validateSpeciationProposal(withStaleDigest).issues.some((entry) => entry.code === "proposal_digest_mismatch"));
+
+    const withImpossibleCreatedAt = {
+      ...result,
+      created_at: "2026-99-99T99:99:99Z",
+    };
+    assert.equal(validateSpeciationProposal(withImpossibleCreatedAt).ok, false);
+    assert.ok(validateSpeciationProposal(withImpossibleCreatedAt).issues.some((entry) => entry.code === "invalid_created_at"));
   });
 
   it("supports stable aliases", () => {

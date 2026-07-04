@@ -82,9 +82,12 @@ executes supporting mutations.
 - Reviewable lineage: the manifest records parent species, child species,
   parent `speciation_id` values, child `speciation_id` values, rationale, and
   supporting mutation IDs.
+- Read-back validation re-checks target paths, mutation-record target paths,
+  lineage event contents, proposal digest coverage, and timestamp validity.
 - Fail closed: malformed input, forbidden targets, invalid split/merge
   cardinality, missing rationale, missing approval gates, bad supporting
-  mutation refs, and silent replacement attempts reject the proposal.
+  mutation refs, lineage cycles, and silent replacement attempts reject the
+  proposal.
 
 ## Out Of Scope
 

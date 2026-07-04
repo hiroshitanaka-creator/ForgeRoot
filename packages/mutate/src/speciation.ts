@@ -173,7 +173,7 @@ export const SPECIATION_CONTRACT = {
 } as const;
 
 const DEFAULT_NOW = "2026-07-04T00:00:00Z";
-const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+const RFC3339_UTC = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
 const AGENT_DOCUMENT_PATH = /^\.forge\/agents\/([a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9-]*)\.forge$/;
 const SPECIES = /^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/;
 const ROLE_NAME = /^[a-z][a-z0-9-]*$/;
@@ -198,6 +198,7 @@ export function createSpeciationProposal(input: unknown): SpeciationProposalResu
   const supportingMutations = (validInput.supporting_mutations ?? []).map(cloneSupportingMutation);
   const lineageEvent = createLineageEvent(validInput.mode, parents, children, validInput.rationale, supportingMutations);
   const fingerprint = canonicalStringify({ mode: validInput.mode, parents, children, rationale: validInput.rationale, approval: validInput.approval, supportingMutations });
+  const proposalPayload = proposalDigestPayload(parents, children, validInput.rationale, validInput.approval, supportingMutations, lineageEvent);
   const targetPaths = unique([...parents.map((entry) => entry.path), ...children.map((entry) => entry.path)]);
 
   return {
@@ -215,7 +216,7 @@ export function createSpeciationProposal(input: unknown): SpeciationProposalResu
     approval: cloneApproval(validInput.approval),
     supporting_mutations: supportingMutations,
     lineage_events: [lineageEvent],
-    proposal_digest: canonicalDigest({ lineageEvent, rationale: validInput.rationale, approval: validInput.approval, supportingMutations }),
+    proposal_digest: canonicalDigest(proposalPayload),
     review_gate: reviewGate(),
     mutation_record: mutationRecord(targetPaths, fingerprint, "proposed"),
     dry_run: dryRunFlags(),
@@ -226,7 +227,7 @@ export function validateSpeciationProposal(result: SpeciationProposalResult): Sp
   const issues: SpeciationValidationIssue[] = [];
   if (result.manifest_version !== SPECIATION_VERSION) issue(issues, "manifest_version", "invalid_manifest_version", "manifest_version must be 1");
   if (result.schema_ref !== SPECIATION_SCHEMA_REF) issue(issues, "schema_ref", "invalid_schema_ref", "schema_ref must identify speciation v1");
-  if (!RFC3339_UTC.test(result.created_at)) issue(issues, "created_at", "invalid_created_at", "created_at must be RFC3339 UTC");
+  if (!isRfc3339Utc(result.created_at)) issue(issues, "created_at", "invalid_created_at", "created_at must be RFC3339 UTC");
   if (result.review_gate.approval_class !== "C" || result.review_gate.escalation_required !== true) issue(issues, "review_gate", "class_c_required", "speciation proposals must remain Class C review-gated");
   if (result.review_gate.human_review_required_before_execution !== true) issue(issues, "review_gate.human_review_required_before_execution", "human_review_before_execution_required", "speciation proposals must require human review before execution");
   if (result.review_gate.human_review_required_before_merge !== true) issue(issues, "review_gate.human_review_required_before_merge", "human_review_before_merge_required", "speciation proposals must require human review before merge");
@@ -252,13 +253,77 @@ function validateAcceptedProposalShape(result: SpeciationProposalResult, issues:
   if (result.mode === "split" && result.children.length < 2) issue(issues, "children", "split_requires_multiple_children", "split speciation requires at least two children");
   if (result.mode === "merge" && result.parents.length < 2) issue(issues, "parents", "merge_requires_multiple_parents", "merge speciation requires at least two parents");
   if (result.mode === "merge" && result.children.length !== 1) issue(issues, "children", "merge_requires_one_child", "merge speciation requires exactly one child");
-  if (result.lineage_events.length !== 1) issue(issues, "lineage_events", "lineage_event_required", "accepted speciation proposals must include one lineage event");
-  else {
-    const expectedType = result.mode === "split" ? "role_split_proposed" : "role_merge_proposed";
-    if (result.lineage_events[0].type !== expectedType) issue(issues, "lineage_events[0].type", "lineage_event_type_mismatch", "lineage event type must match speciation mode");
-  }
+  validateAcceptedParentSummaries(result.parents, issues);
+  validateAcceptedChildSummaries(result.children, issues);
+  validateAcceptedTargetPaths(result, issues);
+  validateAcceptedLineageEvent(result, issues);
+  validateAcceptedProposalDigest(result, issues);
   validateAcceptedChildUniqueness(result.parents, result.children, issues);
   validateSupportingMutations(result.supporting_mutations, [...result.parents.map((entry) => entry.path), ...result.children.map((entry) => entry.path)], issues);
+}
+
+function validateAcceptedParentSummaries(parents: readonly SpeciationParentSummary[], issues: SpeciationValidationIssue[]): void {
+  const seenPaths = new Set<string>();
+  const seenSpecies = new Set<string>();
+  for (const [index, parent] of parents.entries()) {
+    const prefix = `parents[${index}]`;
+    validateAgentPath(parent.path, parent.species, prefix, issues);
+    if (seenPaths.has(parent.path)) issue(issues, `${prefix}.path`, "duplicate_parent_path", `${parent.path} is listed more than once`);
+    seenPaths.add(parent.path);
+    if (seenSpecies.has(parent.species)) issue(issues, `${prefix}.species`, "duplicate_parent_species", `${parent.species} is listed more than once`);
+    seenSpecies.add(parent.species);
+    if (typeof parent.role_name !== "string" || !ROLE_NAME.test(parent.role_name)) issue(issues, `${prefix}.role_name`, "invalid_parent_role_name", "parent role_name must be lowercase kebab-like ASCII");
+    else if (parent.role_name !== parent.species.split(".")[0]) issue(issues, `${prefix}.role_name`, "parent_role_species_mismatch", "parent role_name must match the role segment of parent species");
+    if (parent.speciation_id !== null && (typeof parent.speciation_id !== "string" || !SPECIATION_ID.test(parent.speciation_id))) issue(issues, `${prefix}.speciation_id`, "invalid_parent_speciation_id", "parent speciation_id must be null or match sp_<lowercase_snake>");
+    if (!Number.isSafeInteger(parent.generation) || parent.generation < 0) issue(issues, `${prefix}.generation`, "invalid_parent_generation", "parent generation must be a non-negative safe integer");
+    if (typeof parent.digest !== "string" || parent.digest.trim().length === 0) issue(issues, `${prefix}.digest`, "invalid_parent_digest", "parent digest must be a non-empty string");
+  }
+}
+
+function validateAcceptedChildSummaries(children: readonly SpeciationChildSummary[], issues: SpeciationValidationIssue[]): void {
+  for (const [index, child] of children.entries()) {
+    const prefix = `children[${index}]`;
+    validateAgentPath(child.path, child.species, prefix, issues);
+    if (typeof child.role_name !== "string" || !ROLE_NAME.test(child.role_name)) issue(issues, `${prefix}.role_name`, "invalid_child_role_name", "child role_name must be lowercase kebab-like ASCII");
+    else if (child.role_name !== child.species.split(".")[0]) issue(issues, `${prefix}.role_name`, "child_role_species_mismatch", "child role_name must match the role segment of child species");
+    validateNonEmptyString(child.title, `${prefix}.title`, "missing_child_title", "child title is required", issues);
+    validateNonEmptyString(child.summary, `${prefix}.summary`, "missing_child_summary", "child summary is required", issues);
+    validateNonEmptyString(child.rationale, `${prefix}.rationale`, "missing_child_rationale", "child rationale is required", issues);
+    if (typeof child.speciation_id !== "string" || !SPECIATION_ID.test(child.speciation_id)) issue(issues, `${prefix}.speciation_id`, "invalid_child_speciation_id", "child speciation_id must match sp_<lowercase_snake>");
+    validateOptionalRef(child.prompt_patch_ref, `${prefix}.prompt_patch_ref`, issues);
+    validateOptionalRef(child.tool_routing_patch_ref, `${prefix}.tool_routing_patch_ref`, issues);
+  }
+}
+
+function validateAcceptedTargetPaths(result: SpeciationProposalResult, issues: SpeciationValidationIssue[]): void {
+  const expectedTargetPaths = unique([...result.parents.map((entry) => entry.path), ...result.children.map((entry) => entry.path)]);
+  for (const [index, targetPath] of result.mutation_record.target_paths.entries()) {
+    if (AGENT_DOCUMENT_PATH.exec(targetPath) === null) issue(issues, `mutation_record.target_paths[${index}]`, "forbidden_document_path", "mutation_record target_paths must contain only canonical .forge/agents/<species>.forge documents");
+  }
+  if (!arraysEqual(result.mutation_record.target_paths, expectedTargetPaths)) issue(issues, "mutation_record.target_paths", "mutation_record_target_paths_mismatch", "mutation_record target_paths must match parent and child agent paths");
+}
+
+function validateAcceptedLineageEvent(result: SpeciationProposalResult, issues: SpeciationValidationIssue[]): void {
+  if (result.lineage_events.length !== 1) {
+    issue(issues, "lineage_events", "lineage_event_required", "accepted speciation proposals must include one lineage event");
+    return;
+  }
+  const lineageEvent = result.lineage_events[0];
+  const expectedType = result.mode === "split" ? "role_split_proposed" : "role_merge_proposed";
+  if (lineageEvent.type !== expectedType) issue(issues, "lineage_events[0].type", "lineage_event_type_mismatch", "lineage event type must match speciation mode");
+  if (!arraysEqual(lineageEvent.parent_species, result.parents.map((entry) => entry.species))) issue(issues, "lineage_events[0].parent_species", "lineage_parent_species_mismatch", "lineage parent_species must match proposal parents");
+  if (!arraysEqual(lineageEvent.child_species, result.children.map((entry) => entry.species))) issue(issues, "lineage_events[0].child_species", "lineage_child_species_mismatch", "lineage child_species must match proposal children");
+  if (!arraysEqual(lineageEvent.parent_speciation_ids, result.parents.map((entry) => entry.speciation_id))) issue(issues, "lineage_events[0].parent_speciation_ids", "lineage_parent_speciation_ids_mismatch", "lineage parent_speciation_ids must match proposal parents");
+  if (!arraysEqual(lineageEvent.child_speciation_ids, result.children.map((entry) => entry.speciation_id))) issue(issues, "lineage_events[0].child_speciation_ids", "lineage_child_speciation_ids_mismatch", "lineage child_speciation_ids must match proposal children");
+  if (lineageEvent.rationale !== result.rationale.summary) issue(issues, "lineage_events[0].rationale", "lineage_rationale_mismatch", "lineage rationale must match proposal rationale summary");
+  if (!arraysEqual(lineageEvent.supporting_mutation_ids, result.supporting_mutations.map((entry) => entry.mutation_id))) issue(issues, "lineage_events[0].supporting_mutation_ids", "lineage_supporting_mutation_ids_mismatch", "lineage supporting mutation IDs must match supporting mutations");
+  if (lineageEvent.approval_class !== "C") issue(issues, "lineage_events[0].approval_class", "lineage_class_c_required", "lineage event must remain Class C");
+}
+
+function validateAcceptedProposalDigest(result: SpeciationProposalResult, issues: SpeciationValidationIssue[]): void {
+  if (result.lineage_events.length !== 1) return;
+  const expectedDigest = canonicalDigest(proposalDigestPayload(result.parents, result.children, result.rationale, result.approval, result.supporting_mutations, result.lineage_events[0]));
+  if (result.proposal_digest !== expectedDigest) issue(issues, "proposal_digest", "proposal_digest_mismatch", "proposal_digest must cover parents, children, rationale, approval, supporting mutations, and lineage event");
 }
 
 function validateAcceptedChildUniqueness(parents: readonly SpeciationParentSummary[], children: readonly SpeciationChildSummary[], issues: SpeciationValidationIssue[]): void {
@@ -289,6 +354,7 @@ function validateInput(input: SpeciationInput): SpeciationValidationIssue[] {
   if (input.mode === "merge" && input.children.length !== 1) issue(issues, "children", "merge_requires_one_child", "merge speciation requires exactly one child");
   validateParents(input.parents, issues);
   validateChildren(input.children, input.parents, issues);
+  validateLineageCycles(input.parents, input.children, issues);
   validateRationale(input.rationale, issues);
   validateApproval(input.approval, issues);
   validateSupportingMutations(input.supporting_mutations ?? [], [...input.parents.map((entry) => entry.path), ...input.children.map((entry) => entry.path)], issues);
@@ -361,6 +427,31 @@ function validateCanonicalParentContent(parent: SpeciationParentTarget, prefix: 
   const generation = numberValue(content.evolution.generation);
   if (!Number.isSafeInteger(generation) || generation < 0) issue(issues, `${prefix}.content.evolution.generation`, "invalid_parent_generation", "parent evolution.generation must be a non-negative safe integer");
   if (typeof content.evolution.speciation_id !== "string" || !SPECIATION_ID.test(content.evolution.speciation_id)) issue(issues, `${prefix}.content.evolution.speciation_id`, "invalid_parent_speciation_id", "parent evolution.speciation_id must match sp_<lowercase_snake>");
+}
+
+function validateLineageCycles(parents: readonly SpeciationParentTarget[], children: readonly SpeciationChildDraft[], issues: SpeciationValidationIssue[]): void {
+  const parentAncestryIds = new Set<string>();
+  for (const parent of parents) {
+    if (!isRecord(parent.content.evolution)) continue;
+    collectSpeciationIds(parent.content.evolution.parents, parentAncestryIds);
+  }
+  for (const [index, child] of children.entries()) {
+    if (parentAncestryIds.has(child.speciation_id)) issue(issues, `children[${index}].speciation_id`, "lineage_cycle_forbidden", "child speciation_id must not already appear in parent ancestry");
+  }
+}
+
+function collectSpeciationIds(value: unknown, output: Set<string>): void {
+  if (typeof value === "string") {
+    if (SPECIATION_ID.test(value)) output.add(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) collectSpeciationIds(entry, output);
+    return;
+  }
+  if (!isRecord(value)) return;
+  if (typeof value.speciation_id === "string" && SPECIATION_ID.test(value.speciation_id)) output.add(value.speciation_id);
+  for (const nested of Object.values(value)) collectSpeciationIds(nested, output);
 }
 
 function validateAgentPath(path: string, species: string, prefix: string, issues: SpeciationValidationIssue[]): void {
@@ -586,6 +677,10 @@ function createLineageEvent(mode: SpeciationMode, parents: readonly SpeciationPa
   };
 }
 
+function proposalDigestPayload(parents: readonly SpeciationParentSummary[], children: readonly SpeciationChildSummary[], rationale: SpeciationRationale, approval: SpeciationApprovalMetadata, supportingMutations: readonly SpeciationSupportingMutation[], lineageEvent: SpeciationLineageEvent): Readonly<Record<string, unknown>> {
+  return { parents, children, rationale, approval, supportingMutations, lineageEvent };
+}
+
 function reviewGate(): SpeciationReviewGate {
   return {
     risk: "high",
@@ -701,11 +796,34 @@ function canonicalStringify(value: unknown): string {
 }
 
 function issue(issues: SpeciationValidationIssue[], path: string, code: string, message: string): void { issues.push({ path, code, message }); }
-function resolveTimestamp(value: string | undefined, fallback: string): string | null { return value === undefined ? fallback : RFC3339_UTC.test(value) ? value : null; }
+function resolveTimestamp(value: string | undefined, fallback: string): string | null { return value === undefined ? fallback : isRfc3339Utc(value) ? value : null; }
+function isRfc3339Utc(value: string): boolean {
+  const match = RFC3339_UTC.exec(value);
+  if (match === null) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const millisecond = match[7] === undefined ? 0 : Number(match[7]);
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second, millisecond));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day
+    && date.getUTCHours() === hour
+    && date.getUTCMinutes() === minute
+    && date.getUTCSeconds() === second
+    && date.getUTCMilliseconds() === millisecond;
+}
 function isRecord(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function stringValue(value: unknown): string | null { return typeof value === "string" ? value : null; }
 function numberValue(value: unknown): number { return typeof value === "number" ? value : Number.NaN; }
 function unique(values: readonly string[]): string[] { return [...new Set(values)]; }
+function arraysEqual<T>(left: readonly T[], right: readonly T[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((entry, index) => entry === right[index]);
+}
 function stableId(prefix: string, parts: readonly string[]): string { return `${prefix}-${fnv1a(parts.join("\u001f")).toString(16).padStart(8, "0")}`; }
 function fnv1a(value: string): number { let hash = 0x811c9dc5; for (let index = 0; index < value.length; index += 1) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 0x01000193) >>> 0; } return hash >>> 0; }
 

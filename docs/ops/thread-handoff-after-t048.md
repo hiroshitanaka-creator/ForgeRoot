@@ -13,6 +13,7 @@ T048 - Role split/merge speciation proposal.
   `createSpeciationProposal` / `validateSpeciationProposal`.
 - `packages/mutate/tests/speciation.test.mjs` coverage for split/merge
   cardinality, parent identity validation, child uniqueness, silent replacement
+  rejection, lineage-cycle rejection, read-back lineage/digest/target tamper
   rejection, Class C gates, dry-run side-effect flags, deterministic replay,
   cloning, and aliases.
 - `docs/specs/speciation-proposal.md` and
@@ -33,7 +34,8 @@ rejected.
 
 ## Verification
 
-- `npm.cmd --prefix packages\mutate test` - 37/37 passing.
+- `npm.cmd --prefix packages\mutate test` - 38/38 passing after PR review
+  fixes.
 
 ## Recommended Next Target
 
