@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(new URL("..", import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const srcDir = path.join(root, "src");
 const distDir = path.join(root, "dist");
 fs.rmSync(distDir, { recursive: true, force: true });
