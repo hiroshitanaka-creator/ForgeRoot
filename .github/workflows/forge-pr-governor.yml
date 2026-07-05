@@ -122,7 +122,7 @@ jobs:
             const rootWorkspaceManifests = new Set(['package.json', 'package-lock.json', 'Cargo.toml', 'Cargo.lock']);
             const isGovernance = (path) => path.startsWith('.github/workflows/') ||
               path === '.github/pull_request_template.md' ||
-              path.startsWith('.forge/skills/') ||
+              path.startsWith('.agents/skills/') ||
               path.startsWith('.forge/policies/') ||
               path.startsWith('tools/') ||
               path.startsWith('scripts/');
@@ -139,7 +139,7 @@ jobs:
               if (isGovernance(path)) return true;
               if (isDoc(path)) return false;
               if (rootWorkspaceManifests.has(path)) return true;
-              const roots = ['apps/', 'crates/', 'packages/', 'runtime/', 'executor/', 'planner/', 'auditor/', 'pr-composer/', 'github-pr-adapter/', 'approval-checkpoint/', 'rate-governor/', 'forge-demo/', 'schemas/'];
+              const roots = ['apps/', 'crates/', 'packages/', 'schemas/'];
               return roots.some((root) => path.startsWith(root)) && /\.(ts|tsx|js|jsx|mjs|cjs|rs|py|sh|sql|json|toml|yaml|yml)$/i.test(path);
             };
             const body = pull.body || '';
@@ -148,12 +148,28 @@ jobs:
               /validation[-_ ]output|test[-_ ]output|validation[-_ ]report/i.test(path);
             const hasSection = (name) => new RegExp(`(^|\\n)##\\s*${name}\\b`, 'i').test(body);
             const hasNonEmptyBulletField = (name) => new RegExp(`(^|\\n)\\s*-\\s*${name}:\\s*(?!\\s*(?:$|\\n))(?:\`[^\`\\n]+\`|[^\\n]*\\S)`, 'i').test(body);
+            const bulletFieldValue = (name) => {
+              const match = body.match(new RegExp(`(^|\\n)\\s*-\\s*${name}:\\s*([^\\n]+)`, 'i'));
+              return match ? match[2].replace(/`/g, '').trim() : '';
+            };
+            const isPassingVerificationResult = (value) => {
+              const normalized = value.toLowerCase();
+              if (/\b(fail|failed|failure|failing|error|errored|not ok|no tests passed|not passed|cancelled|canceled|timed out|timeout|partial)\b/.test(normalized)) return false;
+              const ratio = normalized.match(/\b([0-9]+)\/([0-9]+)\s+passing\b/);
+              if (ratio) return Number(ratio[1]) > 0 && ratio[1] === ratio[2];
+              return /^(passed|passing|ok|success|succeeded|yaml ok)\b/.test(normalized) ||
+                /\b(all tests passed|tests passed|0 fail|0 failures|fail 0|failures 0)\b/.test(normalized);
+            };
             const hasVerificationCommand = hasNonEmptyBulletField('Command');
-            const hasVerificationResult = /(^|\n)\s*-\s*Result:\s*(?!\s*(?:not run|not-run|n\/a|none|todo|pending)\b)(?:`?[^`\n]*\b(?:passed|passing|ok|success|succeeded|yaml ok|[0-9]+\/[0-9]+\s+passing)\b[^`\n]*`?|[^`\n]*\b(?:passed|passing|ok|success|succeeded|yaml ok|[0-9]+\/[0-9]+\s+passing)\b[^\n]*)/i.test(body);
+            const verificationResult = bulletFieldValue('Result');
+            const currentHeadCommit = bulletFieldValue('Current head commit');
+            const hasVerificationResult = isPassingVerificationResult(verificationResult);
+            const hasCurrentHeadCommit = currentHeadCommit === pull.head.sha;
             const hasBodyEvidence = (hasSection('Implementation evidence') || hasSection('Implementation') || hasSection('Code changes') || hasSection('Changed files')) &&
               (hasSection('Verification') || hasSection('Verification result') || hasSection('Test plan') || hasSection('Tests')) &&
               hasVerificationCommand &&
               hasVerificationResult &&
+              hasCurrentHeadCommit &&
               !/(^|\n)\s*-\s*Result:\s*(?:not run|not-run|n\/a|none|todo|pending)\b/i.test(body);
             const manifestAnswerLine = body.split(/\r?\n/).find((line) => /Manifest-only or dry-run work\?/i.test(line)) || '';
             const manifestAnswer = manifestAnswerLine.replace(/^.*Manifest-only or dry-run work\?\s*/i, '').trim();
