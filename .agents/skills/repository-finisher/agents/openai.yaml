@@ -1,0 +1,7 @@
+interface:
+  display_name: "Repository Finisher"
+  short_description: "Finish ForgeRoot PRs by prioritizing executable progress, verification evidence, and review-debt collapse."
+  default_prompt: "Use $repository-finisher to make the active ForgeRoot PR mergeable with implementation evidence and current verification."
+
+policy:
+  allow_implicit_invocation: true

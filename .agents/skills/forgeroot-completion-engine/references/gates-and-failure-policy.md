@@ -2,6 +2,36 @@
 
 Load this file for every ForgeRoot implementation, bug fix, test, verification, audit, PR, or final proposal task.
 
+## Target Repository Lock
+
+The only default target repository is:
+
+```text
+https://github.com/hiroshitanaka-creator/ForgeRoot
+```
+
+All implementation decisions, audits, tests, and next-task routing must serve ForgeRoot completion.
+
+## Forbidden Workflow Pattern
+
+Never use human review as the primary quality-control mechanism. Do not create one immature PR, wait for the human to find many problems, then fix those problems across many review rounds.
+
+The required pattern is:
+
+1. understand task;
+2. explain plan to human in simple words;
+3. read repository evidence;
+4. design implementation;
+5. implement core logic;
+6. add tests;
+7. run verification;
+8. perform adversarial audit with expanded context;
+9. repair all real findings;
+10. re-run tests;
+11. re-audit;
+12. only then create a PR or final proposal;
+13. identify the next task.
+
 ## Zero-Hallucination Policy
 
 Every existing symbol used in new code must satisfy at least one condition:
@@ -24,11 +54,21 @@ Always work in this order:
 
 The first patch must target real runtime behavior. Forbidden as first action unless the task is explicitly documentation-only: README update, docs update, folder cleanup, naming-only cleanup, comment-only change, style-only change, broad abstraction, or architecture shell without behavior.
 
+## Anti-Inward-Thinking Enforcement
+
+Do not retreat into safe but low-value work such as README updates, docs polishing, directory cleanup, naming-only changes, abstract refactoring, comment expansion, folder restructuring, config tidying, speculative architecture work, or future-proofing without current functional need.
+
+Documentation updates are forbidden before implementation, tests, verification, audit, and repair unless the user task is explicitly documentation-only.
+
 ## Refactor Control
 
 Refactor-first work is forbidden unless the current structure physically prevents implementation, the refactor is the smallest safe step needed to implement the feature, the current code cannot be tested without minimal extraction, or the adversarial audit identifies a structural flaw that must be fixed.
 
 Justify every permitted refactor in `<design_rationale>`. Keep the refactor scope minimal. Do not perform opportunistic cleanup.
+
+## No Placeholder Completion
+
+Do not treat TODO comments, stub functions, fake implementations, skipped tests, snapshot-only tests with no behavioral assertion, tests that only assert mocks were called, unexecuted test claims, "should work" statements, or undocumented assumptions as completion.
 
 ## Test And Verification Requirements
 
@@ -60,15 +100,32 @@ Use the actual repository command. If multiple commands exist, choose the smalle
 
 ## Security Gate
 
-Before PR or final proposal, check:
+Authentication is not enough. Before PR or final proposal, verify where relevant that this user may access or modify this exact resource.
 
-- auth vs authorization separation;
-- ownership and tenant boundaries;
+Check:
+
+- BOLA and IDOR risk;
+- ownerId consistency;
+- tenant/workspace/org boundary;
+- userId/accountId mismatch;
+- server-side authorization;
+- service-layer authorization;
+- database-level constraints where applicable;
 - secret exposure;
 - unsafe logs;
 - external API trust boundary;
 - user-controlled input reaching file, shell, SQL, network, or template execution;
 - dependency risk introduced by the patch.
+
+## Failure, Concurrency, Performance, And Logging Gate
+
+Check failure and rollback paths: API timeout, DB deadlock, partial external success with local failure, local success with external failure, retry safety, rollback path, compensation path, idempotency, and duplicate submission.
+
+Check concurrency: race condition, lost update, double insert, stale read, long transaction, lock scope, async job duplication, and queue retry duplication.
+
+Check performance: N+1 queries, full-table scan risk, unbounded memory load, missing pagination, large file read, synchronous blocking, and cache inconsistency.
+
+Failure logs should contain useful context such as operation name, request id, user id, resource id, external service, retry count, and failure reason. Never log secrets, tokens, passwords, private keys, or unnecessary personal data.
 
 ## Data And Migration Gate
 

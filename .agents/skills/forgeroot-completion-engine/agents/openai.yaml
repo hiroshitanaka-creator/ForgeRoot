@@ -1,0 +1,7 @@
+interface:
+  display_name: "ForgeRoot Completion Engine"
+  short_description: "Complete ForgeRoot with implementation, verification, self-audit, and next-task routing."
+  default_prompt: "Use $forgeroot-completion-engine to implement the next ForgeRoot task with verification and adversarial self-audit."
+
+policy:
+  allow_implicit_invocation: true
