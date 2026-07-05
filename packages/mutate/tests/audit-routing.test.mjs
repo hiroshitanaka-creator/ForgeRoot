@@ -100,7 +100,7 @@ describe("T049 N-version audit routing", () => {
           reviewer_id: "aaa-conflicted",
           independence_key: "org-conflicted",
           focuses: ["architecture"],
-          conflict_paths: [".forge/agents/planner.alpha.forge"],
+          conflict_paths: [".forge/agents/planner.alpha.forge/"],
         }),
         reviewer(),
         reviewer({ reviewer_id: "security-reviewer", independence_key: "org-security", focuses: ["security"] }),

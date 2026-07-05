@@ -53,6 +53,11 @@ export interface EvolutionGuardRoutingRef {
   readonly routing_digest: string;
   readonly schema_ref: typeof N_VERSION_AUDIT_ROUTING_SCHEMA_REF | "";
   readonly route_ids: readonly string[];
+  readonly reviewer_refs: readonly {
+    readonly route_id: string;
+    readonly reviewer_id: string;
+    readonly independence_key: string;
+  }[];
   readonly required_reviews: number;
   readonly required_quorum: number;
   readonly target_paths: readonly string[];
@@ -356,18 +361,42 @@ function validateRoutingRef(ref: EvolutionGuardRoutingRef, proposal: NVersionAud
   if (typeof ref.routing_digest !== "string" || !DIGEST.test(ref.routing_digest)) issue(issues, "routing_ref.routing_digest", "invalid_routing_digest", "routing_digest must be stable");
   if (ref.schema_ref !== N_VERSION_AUDIT_ROUTING_SCHEMA_REF) issue(issues, "routing_ref.schema_ref", "invalid_routing_schema_ref", "routing_ref schema must be T049");
   if (!Array.isArray(ref.route_ids) || ref.route_ids.length === 0) issue(issues, "routing_ref.route_ids", "route_ids_required", "routing_ref must include route ids");
+  validateReviewerRefs(ref, issues);
   if (!Number.isSafeInteger(ref.required_reviews) || ref.required_reviews !== ref.route_ids.length) issue(issues, "routing_ref.required_reviews", "required_reviews_mismatch", "required_reviews must equal route_ids length");
   if (!Number.isSafeInteger(ref.required_quorum) || ref.required_quorum < 2) issue(issues, "routing_ref.required_quorum", "invalid_required_quorum", "required_quorum must be >= 2");
   if (!arraysEqual(ref.target_paths, proposal.target_paths)) issue(issues, "routing_ref.target_paths", "routing_ref_target_paths_mismatch", "routing target paths must match proposal");
 }
 
+function validateReviewerRefs(ref: EvolutionGuardRoutingRef, issues: EvolutionGuardIssue[]): void {
+  if (!Array.isArray(ref.reviewer_refs)) {
+    issue(issues, "routing_ref.reviewer_refs", "reviewer_refs_required", "routing_ref must include reviewer identity refs");
+    return;
+  }
+  const routeIds = new Set(ref.route_ids);
+  if (ref.reviewer_refs.length !== ref.route_ids.length) issue(issues, "routing_ref.reviewer_refs", "reviewer_refs_count_mismatch", "reviewer refs must cover every route");
+  for (const [index, reviewerRef] of ref.reviewer_refs.entries()) {
+    const prefix = `routing_ref.reviewer_refs[${index}]`;
+    if (!isRecord(reviewerRef)) { issue(issues, prefix, "reviewer_ref_must_be_object", "reviewer ref must be an object"); continue; }
+    if (typeof reviewerRef.route_id !== "string" || !routeIds.has(reviewerRef.route_id)) issue(issues, `${prefix}.route_id`, "reviewer_ref_route_mismatch", "reviewer ref route_id must be present in route_ids");
+    if (typeof reviewerRef.reviewer_id !== "string" || !REVIEWER_ID.test(reviewerRef.reviewer_id)) issue(issues, `${prefix}.reviewer_id`, "invalid_reviewer_id", "reviewer_id must be safe");
+    if (typeof reviewerRef.independence_key !== "string" || !REVIEWER_ID.test(reviewerRef.independence_key)) issue(issues, `${prefix}.independence_key`, "invalid_independence_key", "independence_key must be safe");
+  }
+}
+
 function validateDecisionReviews(result: EvolutionGuardDecisionResult, issues: EvolutionGuardIssue[]): void {
   const routeIds = new Set(result.routing_ref.route_ids);
+  const reviewerRefs = new Map((result.routing_ref.reviewer_refs ?? []).map((entry) => [entry.route_id, entry]));
   const seenRoutes = new Set<string>();
   for (const [index, review] of result.reviews.entries()) {
     const prefix = `reviews[${index}]`;
     validateReviewEvidence(review, prefix, issues);
     if (!routeIds.has(review.route_id)) issue(issues, `${prefix}.route_id`, "unknown_review_route", "review route_id must be present in routing_ref");
+    const reviewerRef = reviewerRefs.get(review.route_id);
+    if (reviewerRef === undefined) issue(issues, `${prefix}.route_id`, "reviewer_ref_missing", "review route must have a reviewer identity ref");
+    else {
+      if (review.reviewer_id !== reviewerRef.reviewer_id) issue(issues, `${prefix}.reviewer_id`, "reviewer_id_mismatch", "review reviewer_id must match the routed reviewer");
+      if (review.independence_key !== reviewerRef.independence_key) issue(issues, `${prefix}.independence_key`, "independence_key_mismatch", "review independence_key must match the routed reviewer");
+    }
     if (seenRoutes.has(review.route_id)) issue(issues, `${prefix}.route_id`, "duplicate_review_route", `${review.route_id} has more than one review`);
     seenRoutes.add(review.route_id);
     if (review.routing_digest !== result.routing_ref.routing_digest) issue(issues, `${prefix}.routing_digest`, "review_routing_digest_mismatch", "review routing_digest must match routing_ref");
@@ -448,6 +477,11 @@ function summarizeRouting(routing: NVersionAuditRoutingResult): EvolutionGuardRo
     routing_digest: typeof routing.routing_digest === "string" ? routing.routing_digest : "",
     schema_ref: routing.schema_ref === N_VERSION_AUDIT_ROUTING_SCHEMA_REF ? routing.schema_ref : "",
     route_ids: routes.map((route) => stringValue(route.route_id) ?? ""),
+    reviewer_refs: routes.map((route) => ({
+      route_id: stringValue(route.route_id) ?? "",
+      reviewer_id: stringValue(route.reviewer_id) ?? "",
+      independence_key: stringValue(route.independence_key) ?? "",
+    })),
     required_reviews: isRecord(routing.quorum) && Number.isSafeInteger(routing.quorum.required_reviews) ? routing.quorum.required_reviews : routes.length,
     required_quorum: isRecord(routing.quorum) && Number.isSafeInteger(routing.quorum.required_quorum) ? routing.quorum.required_quorum : 0,
     target_paths: [...proposalTargetPaths],

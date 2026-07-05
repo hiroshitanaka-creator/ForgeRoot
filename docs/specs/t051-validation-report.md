@@ -37,8 +37,8 @@ auto-merge.
 ## Verification
 
 - `npm.cmd --prefix packages\mutate test` - 63/63 passing after T051 addition.
-- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` - 104/104
-  passing across T046-T060 after secret-material hardening.
+- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` - 106/106
+  passing across T046-T060 after downstream review hardening.
 - `npm.cmd test` - all npm workspace tests passed.
 - `git diff --check` - passed.
 - `cargo test --workspace --locked` - not run because `cargo` is not available

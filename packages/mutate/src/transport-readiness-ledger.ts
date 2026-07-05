@@ -137,7 +137,8 @@ export function runTransportReadinessLedger(input: unknown): TransportReadinessL
   const baseChecks = derivedChecks(envelope.input.request);
   const inputChecks = envelope.input.checks ?? [];
   const checkIds = new Set([...baseChecks, ...inputChecks].map((entry) => entry.check_id));
-  const requiredCheckIds = envelope.input.required_check_ids ?? [...checkIds];
+  const baseRequiredCheckIds = baseChecks.map((entry) => entry.check_id);
+  const requiredCheckIds = envelope.input.required_check_ids === undefined ? [...checkIds] : uniqueStrings([...baseRequiredCheckIds, ...envelope.input.required_check_ids]);
   const checks: TransportReadinessCheck[] = [...baseChecks, ...inputChecks].map((entry) => ({
     ...entry,
     required: requiredCheckIds.includes(entry.check_id),

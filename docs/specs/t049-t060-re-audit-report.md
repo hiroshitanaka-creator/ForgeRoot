@@ -28,6 +28,12 @@ Findings and repair:
   T050 review finding summaries, T051 PR body notes and labels, T056 artifact
   labels, T057 rollout gate summaries, and T060 issue diagnostics. Unsafe
   input values are not echoed back in invalid terminal manifests.
+- PR #18 Codex Review re-audit hardening now rejects route/reviewer identity
+  mismatches, action/path/body mismatches in dry-run GitHub transport manifests,
+  overridden required-check lists that omit built-in blockers, non-ready
+  upstream refs in ready terminal manifests, inconsistent execution summaries,
+  duplicate or missing handoff entry kinds, and conflict paths with trailing
+  slashes.
 
 High-risk surfaces reviewed:
 
@@ -44,7 +50,7 @@ High-risk surfaces reviewed:
 Verification:
 
 - `npm.cmd --prefix packages\mutate test`
-  - Result: passed, 104/104.
+  - Result: passed, 106/106.
 - `npm.cmd test`
   - Result: passed.
 - `git diff --check`

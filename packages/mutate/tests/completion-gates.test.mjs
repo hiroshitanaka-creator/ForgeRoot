@@ -184,6 +184,55 @@ describe("T057-T059 completion gates", () => {
     assert.ok(validateLineageHandoffPackResult(persistedHandoff).issues.some((entry) => entry.code === "handoff_persistence_forbidden"));
   });
 
+  it("rejects ready completion manifests whose upstream status or required entries are inconsistent", () => {
+    const receipt = receiptReady();
+    const checklist = runRolloutGateChecklist({ now: NOW, receipt });
+    const failedReadyChecklist = {
+      ...checklist,
+      checks: [{ ...checklist.checks[0], status: "fail" }, ...checklist.checks.slice(1)],
+      summary: { ...checklist.summary, pass_count: checklist.summary.pass_count - 1, fail_count: 1 },
+    };
+    const failedChecklistValidation = validateRolloutGateChecklistResult(failedReadyChecklist);
+    assert.equal(failedChecklistValidation.ok, false);
+    assert.ok(failedChecklistValidation.issues.some((entry) => entry.code === "ready_with_unmet_gates"));
+
+    const auditPlan = runPostTransportAuditPlan({ now: NOW, checklist });
+    const readyAuditFromBlockedChecklist = {
+      ...auditPlan,
+      checklist_ref: { ...auditPlan.checklist_ref, checklist_status: "blocked" },
+    };
+    const blockedChecklistValidation = validatePostTransportAuditPlanResult(readyAuditFromBlockedChecklist);
+    assert.equal(blockedChecklistValidation.ok, false);
+    assert.ok(blockedChecklistValidation.issues.some((entry) => entry.code === "ready_checklist_required"));
+
+    const readyAuditWithBlockedStep = {
+      ...auditPlan,
+      audit_steps: [{ ...auditPlan.audit_steps[0], status: "blocked" }, ...auditPlan.audit_steps.slice(1)],
+    };
+    const blockedStepValidation = validatePostTransportAuditPlanResult(readyAuditWithBlockedStep);
+    assert.equal(blockedStepValidation.ok, false);
+    assert.ok(blockedStepValidation.issues.some((entry) => entry.code === "ready_steps_must_be_planned"));
+
+    const handoff = runLineageHandoffPack({ now: NOW, audit_plan: auditPlan });
+    const readyHandoffFromBlockedAudit = {
+      ...handoff,
+      audit_ref: { ...handoff.audit_ref, audit_plan_status: "blocked" },
+    };
+    const blockedAuditValidation = validateLineageHandoffPackResult(readyHandoffFromBlockedAudit);
+    assert.equal(blockedAuditValidation.ok, false);
+    assert.ok(blockedAuditValidation.issues.some((entry) => entry.code === "ready_audit_plan_required"));
+
+    const missingHandoffKinds = { ...handoff, handoff_entries: [handoff.handoff_entries[0]] };
+    const missingKindsValidation = validateLineageHandoffPackResult(missingHandoffKinds);
+    assert.equal(missingKindsValidation.ok, false);
+    assert.ok(missingKindsValidation.issues.some((entry) => entry.code === "required_handoff_entry_missing"));
+
+    const duplicateHandoffKinds = { ...handoff, handoff_entries: [handoff.handoff_entries[0], { ...handoff.handoff_entries[0], entry_id: "artifact-receipt-duplicate" }, ...handoff.handoff_entries.slice(2)] };
+    const duplicateKindsValidation = validateLineageHandoffPackResult(duplicateHandoffKinds);
+    assert.equal(duplicateKindsValidation.ok, false);
+    assert.ok(duplicateKindsValidation.issues.some((entry) => entry.code === "duplicate_handoff_entry_kind"));
+  });
+
   it("supports stable aliases", () => {
     const receipt = receiptReady();
     for (const fn of [createRolloutGateChecklist, runT057RolloutGateChecklist]) {

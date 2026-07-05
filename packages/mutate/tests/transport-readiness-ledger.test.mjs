@@ -166,6 +166,11 @@ describe("T053 transport readiness ledger", () => {
     assert.equal(blockedLedger.status, "blocked");
     assert.ok(blockedLedger.checks.some((entry) => entry.check_id === "t052-manifest-ready" && entry.status === "fail"));
     assert.deepEqual(validateTransportReadinessLedgerResult(blockedLedger), { ok: true, issues: [] });
+
+    const blockedOverride = runTransportReadinessLedger({ now: NOW, request: blockedRequest, required_check_ids: ["dry-run-only"] });
+    assert.equal(blockedOverride.status, "blocked");
+    assert.ok(blockedOverride.summary.required_check_ids.includes("t052-manifest-ready"));
+    assert.ok(blockedOverride.checks.some((entry) => entry.check_id === "t052-manifest-ready" && entry.required === true && entry.status === "fail"));
   });
 
   it("invalidates tampered T052 requests and malformed manual checks", () => {

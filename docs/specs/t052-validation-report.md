@@ -27,10 +27,14 @@ Task: T052 mutation PR transport request bridge
 - Transport read-back validation rejects token-like strings, merge endpoints,
   default head branches, stale digests, guard weakening, and terminal results
   carrying request metadata.
+- Post-create request validation binds each request name to its specific
+  endpoint and body shape for labels or reviewers.
+- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` - 106/106
+  passing across T046-T060 after post-create endpoint/body hardening.
 
 ## Not run locally
 
 - `cargo test --workspace --locked` was not run because `cargo` is not available
   on PATH in this environment.
-- Root `npm.cmd test` and `git diff --check` are pending for the wider task
-  batch after the next implementation step.
+- `npm.cmd test` passed for all npm workspaces.
+- `git diff --check` passed with LF/CRLF warnings only.

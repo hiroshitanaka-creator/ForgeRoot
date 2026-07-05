@@ -579,11 +579,15 @@ function validateSafePathArray(value: readonly string[], path: string, issues: N
 
 function hasTargetConflict(reviewer: NVersionAuditReviewerCandidate, targetPaths: readonly string[]): boolean {
   const conflicts = reviewer.conflict_paths ?? [];
-  return conflicts.some((conflict) => targetPaths.some((target) => pathConflicts(conflict, target)));
+  return conflicts.some((conflict) => targetPaths.some((target) => pathConflicts(normalizeRepoPath(conflict), normalizeRepoPath(target))));
 }
 
 function pathConflicts(conflict: string, target: string): boolean {
   return conflict === target || target.startsWith(`${conflict}/`) || conflict.startsWith(`${target}/`);
+}
+
+function normalizeRepoPath(value: string): string {
+  return value.replace(/\/+$/g, "");
 }
 
 function invalidResult(createdAt: string, proposal: NVersionAuditProposalRef, policy: NVersionAuditRoutingPolicy, issues: readonly NVersionAuditRoutingIssue[]): NVersionAuditRoutingResult {

@@ -33,6 +33,8 @@ approval records, approve, merge, or auto-merge.
 - Read-back validation rejects tampered side-effect flags, weakened guardrails,
   stale guard IDs, stale guard digests, unknown review routes, duplicate review
   routes, and accepted manifests carrying missing reviews.
+- Read-back validation rejects ready manifests whose review `reviewer_id` or
+  `independence_key` no longer matches the routed reviewer identity refs.
 - Returned proposal and review evidence are cloned before returning.
 - Compatibility aliases are exported:
   `evaluateEvolutionGuard`, `createEvolutionGuardDecision`,
@@ -41,8 +43,8 @@ approval records, approve, merge, or auto-merge.
 ## Verification
 
 - `npm.cmd --prefix packages\mutate test` - 56/56 passing after T050 addition.
-- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` - 104/104
-  passing across T046-T060 after secret-material hardening.
+- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` - 106/106
+  passing across T046-T060 after secret and review-identity hardening.
 - `npm.cmd test` - all npm workspace tests passed.
 - `git diff --check` - passed.
 - `cargo test --workspace --locked` - not run because `cargo` is not available

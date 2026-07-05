@@ -25,10 +25,14 @@ Task: T054 explicit human approval receipt verifier
   receipts, and token-like receipt statements are invalidated.
 - Read-back validation rejects side effects, guard weakening, stale digests, and
   inconsistent approval summaries.
+- Approved read-back validation requires the referenced T053 ledger status to
+  remain `ready`.
+- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` - 106/106
+  passing across T046-T060 after approved-ledger-ref hardening.
 
 ## Not run locally
 
 - `cargo test --workspace --locked` was not run because `cargo` is not available
   on PATH in this environment.
-- Root `npm.cmd test` and `git diff --check` are pending for the wider task
-  batch after the next implementation step.
+- `npm.cmd test` passed for all npm workspaces.
+- `git diff --check` passed with LF/CRLF warnings only.

@@ -246,7 +246,8 @@ export function validateRolloutGateChecklistResult(result: unknown): CompletionV
   validateGuards(value.guards, issues);
   validateDryRun(value.dry_run, issues);
   validateNoSecretMaterial(value, "result", issues);
-  validateTerminal(value.status, value.decision, value.issues, issues, ["rollout_gate_ready", "rollout_gate_blocked", "invalid_rollout_gate_input"]);
+  validateTerminal(value.status, value.decision, value.issues, issues, "rollout_gate_ready", "rollout_gate_ready", "rollout_gate_blocked", "invalid_rollout_gate_input");
+  if (value.status === "rollout_gate_ready" && isRecord(value.summary) && (value.summary.fail_count !== 0 || value.summary.pending_count !== 0)) issue(issues, "summary", "ready_with_unmet_gates", "ready rollout checklists cannot include failed or pending gates");
   validateDigest(value as unknown as Record<string, unknown>, "checklist_digest", "checklist_id", "rollout-gate-checklist", (candidate) => checklistDigestPayload(candidate as RolloutGateChecklistResult), issues);
   return { ok: issues.length === 0, issues };
 }
@@ -261,7 +262,11 @@ export function validatePostTransportAuditPlanResult(result: unknown): Completio
   validateGuards(value.guards, issues);
   validateDryRun(value.dry_run, issues);
   validateNoSecretMaterial(value, "result", issues);
-  validateTerminal(value.status, value.decision, value.issues, issues, ["post_transport_audit_plan_ready", "post_transport_audit_plan_blocked", "invalid_post_transport_audit_input"]);
+  validateTerminal(value.status, value.decision, value.issues, issues, "audit_plan_ready", "post_transport_audit_plan_ready", "post_transport_audit_plan_blocked", "invalid_post_transport_audit_input");
+  if (value.status === "audit_plan_ready") {
+    if (isRecord(value.checklist_ref) && value.checklist_ref.checklist_status !== "rollout_gate_ready") issue(issues, "checklist_ref.checklist_status", "ready_checklist_required", "ready audit plans must reference a ready rollout checklist");
+    if (Array.isArray(value.audit_steps) && value.audit_steps.some((entry) => isRecord(entry) && entry.status !== "planned_not_executed")) issue(issues, "audit_steps", "ready_steps_must_be_planned", "ready audit plan steps must be planned and not executed");
+  }
   validateDigest(value as unknown as Record<string, unknown>, "audit_plan_digest", "audit_plan_id", "post-transport-audit-plan", (candidate) => auditPlanDigestPayload(candidate as PostTransportAuditPlanResult), issues);
   return { ok: issues.length === 0, issues };
 }
@@ -276,7 +281,11 @@ export function validateLineageHandoffPackResult(result: unknown): CompletionVal
   validateGuards(value.guards, issues);
   validateDryRun(value.dry_run, issues);
   validateNoSecretMaterial(value, "result", issues);
-  validateTerminal(value.status, value.decision, value.issues, issues, ["lineage_handoff_pack_ready", "lineage_handoff_pack_blocked", "invalid_lineage_handoff_input"]);
+  validateTerminal(value.status, value.decision, value.issues, issues, "handoff_pack_ready", "lineage_handoff_pack_ready", "lineage_handoff_pack_blocked", "invalid_lineage_handoff_input");
+  if (value.status === "handoff_pack_ready") {
+    if (isRecord(value.audit_ref) && value.audit_ref.audit_plan_status !== "audit_plan_ready") issue(issues, "audit_ref.audit_plan_status", "ready_audit_plan_required", "ready handoff packs must reference a ready audit plan");
+    if (Array.isArray(value.handoff_entries)) validateRequiredHandoffKinds(value.handoff_entries, issues);
+  }
   validateDigest(value as unknown as Record<string, unknown>, "handoff_digest", "handoff_pack_id", "lineage-handoff-pack", (candidate) => handoffDigestPayload(candidate as LineageHandoffPackResult), issues);
   return { ok: issues.length === 0, issues };
 }
@@ -431,6 +440,8 @@ function validateSummary(summary: unknown, checks: readonly RolloutGateCheck[], 
 function validateAuditStep(value: unknown, path: string, issues: CompletionGateIssue[]): void {
   if (!isRecord(value)) { issue(issues, path, "audit_step_must_be_object", "audit step must be an object"); return; }
   if (typeof value.step_id !== "string" || value.step_id.length === 0) issue(issues, `${path}.step_id`, "invalid_step_id", "step_id is required");
+  if (value.action !== "verify_artifact_receipt" && value.action !== "inspect_rollout_gates" && value.action !== "confirm_no_side_effects" && value.action !== "prepare_human_audit") issue(issues, `${path}.action`, "invalid_audit_action", "audit step action must be known");
+  if (value.status !== "planned_not_executed" && value.status !== "blocked") issue(issues, `${path}.status`, "invalid_audit_step_status", "audit step status must be planned_not_executed or blocked");
   if (value.executed !== false) issue(issues, `${path}.executed`, "step_execution_forbidden", "audit steps must not execute");
   if (typeof value.evidence_digest !== "string" || !DIGEST.test(value.evidence_digest)) issue(issues, `${path}.evidence_digest`, "invalid_evidence_digest", "evidence_digest must be stable");
 }
@@ -438,6 +449,7 @@ function validateAuditStep(value: unknown, path: string, issues: CompletionGateI
 function validateHandoffEntry(value: unknown, path: string, issues: CompletionGateIssue[]): void {
   if (!isRecord(value)) { issue(issues, path, "handoff_entry_must_be_object", "handoff entry must be an object"); return; }
   if (typeof value.entry_id !== "string" || value.entry_id.length === 0) issue(issues, `${path}.entry_id`, "invalid_entry_id", "entry_id is required");
+  if (value.kind !== "artifact_receipt" && value.kind !== "rollout_gate" && value.kind !== "audit_plan" && value.kind !== "safety_boundary") issue(issues, `${path}.kind`, "invalid_handoff_entry_kind", "handoff entry kind must be known");
   if (value.persisted !== false) issue(issues, `${path}.persisted`, "handoff_persistence_forbidden", "handoff entries must not be persisted");
   if (typeof value.digest !== "string" || !DIGEST.test(value.digest)) issue(issues, `${path}.digest`, "invalid_digest", "digest must be stable");
 }
@@ -469,11 +481,25 @@ function validateDryRun(value: unknown, issues: CompletionGateIssue[]): void {
   for (const key of Object.keys(dryRun())) if (value[key] !== false) issue(issues, `dry_run.${key}`, "side_effect_forbidden", `${key} must be false`);
 }
 
-function validateTerminal(status: string, decision: string, issuesValue: unknown, issues: CompletionGateIssue[], decisions: readonly string[]): void {
-  if (!decisions.includes(decision)) issue(issues, "decision", "invalid_decision", "decision is invalid");
+function validateTerminal(status: string, decision: string, issuesValue: unknown, issues: CompletionGateIssue[], readyStatus: string, readyDecision: string, blockedDecision: string, invalidDecision: string): void {
+  if (decision !== readyDecision && decision !== blockedDecision && decision !== invalidDecision) issue(issues, "decision", "invalid_decision", "decision is invalid");
+  if (status === readyStatus && decision !== readyDecision) issue(issues, "decision", "ready_decision_mismatch", "ready status must use the ready decision");
+  if (status === "blocked" && decision !== blockedDecision) issue(issues, "decision", "blocked_decision_mismatch", "blocked status must use the blocked decision");
+  if (status === "invalid" && decision !== invalidDecision) issue(issues, "decision", "invalid_decision_mismatch", "invalid status must use the invalid decision");
   if (status === "invalid") {
     if (!Array.isArray(issuesValue) || issuesValue.length === 0) issue(issues, "issues", "invalid_issues_required", "invalid results must carry issues");
   } else if (issuesValue !== undefined) issue(issues, "issues", "non_invalid_issues_forbidden", "non-invalid results must not carry issues");
+}
+
+function validateRequiredHandoffKinds(entries: readonly unknown[], issues: CompletionGateIssue[]): void {
+  const required = ["artifact_receipt", "rollout_gate", "audit_plan", "safety_boundary"] as const;
+  const seen = new Set<string>();
+  for (const [index, entry] of entries.entries()) {
+    if (!isRecord(entry) || typeof entry.kind !== "string") continue;
+    if (seen.has(entry.kind)) issue(issues, `handoff_entries[${index}].kind`, "duplicate_handoff_entry_kind", "ready handoff packs must not duplicate entry kinds");
+    seen.add(entry.kind);
+  }
+  for (const kind of required) if (!seen.has(kind)) issue(issues, "handoff_entries", "required_handoff_entry_missing", `ready handoff packs must include ${kind}`);
 }
 
 function validateNoSecretMaterial(value: unknown, path: string, issues: CompletionGateIssue[]): void {

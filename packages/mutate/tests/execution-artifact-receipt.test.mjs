@@ -162,6 +162,18 @@ describe("T056 execution artifact receipt", () => {
     const secretArtifact = { ...result, artifact: { ...result.artifact, label: "github_pat_abc123" } };
     assert.equal(validateExecutionArtifactReceiptResult(secretArtifact).ok, false);
     assert.ok(validateExecutionArtifactReceiptResult(secretArtifact).issues.some((entry) => entry.code === "secret_material_forbidden"));
+
+    const readyWithBlockedPlanRef = { ...result, plan_ref: { ...result.plan_ref, execution_plan_status: "blocked" } };
+    assert.equal(validateExecutionArtifactReceiptResult(readyWithBlockedPlanRef).ok, false);
+    assert.ok(validateExecutionArtifactReceiptResult(readyWithBlockedPlanRef).issues.some((entry) => entry.code === "ready_plan_status_required"));
+
+    const inconsistentCounts = { ...result, artifact: { ...result.artifact, action_counts: { create_pull_request: 1 } } };
+    assert.equal(validateExecutionArtifactReceiptResult(inconsistentCounts).ok, false);
+    assert.ok(validateExecutionArtifactReceiptResult(inconsistentCounts).issues.some((entry) => entry.code === "action_counts_mismatch"));
+
+    const emptyReadyArtifact = { ...result, artifact: { ...result.artifact, step_count: 0, action_counts: {} } };
+    assert.equal(validateExecutionArtifactReceiptResult(emptyReadyArtifact).ok, false);
+    assert.ok(validateExecutionArtifactReceiptResult(emptyReadyArtifact).issues.some((entry) => entry.code === "ready_steps_required"));
   });
 
   it("supports stable aliases", () => {

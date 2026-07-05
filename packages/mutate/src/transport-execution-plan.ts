@@ -152,7 +152,7 @@ export function validateTransportExecutionPlanResult(result: unknown): Transport
   if (result.decision !== "dry_run_execution_plan_ready" && result.decision !== "execution_plan_blocked" && result.decision !== "invalid_execution_plan_input") issue(issues, "decision", "invalid_decision", "decision must be a T055 execution plan decision");
   validateApprovalRef(result.approval_ref, issues);
   validateRequestRef(result.request_ref, issues);
-  validateSteps(result.steps, result.status === "invalid", issues);
+  validateSteps(result.steps, result.status === "invalid", result.request_ref, issues);
   validateRuntimeGate(result.runtime_gate, issues);
   validateGuards(result.guards, issues);
   validateDryRun(result.dry_run, issues);
@@ -304,7 +304,7 @@ function validateRequestRef(value: unknown, issues: TransportExecutionPlanIssue[
   if (value.repository_full_name !== null && (typeof value.repository_full_name !== "string" || !value.repository_full_name.includes("/"))) issue(issues, "request_ref.repository_full_name", "invalid_repository", "repository_full_name must be owner/repo when present");
 }
 
-function validateSteps(value: unknown, allowEmpty: boolean, issues: TransportExecutionPlanIssue[]): void {
+function validateSteps(value: unknown, allowEmpty: boolean, requestRef: unknown, issues: TransportExecutionPlanIssue[]): void {
   if (!Array.isArray(value)) { issue(issues, "steps", "steps_required", "steps must be an array"); return; }
   if (!allowEmpty && value.length === 0) issue(issues, "steps", "steps_required", "ready or blocked plans must carry steps");
   const seen = new Set<string>();
@@ -317,10 +317,31 @@ function validateSteps(value: unknown, allowEmpty: boolean, issues: TransportExe
     if (entry.status !== "planned_not_executed" && entry.status !== "blocked") issue(issues, `${path}.status`, "invalid_step_status", "step status must be planned_not_executed or blocked");
     if (entry.method !== null && entry.method !== "POST") issue(issues, `${path}.method`, "invalid_method", "transport plan method must be POST or null");
     if (typeof entry.path !== "string" || entry.path.includes("/merge")) issue(issues, `${path}.path`, "unsafe_step_path", "step path must be local or a non-merge GitHub endpoint");
+    validateActionPath(entry, path, requestRef, issues);
     if (entry.body_digest !== null && (typeof entry.body_digest !== "string" || !DIGEST.test(entry.body_digest))) issue(issues, `${path}.body_digest`, "invalid_body_digest", "body_digest must be stable when present");
     if (entry.requires_future_live_approval !== true) issue(issues, `${path}.requires_future_live_approval`, "future_live_approval_required", "future live approval must be required");
     if (entry.executed !== false) issue(issues, `${path}.executed`, "step_execution_forbidden", "steps must not be executed");
   }
+}
+
+function validateActionPath(entry: Record<string, unknown>, path: string, requestRef: unknown, issues: TransportExecutionPlanIssue[]): void {
+  const repository = isRecord(requestRef) && typeof requestRef.repository_full_name === "string" ? requestRef.repository_full_name : null;
+  const expected = expectedStepPath(entry.action, repository);
+  if (expected !== null && entry.path !== expected) issue(issues, `${path}.path`, "action_path_mismatch", "step path must match its action");
+  if (entry.action === "validate_approval") {
+    if (entry.method !== null || entry.after !== null || entry.body_digest !== null) issue(issues, path, "approval_step_shape_mismatch", "approval validation step must remain local and bodyless");
+  } else if (entry.method !== "POST") {
+    issue(issues, `${path}.method`, "invalid_method", "transport action steps must use POST");
+  }
+}
+
+function expectedStepPath(action: unknown, repository: string | null): string | null {
+  if (action === "validate_approval") return "local://approval-verification";
+  if (repository === null) return null;
+  if (action === "create_pull_request") return `/repos/${repository}/pulls`;
+  if (action === "add_labels") return `/repos/${repository}/issues/{pull_number}/labels`;
+  if (action === "request_reviewers") return `/repos/${repository}/pulls/{pull_number}/requested_reviewers`;
+  return null;
 }
 
 function validateRuntimeGate(value: unknown, issues: TransportExecutionPlanIssue[]): void {

@@ -195,6 +195,20 @@ describe("T055 transport execution plan", () => {
     assert.equal(validateTransportExecutionPlanResult(mergePath).ok, false);
     assert.ok(validateTransportExecutionPlanResult(mergePath).issues.some((entry) => entry.code === "unsafe_step_path"));
 
+    const wrongActionPath = {
+      ...result,
+      steps: result.steps.map((entry) => entry.action === "add_labels" ? { ...entry, path: "/repos/hiroshitanaka-creator/ForgeRoot/pulls/{pull_number}/requested_reviewers" } : entry),
+    };
+    assert.equal(validateTransportExecutionPlanResult(wrongActionPath).ok, false);
+    assert.ok(validateTransportExecutionPlanResult(wrongActionPath).issues.some((entry) => entry.code === "action_path_mismatch"));
+
+    const remoteApprovalStep = {
+      ...result,
+      steps: [{ ...result.steps[0], method: "POST", path: "/repos/hiroshitanaka-creator/ForgeRoot/pulls", body_digest: "sha-fnv1a-feed0001" }, ...result.steps.slice(1)],
+    };
+    assert.equal(validateTransportExecutionPlanResult(remoteApprovalStep).ok, false);
+    assert.ok(validateTransportExecutionPlanResult(remoteApprovalStep).issues.some((entry) => entry.code === "approval_step_shape_mismatch" || entry.code === "action_path_mismatch"));
+
     const staleDigest = { ...result, execution_plan_digest: "sha-fnv1a-00000000" };
     assert.equal(validateTransportExecutionPlanResult(staleDigest).ok, false);
     assert.ok(validateTransportExecutionPlanResult(staleDigest).issues.some((entry) => entry.code === "execution_plan_digest_mismatch"));

@@ -268,11 +268,33 @@ function validatePostCreateRequests(value: MutationPrTransportResult["post_creat
     const path = `post_create_requests[${index}]`;
     if (!isRecord(request)) { issue(issues, path, "object_required", "post-create request must be an object"); continue; }
     if (request.method !== "POST" || request.after !== "create_pull_request" || request.requires_pull_number !== true) issue(issues, path, "invalid_post_create_request", "post-create request must be after create_pull_request");
+    if (request.name !== "add_labels_to_pull_request_issue" && request.name !== "request_pull_request_reviewers") issue(issues, `${path}.name`, "invalid_post_create_request_name", "post-create request name must be known");
     if (typeof request.path_template !== "string" || request.path_template.includes("/merge")) issue(issues, `${path}.path_template`, "merge_endpoint_forbidden", "merge endpoint is forbidden");
     if (repository !== null) {
-      const allowed = request.path_template === `/repos/${repository.owner}/${repository.repo}/issues/{pull_number}/labels` || request.path_template === `/repos/${repository.owner}/${repository.repo}/pulls/{pull_number}/requested_reviewers`;
-      if (!allowed) issue(issues, `${path}.path_template`, "path_mismatch", "post-create request path must target PR metadata endpoints");
+      const labelsPath = `/repos/${repository.owner}/${repository.repo}/issues/{pull_number}/labels`;
+      const reviewersPath = `/repos/${repository.owner}/${repository.repo}/pulls/{pull_number}/requested_reviewers`;
+      if (request.name === "add_labels_to_pull_request_issue" && request.path_template !== labelsPath) issue(issues, `${path}.path_template`, "path_mismatch", "label requests must target the issue labels endpoint");
+      else if (request.name === "request_pull_request_reviewers" && request.path_template !== reviewersPath) issue(issues, `${path}.path_template`, "path_mismatch", "reviewer requests must target the requested reviewers endpoint");
+      else if (request.name !== "add_labels_to_pull_request_issue" && request.name !== "request_pull_request_reviewers" && request.path_template !== labelsPath && request.path_template !== reviewersPath) issue(issues, `${path}.path_template`, "path_mismatch", "post-create request path must target PR metadata endpoints");
     }
+    validatePostCreateBody(request as NonNullable<MutationPrTransportResult["post_create_requests"]>[number], path, issues);
+  }
+}
+
+function validatePostCreateBody(request: NonNullable<MutationPrTransportResult["post_create_requests"]>[number], path: string, issues: MutationPrTransportIssue[]): void {
+  const body = isRecord(request.body) ? request.body : null;
+  if (body === null) {
+    issue(issues, `${path}.body`, "body_required", "post-create request body is required");
+    return;
+  }
+  if (request.name === "add_labels_to_pull_request_issue") {
+    if (!Array.isArray(body.labels) || body.labels.some((entry) => typeof entry !== "string" || entry.length === 0)) issue(issues, `${path}.body.labels`, "invalid_labels_body", "label requests must carry labels");
+    if ("reviewers" in body || "team_reviewers" in body) issue(issues, `${path}.body`, "post_create_body_mismatch", "label requests must not carry reviewer body fields");
+  }
+  if (request.name === "request_pull_request_reviewers") {
+    if (!Array.isArray(body.reviewers) || body.reviewers.some((entry) => typeof entry !== "string" || entry.length === 0)) issue(issues, `${path}.body.reviewers`, "invalid_reviewers_body", "reviewer requests must carry reviewers");
+    if (!Array.isArray(body.team_reviewers)) issue(issues, `${path}.body.team_reviewers`, "invalid_team_reviewers_body", "reviewer requests must carry team_reviewers");
+    if ("labels" in body) issue(issues, `${path}.body`, "post_create_body_mismatch", "reviewer requests must not carry labels");
   }
 }
 

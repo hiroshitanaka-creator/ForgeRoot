@@ -201,6 +201,36 @@ describe("T052 mutation PR transport", () => {
     assert.equal(validateMutationPrTransportResult(mergeEndpoint).ok, false);
     assert.ok(validateMutationPrTransportResult(mergeEndpoint).issues.some((entry) => entry.code === "merge_endpoint_forbidden" || entry.code === "path_mismatch"));
 
+    const mismatchedPostCreateName = {
+      ...result,
+      post_create_requests: [
+        { ...result.post_create_requests[0], name: "request_pull_request_reviewers" },
+        result.post_create_requests[1],
+      ],
+    };
+    assert.equal(validateMutationPrTransportResult(mismatchedPostCreateName).ok, false);
+    assert.ok(validateMutationPrTransportResult(mismatchedPostCreateName).issues.some((entry) => entry.code === "path_mismatch" || entry.code === "post_create_body_mismatch"));
+
+    const labelRequestWithReviewerBody = {
+      ...result,
+      post_create_requests: [
+        { ...result.post_create_requests[0], body: { reviewers: ["maintainer-one"], team_reviewers: [] } },
+        result.post_create_requests[1],
+      ],
+    };
+    assert.equal(validateMutationPrTransportResult(labelRequestWithReviewerBody).ok, false);
+    assert.ok(validateMutationPrTransportResult(labelRequestWithReviewerBody).issues.some((entry) => entry.code === "invalid_labels_body" || entry.code === "post_create_body_mismatch"));
+
+    const reviewerRequestWithLabelBody = {
+      ...result,
+      post_create_requests: [
+        result.post_create_requests[0],
+        { ...result.post_create_requests[1], body: { labels: ["t052"] } },
+      ],
+    };
+    assert.equal(validateMutationPrTransportResult(reviewerRequestWithLabelBody).ok, false);
+    assert.ok(validateMutationPrTransportResult(reviewerRequestWithLabelBody).issues.some((entry) => entry.code === "invalid_reviewers_body" || entry.code === "post_create_body_mismatch"));
+
     const defaultHead = {
       ...result,
       primary_request: { ...result.primary_request, body: { ...result.primary_request.body, head: "main" } },

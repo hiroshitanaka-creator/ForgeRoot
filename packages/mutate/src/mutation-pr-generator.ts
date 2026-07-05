@@ -597,7 +597,7 @@ function emptyGuard(): EvolutionGuardDecisionResult {
     decision: "invalid_evolution_guard_input",
     reasons: [],
     proposal: emptyProposal(),
-    routing_ref: { routing_id: "", routing_digest: "", schema_ref: "", route_ids: [], required_reviews: 0, required_quorum: 0, target_paths: [] },
+    routing_ref: { routing_id: "", routing_digest: "", schema_ref: "", route_ids: [], reviewer_refs: [], required_reviews: 0, required_quorum: 0, target_paths: [] },
     reviews: [],
     quorum: { required_reviews: 0, received_reviews: 0, required_quorum: 0, approval_count: 0, rejection_count: 0, hold_count: 0, blocking_finding_count: 0, missing_route_ids: [] },
     guardrails: { mutation_execution_authorized: false, mutation_pr_generation_allowed: false, github_transport_authorized: false, approval_record_written: false, human_review_required_before_execution: true, human_review_required_before_merge: true },

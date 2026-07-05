@@ -390,6 +390,7 @@ function reasonsForBlocked(ledger: TransportReadinessLedgerResult, summary: Appr
 
 function validateApproved(result: Record<string, unknown>, summary: ApprovalReceiptVerifierResult["approval_summary"] | null, issues: ApprovalReceiptVerifierIssue[]): void {
   if (result.decision !== "human_approval_verified") issue(issues, "decision", "approved_decision_mismatch", "approved status must use human_approval_verified");
+  if (isRecord(result.ledger_ref) && result.ledger_ref.ledger_status !== "ready") issue(issues, "ledger_ref.ledger_status", "approved_ledger_not_ready", "approved results must reference a ready ledger");
   if (summary !== null && (summary.missing_approvals > 0 || summary.rejected_count > 0 || summary.hold_count > 0)) issue(issues, "approval_summary", "approved_with_unmet_receipts", "approved results require enough approvals and no reject or hold receipts");
   if (result.issues !== undefined) issue(issues, "issues", "approved_issues_forbidden", "approved results must not carry issues");
 }

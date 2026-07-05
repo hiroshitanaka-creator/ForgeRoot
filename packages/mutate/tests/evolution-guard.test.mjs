@@ -299,6 +299,35 @@ describe("T050 EvolutionGuard", () => {
     }
   });
 
+  it("rejects ready guard manifests with review identities that do not match routed reviewers", () => {
+    const result = runEvolutionGuard(input());
+    assert.equal(result.status, "decision_ready", JSON.stringify(result, null, 2));
+
+    const wrongReviewer = {
+      ...result,
+      reviews: [{ ...result.reviews[0], reviewer_id: "other-reviewer" }, ...result.reviews.slice(1)],
+    };
+    const wrongReviewerValidation = validateEvolutionGuardDecision(wrongReviewer);
+    assert.equal(wrongReviewerValidation.ok, false);
+    assert.ok(wrongReviewerValidation.issues.some((entry) => entry.code === "reviewer_id_mismatch"));
+
+    const wrongIndependenceKey = {
+      ...result,
+      reviews: [{ ...result.reviews[0], independence_key: "org-other" }, ...result.reviews.slice(1)],
+    };
+    const wrongKeyValidation = validateEvolutionGuardDecision(wrongIndependenceKey);
+    assert.equal(wrongKeyValidation.ok, false);
+    assert.ok(wrongKeyValidation.issues.some((entry) => entry.code === "independence_key_mismatch"));
+
+    const missingReviewerRefs = {
+      ...result,
+      routing_ref: { ...result.routing_ref, reviewer_refs: [] },
+    };
+    const missingRefsValidation = validateEvolutionGuardDecision(missingReviewerRefs);
+    assert.equal(missingRefsValidation.ok, false);
+    assert.ok(missingRefsValidation.issues.some((entry) => entry.code === "reviewer_refs_count_mismatch" || entry.code === "reviewer_ref_missing"));
+  });
+
   it("clones proposal and review evidence before returning", () => {
     const candidate = input();
     const result = runEvolutionGuard(candidate);

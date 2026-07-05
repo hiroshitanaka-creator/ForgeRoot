@@ -202,6 +202,8 @@ function normalizeInput(input: unknown): {
 
 function validateReady(result: Record<string, unknown>, issues: ExecutionArtifactReceiptIssue[]): void {
   if (result.decision !== "execution_artifact_receipt_ready") issue(issues, "decision", "ready_decision_mismatch", "ready status must use execution_artifact_receipt_ready");
+  if (isRecord(result.plan_ref) && result.plan_ref.execution_plan_status !== "execution_plan_ready") issue(issues, "plan_ref.execution_plan_status", "ready_plan_status_required", "ready receipts must reference an execution_plan_ready plan");
+  if (isRecord(result.artifact) && result.artifact.step_count === 0) issue(issues, "artifact.step_count", "ready_steps_required", "ready receipts must summarize at least one step");
   if (result.issues !== undefined) issue(issues, "issues", "ready_issues_forbidden", "ready receipts must not carry issues");
 }
 
@@ -228,6 +230,12 @@ function validateArtifact(value: unknown, issues: ExecutionArtifactReceiptIssue[
   if (value.kind !== "dry_run_transport_execution_summary") issue(issues, "artifact.kind", "invalid_artifact_kind", "artifact kind must be dry_run_transport_execution_summary");
   if (typeof value.step_count !== "number" || !Number.isSafeInteger(value.step_count) || value.step_count < 0) issue(issues, "artifact.step_count", "invalid_step_count", "step_count must be non-negative");
   if (!isRecord(value.action_counts)) issue(issues, "artifact.action_counts", "action_counts_required", "action_counts must be present");
+  else {
+    const counts = Object.values(value.action_counts as Record<string, unknown>);
+    if (counts.some((entry) => typeof entry !== "number" || !Number.isSafeInteger(entry) || entry < 0)) issue(issues, "artifact.action_counts", "invalid_action_counts", "action_counts values must be non-negative integers");
+    const total = counts.reduce<number>((sum, entry) => sum + (typeof entry === "number" && Number.isSafeInteger(entry) ? entry : 0), 0);
+    if (Number.isSafeInteger(value.step_count) && value.step_count !== total) issue(issues, "artifact.action_counts", "action_counts_mismatch", "action_counts must sum to step_count");
+  }
   if (typeof value.step_digest !== "string" || !DIGEST.test(value.step_digest)) issue(issues, "artifact.step_digest", "invalid_step_digest", "step_digest must be stable");
   if (value.write_target !== null) issue(issues, "artifact.write_target", "write_target_forbidden", "artifact receipt must not declare a write target");
 }

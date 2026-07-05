@@ -233,6 +233,10 @@ describe("T054 approval receipt verifier", () => {
     const approvedWithMissing = { ...result, approval_summary: { ...result.approval_summary, missing_approvals: 1 } };
     assert.equal(validateApprovalReceiptVerifierResult(approvedWithMissing).ok, false);
     assert.ok(validateApprovalReceiptVerifierResult(approvedWithMissing).issues.some((entry) => entry.code === "approved_with_unmet_receipts" || entry.code === "approval_summary_mismatch"));
+
+    const approvedWithBlockedLedgerRef = { ...result, ledger_ref: { ...result.ledger_ref, ledger_status: "blocked" } };
+    assert.equal(validateApprovalReceiptVerifierResult(approvedWithBlockedLedgerRef).ok, false);
+    assert.ok(validateApprovalReceiptVerifierResult(approvedWithBlockedLedgerRef).issues.some((entry) => entry.code === "approved_ledger_not_ready"));
   });
 
   it("supports stable aliases", () => {

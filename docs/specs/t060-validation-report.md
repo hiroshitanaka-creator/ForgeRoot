@@ -6,7 +6,7 @@ Validation performed:
 
 - `npm.cmd --prefix packages\mutate test`
   - Result: passed after rerunning with workspace write permission for `dist/`.
-  - Coverage: 104 tests across T046-T060 mutate package suites.
+  - Coverage: 106 tests across T046-T060 mutate package suites.
 - `npm.cmd test`
   - Result: passed after rerunning with workspace write permission for package
     `dist/` outputs.
@@ -20,5 +20,10 @@ propagation, tampered T059 invalidation, non-persistence, null write targets,
 side-effect read-back validation, unsafe label rejection, invalid-result
 read-back validation, token/private-key rejection in issue diagnostics, and
 alias exports.
+
+PR #18 self-audit also covered upstream T049-T059 validator hardening for
+route/reviewer identity refs, dry-run transport endpoint/body matching,
+required readiness checks, approved-ledger refs, action/path matching,
+artifact-summary consistency, and completion-gate lineage invariants.
 
 Not run: `cargo test --workspace --locked`; `cargo` is not available on PATH.

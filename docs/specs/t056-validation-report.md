@@ -25,12 +25,14 @@ Task: T056 dry-run execution artifact receipt
   manifests fall back to the safe default label instead of echoing unsafe input.
 - Read-back validation rejects write targets, side effects, guard weakening, and
   stale digests.
+- Read-back validation rejects ready receipts that reference a non-ready T055
+  plan or whose action counts do not sum to `step_count`.
 - PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` passed
-  104/104 across T046-T060 after secret-material hardening.
+  106/106 across T046-T060 after artifact consistency hardening.
 
 ## Not run locally
 
 - `cargo test --workspace --locked` was not run because `cargo` is not available
   on PATH in this environment.
-- Root `npm.cmd test` and `git diff --check` are pending for the wider task
-  batch after the next implementation step.
+- `npm.cmd test` passed for all npm workspaces.
+- `git diff --check` passed with LF/CRLF warnings only.

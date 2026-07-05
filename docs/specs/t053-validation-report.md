@@ -24,10 +24,14 @@ Task: T053 transport readiness replay ledger
   invalidated.
 - Read-back validation rejects side effects, guard weakening, stale digests, and
   ready ledgers with failed required checks.
+- Caller-provided `required_check_ids` are unioned with built-in readiness
+  checks, so T052 readiness cannot be bypassed by overriding the list.
+- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` - 106/106
+  passing across T046-T060 after required-check hardening.
 
 ## Not run locally
 
 - `cargo test --workspace --locked` was not run because `cargo` is not available
   on PATH in this environment.
-- Root `npm.cmd test` and `git diff --check` are pending for the wider task
-  batch after the next implementation step.
+- `npm.cmd test` passed for all npm workspaces.
+- `git diff --check` passed with LF/CRLF warnings only.
