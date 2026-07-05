@@ -42,3 +42,23 @@ API alias `applyToolRoutingPatchDryRun` is exported for blueprint consumers:
 T047 never mutates `.forge` files directly. It does not implement tools, create
 MCP servers, expand external network permissions, weaken policies, call GitHub
 APIs, or auto-merge.
+
+## T048 speciation proposal
+
+`createSpeciationProposal` consumes parent agent genome references, child role
+drafts, rationale, approval metadata, and optional T046/T047 supporting
+mutation refs. It produces a deterministic lineage proposal manifest:
+
+- `split` requires one parent and at least two child drafts
+- `merge` requires at least two parents and exactly one child draft
+- parent documents must be canonical `.forge/agents/<species>.forge` agent
+  content with evolution lineage metadata
+- child paths, species, and `speciation_id` values must be unique and cannot
+  silently replace a parent
+- rationale and Class C approval metadata are required
+- prompt-patch and tool-routing manifest refs can be recorded as supporting
+  evidence without executing them
+
+T048 never writes child genomes, replaces parent genomes, calls GitHub APIs, or
+auto-merges. It is a review surface for later EvolutionGuard and lineage
+threshold tasks.

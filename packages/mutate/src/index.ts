@@ -50,3 +50,34 @@ export type {
   ToolRoutingValidationIssue,
   ToolRoutingValidationResult,
 } from "./tool-routing.js";
+
+export {
+  SPECIATION_CONTRACT,
+  SPECIATION_SCHEMA_REF,
+  SPECIATION_VERSION,
+  createSpeciationProposal,
+  runSpeciationProposal,
+  runT048SpeciationProposal,
+  validateSpeciationProposal,
+  validateT048SpeciationProposal,
+} from "./speciation.js";
+export type {
+  SpeciationApprovalMetadata,
+  SpeciationChildDraft,
+  SpeciationChildSummary,
+  SpeciationDecision,
+  SpeciationInput,
+  SpeciationLineageEvent,
+  SpeciationMode,
+  SpeciationMutationRecord,
+  SpeciationParentSummary,
+  SpeciationParentTarget,
+  SpeciationProposalResult,
+  SpeciationRationale,
+  SpeciationReviewGate,
+  SpeciationStatus,
+  SpeciationSupportingMutation,
+  SpeciationSupportingMutationType,
+  SpeciationValidationIssue,
+  SpeciationValidationResult,
+} from "./speciation.js";
