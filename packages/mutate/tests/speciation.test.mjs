@@ -302,6 +302,7 @@ describe("T048 speciation proposal", () => {
       assert.doesNotThrow(() => { result = createSpeciationProposal(input); }, name);
       assert.equal(result.status, "rejected", name);
       assert.ok(result.reasons.includes(reason), `${name} -> ${JSON.stringify(result.reasons)}`);
+      if (name === "out-of-scope supporting mutation") assert.equal(result.decision, "blocked_by_forbidden_target");
       assert.deepEqual(validateSpeciationProposal(result), { ok: true, issues: [] }, name);
     }
   });
@@ -455,6 +456,59 @@ describe("T048 speciation proposal", () => {
     assert.equal(executablePatchValidation.ok, false);
     assert.ok(executablePatchValidation.issues.some((entry) => entry.code === "invalid_patch_format"));
     assert.ok(executablePatchValidation.issues.some((entry) => entry.code === "patch_ref_forbidden"));
+
+    const withoutRequester = {
+      ...result,
+      approval: { ...result.approval, requested_by: "" },
+    };
+    const requesterValidation = validateSpeciationProposal(withoutRequester);
+    assert.equal(requesterValidation.ok, false);
+    assert.ok(requesterValidation.issues.some((entry) => entry.code === "missing_requested_by"));
+
+    const withoutRationale = {
+      ...result,
+      rationale: { summary: "", expected_benefits: [], risks: [] },
+    };
+    const rationaleValidation = validateSpeciationProposal(withoutRationale);
+    assert.equal(rationaleValidation.ok, false);
+    assert.ok(rationaleValidation.issues.some((entry) => entry.code === "missing_rationale_summary"));
+    assert.ok(rationaleValidation.issues.some((entry) => entry.code === "missing_expected_benefits"));
+    assert.ok(rationaleValidation.issues.some((entry) => entry.code === "missing_risks"));
+
+    const withAcceptedIssues = {
+      ...result,
+      issues: [{ path: "children[0]", code: "tampered", message: "tampered issue" }],
+    };
+    const acceptedIssuesValidation = validateSpeciationProposal(withAcceptedIssues);
+    assert.equal(acceptedIssuesValidation.ok, false);
+    assert.ok(acceptedIssuesValidation.issues.some((entry) => entry.code === "accepted_issues_forbidden"));
+
+    const withoutReadyReasons = {
+      ...result,
+      reasons: [],
+    };
+    const readyReasonsValidation = validateSpeciationProposal(withoutReadyReasons);
+    assert.equal(readyReasonsValidation.ok, false);
+    assert.ok(readyReasonsValidation.issues.some((entry) => entry.code === "accepted_reasons_mismatch"));
+
+    const withStrippedReasons = { ...result };
+    delete withStrippedReasons.reasons;
+    assert.doesNotThrow(() => validateSpeciationProposal(withStrippedReasons));
+    const strippedReasonsValidation = validateSpeciationProposal(withStrippedReasons);
+    assert.equal(strippedReasonsValidation.ok, false);
+    assert.ok(strippedReasonsValidation.issues.some((entry) => entry.path === "reasons" && entry.code === "array_required"));
+
+    for (const malformed of [
+      { name: "parent entry", manifest: { ...result, parents: [null] }, code: "object_required" },
+      { name: "child entry", manifest: { ...result, children: [null] }, code: "object_required" },
+      { name: "supporting mutation entry", manifest: { ...result, supporting_mutations: [null] }, code: "object_required" },
+      { name: "lineage entry", manifest: { ...result, lineage_events: [null] }, code: "object_required" },
+    ]) {
+      assert.doesNotThrow(() => validateSpeciationProposal(malformed.manifest), malformed.name);
+      const validation = validateSpeciationProposal(malformed.manifest);
+      assert.equal(validation.ok, false, malformed.name);
+      assert.ok(validation.issues.some((entry) => entry.code === malformed.code), malformed.name);
+    }
 
     const rejected = createSpeciationProposal(splitInput({
       children: [

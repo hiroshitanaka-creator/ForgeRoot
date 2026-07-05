@@ -288,10 +288,24 @@ function canValidateProposalShape(result: Partial<SpeciationProposalResult>, iss
       ok = false;
     }
   };
+  const requireRecordEntries = (value: unknown, path: string): void => {
+    if (!Array.isArray(value)) return;
+    for (const [index, entry] of value.entries()) {
+      if (!isRecord(entry)) {
+        issue(issues, `${path}[${index}]`, "object_required", `${path}[${index}] must be an object`);
+        ok = false;
+      }
+    }
+  };
   requireArray(result.parents, "parents");
   requireArray(result.children, "children");
+  requireArray(result.reasons, "reasons");
   requireArray(result.supporting_mutations, "supporting_mutations");
   requireArray(result.lineage_events, "lineage_events");
+  requireRecordEntries(result.parents, "parents");
+  requireRecordEntries(result.children, "children");
+  requireRecordEntries(result.supporting_mutations, "supporting_mutations");
+  requireRecordEntries(result.lineage_events, "lineage_events");
   if (!isRecord(result.rationale)) {
     issue(issues, "rationale", "rationale_required", "speciation proposals must carry rationale metadata");
     ok = false;
@@ -310,12 +324,16 @@ function canValidateProposalShape(result: Partial<SpeciationProposalResult>, iss
 
 function validateAcceptedProposalShape(result: SpeciationProposalResult, issues: SpeciationValidationIssue[]): void {
   if (result.decision !== "speciation_proposal_ready") issue(issues, "decision", "invalid_accepted_decision", "accepted speciation proposals must use speciation_proposal_ready");
+  if (!arraysEqual(result.reasons, ["speciation_proposal_valid", "class_c_human_review_required", "silent_replacement_prevented"])) issue(issues, "reasons", "accepted_reasons_mismatch", "accepted speciation proposals must carry canonical ready reasons");
+  if (result.issues !== undefined) issue(issues, "issues", "accepted_issues_forbidden", "accepted speciation proposals must not carry validation issues");
   if (result.mutation_record.decision !== "proposed") issue(issues, "mutation_record.decision", "invalid_accepted_mutation_record_decision", "accepted speciation mutation records must be proposed");
   if (result.mode !== "split" && result.mode !== "merge") issue(issues, "mode", "invalid_speciation_mode", "mode must be split or merge");
   if (result.mode === "split" && result.parents.length !== 1) issue(issues, "parents", "split_requires_one_parent", "split speciation requires exactly one parent");
   if (result.mode === "split" && result.children.length < 2) issue(issues, "children", "split_requires_multiple_children", "split speciation requires at least two children");
   if (result.mode === "merge" && result.parents.length < 2) issue(issues, "parents", "merge_requires_multiple_parents", "merge speciation requires at least two parents");
   if (result.mode === "merge" && result.children.length !== 1) issue(issues, "children", "merge_requires_one_child", "merge speciation requires exactly one child");
+  validateRationale(result.rationale, issues);
+  validateApproval(result.approval, issues);
   validateAcceptedParentSummaries(result.parents, issues);
   validateAcceptedChildSummaries(result.children, issues);
   validateAcceptedTargetPaths(result, issues);
@@ -380,6 +398,20 @@ function validateAcceptedLineageEvent(result: SpeciationProposalResult, issues: 
     return;
   }
   const lineageEvent = result.lineage_events[0];
+  if (!isRecord(lineageEvent)) {
+    issue(issues, "lineage_events[0]", "object_required", "accepted lineage event must be an object");
+    return;
+  }
+  if (!Array.isArray(lineageEvent.parent_species)) issue(issues, "lineage_events[0].parent_species", "array_required", "lineage parent_species must be an array");
+  if (!Array.isArray(lineageEvent.child_species)) issue(issues, "lineage_events[0].child_species", "array_required", "lineage child_species must be an array");
+  if (!Array.isArray(lineageEvent.parent_speciation_ids)) issue(issues, "lineage_events[0].parent_speciation_ids", "array_required", "lineage parent_speciation_ids must be an array");
+  if (!Array.isArray(lineageEvent.child_speciation_ids)) issue(issues, "lineage_events[0].child_speciation_ids", "array_required", "lineage child_speciation_ids must be an array");
+  if (!Array.isArray(lineageEvent.supporting_mutation_ids)) issue(issues, "lineage_events[0].supporting_mutation_ids", "array_required", "lineage supporting_mutation_ids must be an array");
+  if (!Array.isArray(lineageEvent.parent_species) ||
+    !Array.isArray(lineageEvent.child_species) ||
+    !Array.isArray(lineageEvent.parent_speciation_ids) ||
+    !Array.isArray(lineageEvent.child_speciation_ids) ||
+    !Array.isArray(lineageEvent.supporting_mutation_ids)) return;
   const expectedType = result.mode === "split" ? "role_split_proposed" : "role_merge_proposed";
   if (lineageEvent.type !== expectedType) issue(issues, "lineage_events[0].type", "lineage_event_type_mismatch", "lineage event type must match speciation mode");
   if (!arraysEqual(lineageEvent.parent_species, result.parents.map((entry) => entry.species))) issue(issues, "lineage_events[0].parent_species", "lineage_parent_species_mismatch", "lineage parent_species must match proposal parents");
@@ -567,7 +599,10 @@ function validateSupportingMutations(supportingMutations: readonly SpeciationSup
     if (typeof mutation.mutation_id !== "string" || !MUTATION_ID.test(mutation.mutation_id)) issue(issues, `${prefix}.mutation_id`, "invalid_supporting_mutation_id", "supporting mutation_id must match mut-<8 hex chars>");
     else if (seen.has(mutation.mutation_id)) issue(issues, `${prefix}.mutation_id`, "duplicate_supporting_mutation_id", `${mutation.mutation_id} is listed more than once`);
     seen.add(mutation.mutation_id);
-    if (!allowedPathSet.has(mutation.target_path)) issue(issues, `${prefix}.target_path`, "supporting_mutation_target_out_of_scope", "supporting mutation target_path must be one of the parent or child agent paths");
+    if (!allowedPathSet.has(mutation.target_path)) {
+      if (typeof mutation.target_path !== "string" || AGENT_DOCUMENT_PATH.exec(mutation.target_path) === null) issue(issues, `${prefix}.target_path`, "forbidden_document_path", "supporting mutation target_path must be a canonical agent document when provided");
+      issue(issues, `${prefix}.target_path`, "supporting_mutation_target_out_of_scope", "supporting mutation target_path must be one of the parent or child agent paths");
+    }
   }
 }
 
