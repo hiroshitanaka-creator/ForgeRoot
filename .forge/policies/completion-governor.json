@@ -1,0 +1,36 @@
+{
+  "schema": "forgeroot.completion-governor.v1",
+  "purpose": "Prevent ForgeRoot from drifting into docs-only, manifest-only, or review-debt-heavy PRs while the repository is being finished.",
+  "mode": "strict_completion",
+  "thresholds": {
+    "max_active_codex_threads": 3,
+    "max_active_codex_p1_or_p0": 0,
+    "max_active_codex_p2": 0,
+    "max_docs_line_ratio": 0.4,
+    "max_docs_files_when_implementation_exists": 3,
+    "min_implementation_or_governance_files": 1
+  },
+  "approved_labels": {
+    "docs_only": [
+      "governor/docs-only-approved",
+      "docs-only-approved"
+    ],
+    "manifest_only": [
+      "governor/manifest-only-approved",
+      "manifest-only-approved"
+    ]
+  },
+  "blocked_patterns": {
+    "docs_only_without_override": true,
+    "manifest_only_without_override": true,
+    "missing_verification_evidence": true,
+    "unresolved_codex_p1_or_p2": true,
+    "new_task_while_review_debt_exists": true
+  },
+  "completion_bias": [
+    "prefer executable source over prose",
+    "prefer tests over status reports",
+    "prefer current PR repair over next PR creation",
+    "prefer real branch/worktree/sandbox/transport behavior over new proposal surfaces"
+  ]
+}
