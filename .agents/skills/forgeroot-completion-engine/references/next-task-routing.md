@@ -19,7 +19,6 @@ Use this exact format:
   - ドキュメント不足:
   - CI/CD不足:
   - セキュリティ確認不足:
-  - リリース準備不足:
 - 次に行うべき最優先タスク:
   - タスク名:
   - なぜ次にやるべきか:
@@ -32,7 +31,7 @@ Use this exact format:
   - 候補1:
   - 候補2:
 - 自律継続可否:
-  - 継続可能 / ユーザー判断が必要
+  - 自律継続可 / ユーザー判断が必要
 - ユーザーに説明する次の計画:
   - 中学生でも分かる言葉で次の作業計画を書く。
 </next_task_routing>
@@ -56,10 +55,14 @@ Documentation stays near the end unless documentation itself blocks usage.
 
 If the user has given a broad repository-completion mandate, continue by selecting the next task yourself. Before starting the next major change, again provide the human-facing plan from `output-contract.md`.
 
+Use `自律継続可` when the next task can be selected from repository evidence and does not require a new product, legal, credential, billing, merge, approval, or irreversible external-action decision from the user.
+
 Say:
 
 ```text
-次に最も効果が大きい作業はこれです。理由はこれです。この順番で進めます。
+次に最も効果が大きい作業はこれです。
+理由はこれです。
+この順番で進めます。
 ```
 
 Do not ask:

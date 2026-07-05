@@ -34,7 +34,7 @@ Before any branch, PR, large patch, dependency change, schema change, broad refa
 ### 目的
 この作業で何を動くようにするかを、専門用語を避けて説明する。
 ### まず作るもの
-READMEや整理ではなく、最初に作る実際に動く処理を書く。
+最初に作る中心機能を書く。READMEや整理ではなく、実際に動く処理を先に作る。
 ### 確認すること
 既存コードのどこを読み、どの処理とつながっているかを確認する。
 ### 壊さないための確認
@@ -44,6 +44,14 @@ READMEや整理ではなく、最初に作る実際に動く処理を書く。
 ```
 
 Use plain language. If a technical term is necessary, explain it immediately in simple words.
+
+Allowed wording:
+
+```text
+「この人が本当にこのデータを変更してよいか」を確認する処理も見ます。
+```
+
+Avoid unexplained terms such as BOLA, IDOR, transaction boundary, idempotency, or repository pattern.
 
 ## Task Intake
 
@@ -78,8 +86,6 @@ Before any code, patch, diff, or PR body, output:
   - C は A を import している
 - 確認したテスト・検証方法:
   - 実際に見つけたテストコマンドまたは検証手順
-- 確認したリポジトリ指示:
-  - AGENTS.md / README / CI / package scripts など
 - 不明点:
   - なし
 </repo_evidence>
