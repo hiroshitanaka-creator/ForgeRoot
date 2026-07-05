@@ -10,6 +10,44 @@ Directory conventions:
 
 Current specs and reports:
 
+- `specs/t049-t060-re-audit-report.md` - re-audit report for T049-T060 before PR
+- `specs/completion-bundle.md` - T060 completion bundle spec
+- `specs/t060-validation-report.md` - T060 completion bundle validation report
+- `ops/thread-handoff-after-t060.md` - handoff summary after T060
+- `specs/rollout-gate-checklist.md` - T057 rollout gate checklist spec
+- `specs/t057-validation-report.md` - T057 rollout gate checklist validation report
+- `ops/thread-handoff-after-t057.md` - handoff summary after T057
+- `specs/post-transport-audit-plan.md` - T058 post-transport audit plan spec
+- `specs/t058-validation-report.md` - T058 post-transport audit plan validation report
+- `ops/thread-handoff-after-t058.md` - handoff summary after T058
+- `specs/lineage-handoff-pack.md` - T059 lineage handoff pack spec
+- `specs/t059-validation-report.md` - T059 lineage handoff pack validation report
+- `ops/thread-handoff-after-t059.md` - handoff summary after T059
+- `specs/execution-artifact-receipt.md` - T056 dry-run execution artifact receipt spec
+- `specs/t056-validation-report.md` - T056 execution artifact receipt validation report
+- `ops/thread-handoff-after-t056.md` - handoff summary after T056
+- `specs/transport-execution-plan.md` - T055 dry-run transport execution plan spec
+- `specs/t055-validation-report.md` - T055 transport execution plan validation report
+- `ops/thread-handoff-after-t055.md` - handoff summary after T055
+- `specs/approval-receipt-verifier.md` - T054 human approval receipt verifier spec
+- `specs/t054-validation-report.md` - T054 approval receipt verifier validation report
+- `ops/thread-handoff-after-t054.md` - handoff summary after T054
+- `specs/transport-readiness-ledger.md` - T053 dry-run transport readiness replay ledger spec
+- `specs/t053-validation-report.md` - T053 transport readiness ledger validation report
+- `ops/thread-handoff-after-t053.md` - handoff summary after T053
+- `specs/mutation-pr-transport.md` - T052 dry-run mutation PR transport request spec
+- `specs/t052-validation-report.md` - T052 mutation PR transport request validation report
+- `ops/thread-handoff-after-t052.md` - handoff summary after T052
+- `specs/mutation-pr-generator.md` - T051 mutation PR generator manifest spec
+- `specs/t051-validation-report.md` - T051 mutation PR generator validation report
+- `ops/thread-handoff-after-t051.md` - handoff summary after T051
+- `specs/evolution-guard.md` - T050 EvolutionGuard decision manifest spec
+- `specs/t050-validation-report.md` - T050 EvolutionGuard validation report
+- `ops/thread-handoff-after-t050.md` - handoff summary after T050
+- `specs/n-version-audit-routing.md` - T049 N-version audit routing manifest spec
+- `specs/t049-validation-report.md` - T049 N-version audit routing validation report
+- `ops/thread-handoff-after-t049.md` - handoff summary after T049
+
 - `ops/thread-handoff-after-t016.md` — handoff summary for starting a clean T017 planner-runtime thread
 - `ops/thread-handoff-after-t018.md` — handoff summary for starting T019 executor sandbox harness
 - `ops/thread-handoff-after-t019.md` — handoff summary for starting T023 auditor runtime

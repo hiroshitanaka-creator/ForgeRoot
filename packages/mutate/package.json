@@ -1,6 +1,6 @@
 {
   "name": "@forgeroot/mutate",
-  "version": "0.0.0-t048",
+  "version": "0.0.0-t060",
   "private": true,
   "type": "module",
   "description": "ForgeRoot deterministic mutation-proposal packages.",
