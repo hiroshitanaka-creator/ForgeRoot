@@ -31,19 +31,154 @@ jobs:
     name: completion gate
     runs-on: ubuntu-latest
     steps:
-      - name: Check out governor script
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Syntax-check governor
-        run: node --check tools/forge-pr-governor.mjs
-
       - name: Run completion governor
+        uses: actions/github-script@v7
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
-        run: node tools/forge-pr-governor.mjs
+        with:
+          script: |
+            const max = {
+              activeCodexThreads: 3,
+              activeCodexP1: 0,
+              activeCodexP2: 0,
+              docsLineRatio: 0.4,
+              docsFiles: 3,
+              implementationFiles: 1,
+            };
+            const docOnlyLabels = new Set(['governor/docs-only-approved', 'docs-only-approved']);
+            const manifestOnlyLabels = new Set(['governor/manifest-only-approved', 'manifest-only-approved']);
+            const codexLogins = new Set(['chatgpt-codex-connector', 'github-copilot[bot]']);
+            const { owner, repo } = context.repo;
+            const prNumber = Number(process.env.PR_NUMBER);
+            if (!Number.isInteger(prNumber) || prNumber <= 0) {
+              core.setFailed('PR number is required.');
+              return;
+            }
+
+            const { data: pull } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: prNumber });
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: prNumber,
+              per_page: 100,
+            });
+
+            async function listReviewThreads() {
+              const query = `
+                query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      reviewThreads(first: 100, after: $cursor) {
+                        nodes {
+                          isResolved
+                          isOutdated
+                          path
+                          comments(first: 20) {
+                            nodes { author { login } body }
+                          }
+                        }
+                        pageInfo { hasNextPage endCursor }
+                      }
+                    }
+                  }
+                }`;
+              const threads = [];
+              let cursor = null;
+              do {
+                const data = await github.graphql(query, { owner, repo, number: prNumber, cursor });
+                const page = data.repository.pullRequest.reviewThreads;
+                threads.push(...page.nodes);
+                cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+              } while (cursor);
+              return threads;
+            }
+
+            const basename = (path) => path.split('/').pop() || path;
+            const labels = new Set((issue.labels || []).map((label) => typeof label === 'string' ? label : label.name));
+            const hasAnyLabel = (accepted) => [...labels].some((label) => accepted.has(label));
+            const allowDocsOnly = hasAnyLabel(docOnlyLabels);
+            const allowManifestOnly = hasAnyLabel(manifestOnlyLabels);
+            const isGovernance = (path) => path.startsWith('.github/workflows/') ||
+              path === '.github/pull_request_template.md' ||
+              path.startsWith('.forge/skills/') ||
+              path.startsWith('.forge/policies/') ||
+              path.startsWith('tools/') ||
+              path.startsWith('scripts/');
+            const isDoc = (path) => {
+              if (isGovernance(path)) return false;
+              const file = basename(path);
+              return path.startsWith('docs/') || path.includes('/docs/') ||
+                /^README(?: \(\d+\))?\.md$/i.test(file) ||
+                file === 'TASK_PROGRESS.md' ||
+                /(^|\/)(thread-handoff|validation-report|handoff)/i.test(path) ||
+                /\.(md|mdx|rst|adoc|txt)$/i.test(file);
+            };
+            const isImplementation = (path) => {
+              if (isGovernance(path)) return true;
+              if (isDoc(path)) return false;
+              const roots = ['apps/', 'crates/', 'packages/', 'runtime/', 'executor/', 'planner/', 'auditor/', 'pr-composer/', 'github-pr-adapter/', 'approval-checkpoint/', 'rate-governor/', 'forge-demo/', 'schemas/'];
+              return roots.some((root) => path.startsWith(root)) && /\.(ts|tsx|js|jsx|mjs|cjs|rs|py|sh|sql|json|toml|yaml|yml)$/i.test(path);
+            };
+            const body = pull.body || '';
+            const isVerification = (path) => /(^|\/)(test|tests|__tests__)\//i.test(path) ||
+              /\.(test|spec)\.(mjs|js|ts|tsx|rs)$/i.test(basename(path)) ||
+              /validation[-_ ]output|test[-_ ]output|validation[-_ ]report/i.test(path) ||
+              /(^|\n)\s*-?\s*`?(npm|pnpm|yarn|cargo|node|git)\b[^\n]*(test|check|lint|build|clippy|fmt)[^\n]*`?\s*(-|:)?\s*(passed|passing|ok|success|succeeded|[0-9]+\/[0-9]+ passing)/i.test(body);
+            const hasBodyEvidence = /##\s*(Implementation evidence|Implementation|Code changes|Changed files)/i.test(body) &&
+              /##\s*(Verification|Verification result|Test plan|Tests)/i.test(body) &&
+              !/Verification result\s*\n\s*-\s*not run/i.test(body);
+            const hasManifestOnlyLanguage = /\b(manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\b/i.test(`${pull.title || ''}\n${body}`);
+
+            const changed = files.filter((file) => file.status !== 'removed');
+            const docs = changed.filter((file) => isDoc(file.filename));
+            const implementation = changed.filter((file) => isImplementation(file.filename));
+            const verification = changed.filter((file) => isVerification(file.filename));
+            const totalLines = files.reduce((sum, file) => sum + file.additions + file.deletions, 0);
+            const docLines = docs.reduce((sum, file) => sum + file.additions + file.deletions, 0);
+            const docRatio = totalLines > 0 ? docLines / totalLines : 0;
+
+            const threads = await listReviewThreads();
+            const severity = (body) => /P0|critical/i.test(body) ? 'P0' : /P1|high/i.test(body) ? 'P1' : /P2|medium/i.test(body) ? 'P2' : /P3|low/i.test(body) ? 'P3' : 'unknown';
+            const codexThreads = threads.flatMap((thread) => {
+              const comments = thread.comments.nodes.filter((comment) => codexLogins.has(comment.author?.login || '') || /Codex Review|Useful\? React with/i.test(comment.body || ''));
+              if (!comments.length) return [];
+              return [{ active: !thread.isResolved && !thread.isOutdated, severities: comments.map((comment) => severity(comment.body || '')), path: thread.path }];
+            });
+            const active = codexThreads.filter((thread) => thread.active);
+            const activeP1 = active.filter((thread) => thread.severities.includes('P1') || thread.severities.includes('P0')).length;
+            const activeP2 = active.filter((thread) => thread.severities.includes('P2')).length;
+
+            const failures = [];
+            const fail = (message) => { failures.push(message); core.error(message); };
+            const list = (items) => items.slice(0, 8).map((file) => `\`${file.filename || file}\``).join(', ') + (items.length > 8 ? `, +${items.length - 8} more` : '') || 'none';
+
+            if (implementation.length < max.implementationFiles && !allowDocsOnly) fail('No implementation/governance artifact changed. Add executable code, automation, policy skill, tests, or an approved docs-only label.');
+            if (docs.length > 0 && implementation.length === 0 && !allowDocsOnly) fail(`Docs-only drift is blocked. Docs changed: ${list(docs)}.`);
+            if (docRatio > max.docsLineRatio && !allowDocsOnly) fail(`Docs ratio ${Math.round(docRatio * 100)}% exceeds ${Math.round(max.docsLineRatio * 100)}%. Keep docs subordinate to implementation.`);
+            if (docs.length > max.docsFiles && !allowDocsOnly) fail(`Too many documentation files changed (${docs.length}). Limit is ${max.docsFiles} unless explicitly approved.`);
+            if (implementation.length > 0 && verification.length === 0 && !hasBodyEvidence) fail('Implementation changed without test/verification evidence. Add tests, validation artifacts, or passing command results in the PR body.');
+            if (hasManifestOnlyLanguage && !allowManifestOnly) fail('Manifest-only/dry-run/proposal-only work is blocked in completion mode unless explicitly approved by label.');
+            if (!hasBodyEvidence) fail('PR body lacks Implementation evidence and Verification sections. Use the ForgeRoot PR template.');
+            if (activeP1 > max.activeCodexP1) fail(`Active Codex P1/P0 review threads: ${activeP1}. Must be zero.`);
+            if (activeP2 > max.activeCodexP2) fail(`Active Codex P2 review threads: ${activeP2}. Must be zero.`);
+            if (active.length > max.activeCodexThreads) fail(`Active Codex review threads: ${active.length}. Limit is ${max.activeCodexThreads}; collapse review debt before expanding scope.`);
+
+            const summary = [
+              '# Forge PR Governor',
+              '',
+              `- PR: #${prNumber} ${pull.title}`,
+              `- Implementation/governance artifacts: ${implementation.length} (${list(implementation)})`,
+              `- Documentation files: ${docs.length} (${list(docs)})`,
+              `- Verification artifacts/evidence: ${verification.length}`,
+              `- Docs line ratio: ${Math.round(docRatio * 100)}%`,
+              `- Active Codex threads: ${active.length} / total ${codexThreads.length}`,
+              `- Active Codex P1/P0: ${activeP1}`,
+              `- Active Codex P2: ${activeP2}`,
+              '',
+              failures.length ? '## Failures' : '## Result',
+              failures.length ? failures.map((item) => `- ${item}`).join('\n') : 'Governor passed.',
+            ].join('\n');
+            await core.summary.addRaw(summary).write();
+            if (codexThreads.length >= 8) core.warning(`Codex review storm detected: ${codexThreads.length} total Codex threads.`);
+            if (failures.length) core.setFailed(`${failures.length} completion-governor failure(s).`);
