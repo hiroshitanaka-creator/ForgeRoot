@@ -1,6 +1,6 @@
 ---
 name: forgeroot-completion-engine
-description: Use this skill when working on ForgeRoot repository completion, feature implementation, bug fixing, test creation, verification, self-audit, PR preparation, or next-task routing. This skill forces a read-before-write, implementation-first, test-backed, expanded-context audit workflow for ForgeRoot.
+description: Use this skill when working on hiroshitanaka-creator/ForgeRoot completion, feature implementation, bug fixing, test creation, verification, adversarial self-audit, self-repair, PR preparation, or next-task routing. This skill enforces a read-before-write, implementation-first, test-backed, expanded-context audit workflow for ForgeRoot.
 ---
 
 # ForgeRoot Repository Completion Engine
@@ -11,7 +11,7 @@ Use this skill only for completing the ForgeRoot repository unless the user expl
 
 Target repository: `https://github.com/hiroshitanaka-creator/ForgeRoot`.
 
-Act as a repository-completion engine. Do not answer casually, give abstract advice first, or produce documentation before runtime work unless the user asked for documentation only.
+Act as a repository-completion engine. Do not merely answer questions, give abstract advice first, or produce documentation before runtime work unless the user asked for documentation only.
 
 Move ForgeRoot forward through this loop:
 
@@ -37,6 +37,35 @@ For every non-trivial ForgeRoot task, read all four reference files before editi
 
 If the task is trivial or read-only, still apply the relevant references and keep the work read-only.
 
+## Internal Agents
+
+Internally emulate these roles on every non-trivial task:
+
+1. Planning Agent
+   - Understand the request and translate it into concrete ForgeRoot work.
+   - Explain the plan to the human in simple language before major action.
+   - Define done criteria.
+   - Prevent documentation-first, cleanup-first, refactor-first, or speculative architecture drift.
+
+2. Implementation Agent
+   - Read existing code before editing.
+   - Implement real core behavior first.
+   - Add or update tests or executable verification.
+   - Use verified repository symbols, paths, schemas, APIs, configs, commands, and conventions.
+   - Avoid speculative code and unnecessary cleanup.
+
+3. Adversarial Audit Agent
+   - Audit changed files plus expanded context, not only the diff.
+   - Review dependencies, callers, sibling files, schemas, tests, config, state, authz, external APIs, logging, and failure paths.
+   - Find missing logic, architectural leakage, state inconsistency, concurrency risk, security failure, and weak tests.
+   - Ignore style, naming, formatting, typo, and linter-level comments.
+
+4. Next-Task Routing Agent
+   - After the current task, inspect remaining repository state.
+   - Choose the next highest-value completion task by urgency, dependency, risk, and completion impact.
+   - Report the next task using `references/next-task-routing.md`.
+   - If continuing autonomously, provide the next simple human-facing plan before another major change.
+
 ## Authority Order
 
 When instructions conflict, obey this order:
@@ -50,6 +79,26 @@ When instructions conflict, obey this order:
 
 If this skill conflicts with a stricter repository-local rule, follow the stricter rule unless it violates safety. If a required gate cannot be satisfied, stop before PR creation and report the blocker.
 
+## Forbidden Workflow
+
+Do not create an immature PR, wait for the human to find many problems, then fix those problems through many review rounds.
+
+Use this workflow instead:
+
+1. understand the task;
+2. explain the plan in simple language;
+3. read repository evidence;
+4. design the implementation;
+5. implement core logic;
+6. add or update tests;
+7. run verification;
+8. perform expanded-context adversarial audit;
+9. repair all real findings;
+10. re-run tests;
+11. re-audit;
+12. only then prepare a PR or final proposal;
+13. identify the next task.
+
 ## Non-Negotiable Operating Rules
 
 Always read before writing. Verify every existing symbol, path, schema, command, config key, route, model, and dependency before using it. Do not guess repository structure, commands, imports, routes, schemas, models, environment variables, helper names, or test helpers.
@@ -59,6 +108,8 @@ Implement real runtime behavior before documentation. Add or update tests for fu
 Audit more than the diff. Repair all real audit findings before a PR or final proposal. Never use human review as the primary quality gate, and never create a PR with unresolved audit findings.
 
 Do not treat TODOs, stubs, skipped tests, fake mocks, or snapshot-only checks as completion. Do not perform docs-first work unless the task is documentation-only. Do not perform refactor-first work unless the smallest refactor is required to implement or test real behavior.
+
+Before creating a PR, branch, large patch, broad refactor, database/schema change, dependency change, or multi-file implementation, explain the plan to the human in the format from `references/output-contract.md`.
 
 ## Required Runtime Order
 
@@ -118,6 +169,8 @@ Work in this order:
 
 The first patch must target real runtime behavior unless the user explicitly requested documentation-only work.
 
+Documentation updates are allowed only after implementation, tests, verification, expanded audit, and audit repair unless the task is documentation-only. Refactoring before feature implementation is allowed only when the current structure physically prevents implementation, the refactor is the smallest safe implementation step, the audit requires it, or testing is impossible without minimal extraction.
+
 ## Verification Discipline
 
 Never guess test commands. Inspect actual repository files such as package manifests, lockfiles, `Makefile`, `Cargo.toml`, `go.mod`, README, and CI workflows before running verification. Use the smallest relevant command first, then broader commands if needed.
@@ -127,6 +180,8 @@ For functional changes, add or update a unit, integration, regression, edge-case
 ## PR Discipline
 
 Prepare a PR or final proposal only after the PR gate checklist passes or is honestly blocked. Do not create, push, merge, approve, or externally mutate GitHub state without the user's explicit approval and the required gates satisfied.
+
+Do not run live GitHub transport, live mutation, memory write, federation, or self-evolution without the applicable phase gate and explicit approval.
 
 ## Tool-Limited Environments
 

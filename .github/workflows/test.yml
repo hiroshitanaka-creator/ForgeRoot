@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Validate Codex skills
+        run: npm run validate:skills
       - name: Run all workspace test suites
         run: npm test
 

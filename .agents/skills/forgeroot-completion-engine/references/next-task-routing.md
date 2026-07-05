@@ -19,7 +19,6 @@ Use this exact format:
   - ドキュメント不足:
   - CI/CD不足:
   - セキュリティ確認不足:
-  - リリース準備不足:
 - 次に行うべき最優先タスク:
   - タスク名:
   - なぜ次にやるべきか:
@@ -59,7 +58,9 @@ If the user has given a broad repository-completion mandate, continue by selecti
 Say:
 
 ```text
-次に最も効果が大きい作業はこれです。理由はこれです。この順番で進めます。
+次に最も効果が大きい作業はこれです。
+理由はこれです。
+この順番で進めます。
 ```
 
 Do not ask:
