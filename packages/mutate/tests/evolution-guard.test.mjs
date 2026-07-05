@@ -144,6 +144,52 @@ describe("T050 EvolutionGuard", () => {
     assert.deepEqual(validateEvolutionGuardDecision(result), { ok: true, issues: [] });
   });
 
+  it("rejects secret material in review finding summaries without echoing it", () => {
+    const candidate = input();
+    const result = runEvolutionGuard({
+      ...candidate,
+      reviews: [
+        {
+          ...candidate.reviews[0],
+          findings: [
+            {
+              finding_id: "finding-33333333",
+              severity: "low",
+              blocking: false,
+              summary: "github_pat_abc123",
+            },
+          ],
+        },
+        ...candidate.reviews.slice(1),
+      ],
+    });
+
+    assert.equal(result.status, "invalid");
+    assert.ok(result.reasons.includes("secret_material_forbidden"));
+    assert.equal(JSON.stringify(result).includes("github_pat_abc123"), false);
+    assert.deepEqual(validateEvolutionGuardDecision(result), { ok: true, issues: [] });
+
+    const ready = runEvolutionGuard(candidate);
+    const tampered = {
+      ...ready,
+      reviews: [
+        {
+          ...ready.reviews[0],
+          findings: [
+            {
+              finding_id: "finding-44444444",
+              severity: "low",
+              blocking: false,
+              summary: "github_pat_abc123",
+            },
+          ],
+        },
+        ...ready.reviews.slice(1),
+      ],
+    };
+    assert.ok(validateEvolutionGuardDecision(tampered).issues.some((entry) => entry.code === "secret_material_forbidden"));
+  });
+
   it("rejects explicit reviewer rejection before PR generation is allowed", () => {
     const candidate = input();
     const result = runEvolutionGuard({

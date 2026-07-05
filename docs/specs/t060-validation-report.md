@@ -6,7 +6,7 @@ Validation performed:
 
 - `npm.cmd --prefix packages\mutate test`
   - Result: passed after rerunning with workspace write permission for `dist/`.
-  - Coverage: 102 tests across T046-T060 mutate package suites.
+  - Coverage: 104 tests across T046-T060 mutate package suites.
 - `npm.cmd test`
   - Result: passed after rerunning with workspace write permission for package
     `dist/` outputs.
@@ -18,6 +18,7 @@ Validation performed:
 Covered: ready completion bundles from T059 handoff packs, blocked handoff-pack
 propagation, tampered T059 invalidation, non-persistence, null write targets,
 side-effect read-back validation, unsafe label rejection, invalid-result
-read-back validation, and alias exports.
+read-back validation, token/private-key rejection in issue diagnostics, and
+alias exports.
 
 Not run: `cargo test --workspace --locked`; `cargo` is not available on PATH.

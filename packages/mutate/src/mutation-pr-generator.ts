@@ -238,6 +238,7 @@ export function validateMutationPrGeneratorResult(result: unknown): MutationPrGe
   if (!isRecord(result.proposal)) issue(issues, "proposal", "proposal_required", "result must carry proposal metadata");
   if (!isRecord(result.provenance)) issue(issues, "provenance", "provenance_required", "result must carry provenance");
   if (!Array.isArray(result.reasons)) issue(issues, "reasons", "reasons_required", "result must carry reasons");
+  validateNoSecretMaterial(result, "result", issues);
 
   if (result.status === "pr_manifest_ready" && canValidateReady(result, issues)) validateReadyResult(result as unknown as MutationPrGeneratorResult, issues);
   if (result.status === "blocked" && canValidateTerminal(result, issues)) validateBlockedResult(result as unknown as MutationPrGeneratorResult, issues);
@@ -652,6 +653,23 @@ function normalizeLabel(value: string): string | null {
   if (/[\r\n\t]/.test(value)) return null;
   const label = value.replace(/\s+/g, " ").trim();
   return label.length === 0 || label.length > MAX_LABEL_LENGTH ? null : label;
+}
+
+function validateNoSecretMaterial(value: unknown, path: string, issues: MutationPrGeneratorIssue[]): void {
+  if (typeof value === "string") {
+    if (containsSecret(value)) issue(issues, path, "secret_material_forbidden", "mutation PR manifests must not contain token or private-key material");
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => validateNoSecretMaterial(entry, `${path}[${index}]`, issues));
+    return;
+  }
+  if (isRecord(value)) for (const [key, child] of Object.entries(value)) validateNoSecretMaterial(child, `${path}.${key}`, issues);
+}
+
+function containsSecret(value: string): boolean {
+  const lower = value.toLowerCase();
+  return lower.includes("bearer ") || lower.includes("ghp_") || lower.includes("github_pat_") || lower.includes("-----begin") || lower.includes("private_key");
 }
 
 function sanitizeTitle(value: string): string {

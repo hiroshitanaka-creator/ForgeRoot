@@ -283,7 +283,6 @@ function validateTerminal(result: CompletionBundleResult, issues: CompletionBund
 }
 
 function validateNoSecretMaterial(value: unknown, path: string, issues: CompletionBundleIssue[]): void {
-  if (path === "result.issues" || path.includes(".issues[")) return;
   if (typeof value === "string") {
     if (containsSecret(value)) issue(issues, path, "secret_material_forbidden", `${path} must not contain secret material`);
     return;

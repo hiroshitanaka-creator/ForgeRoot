@@ -216,6 +216,7 @@ export function validateEvolutionGuardDecision(result: EvolutionGuardDecisionRes
   validateReviewGate(candidate.review_gate, issues);
   validateDryRun(candidate.dry_run, issues);
   validateGuardrails(candidate.guardrails, candidate.decision, issues);
+  validateNoSecretMaterial(candidate, "result", issues);
   if (!isRecord(candidate.proposal)) issue(issues, "proposal", "proposal_required", "EvolutionGuard results must carry proposal metadata");
   if (!isRecord(candidate.routing_ref)) issue(issues, "routing_ref", "routing_ref_required", "EvolutionGuard results must carry routing metadata");
   if (!Array.isArray(candidate.reviews)) issue(issues, "reviews", "array_required", "reviews must be an array");
@@ -312,6 +313,7 @@ function validateFinding(finding: EvolutionGuardFinding, prefix: string, issues:
   if (finding.severity !== "low" && finding.severity !== "medium" && finding.severity !== "high" && finding.severity !== "critical") issue(issues, `${prefix}.severity`, "invalid_finding_severity", "finding severity must be low, medium, high, or critical");
   if (typeof finding.blocking !== "boolean") issue(issues, `${prefix}.blocking`, "invalid_blocking_flag", "blocking must be boolean");
   if (typeof finding.summary !== "string" || finding.summary.trim().length === 0) issue(issues, `${prefix}.summary`, "missing_finding_summary", "finding summary is required");
+  else validateNoSecretMaterial(finding.summary, `${prefix}.summary`, issues);
 }
 
 function validateReviewMatchesRoute(review: EvolutionGuardReviewEvidence, route: NVersionAuditRoute, proposal: NVersionAuditProposalRef, routingDigest: string, prefix: string, issues: EvolutionGuardIssue[]): void {
@@ -530,11 +532,13 @@ function normalizeFindings(value: unknown, path: string, issues: EvolutionGuardI
       issue(issues, prefix, "finding_must_be_object", "findings must be objects");
       return { finding_id: "", severity: "low", blocking: false, summary: "" };
     }
+    const summary = stringValue(entry.summary) ?? "";
+    if (containsSecret(summary)) issue(issues, `${prefix}.summary`, "secret_material_forbidden", "finding summary must not contain token or private-key material");
     return {
       finding_id: stringValue(entry.finding_id) ?? "",
       severity: stringValue(entry.severity) as EvolutionGuardFindingSeverity,
       blocking: typeof entry.blocking === "boolean" ? entry.blocking : false,
-      summary: stringValue(entry.summary) ?? "",
+      summary: containsSecret(summary) ? "" : summary,
     };
   });
 }
@@ -731,6 +735,23 @@ function normalizeStringArray(value: unknown, path: string, issues: EvolutionGua
     return [];
   }
   return value.map((entry) => typeof entry === "string" ? entry : "");
+}
+
+function validateNoSecretMaterial(value: unknown, path: string, issues: EvolutionGuardIssue[]): void {
+  if (typeof value === "string") {
+    if (containsSecret(value)) issue(issues, path, "secret_material_forbidden", "EvolutionGuard manifests must not contain token or private-key material");
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => validateNoSecretMaterial(entry, `${path}[${index}]`, issues));
+    return;
+  }
+  if (isRecord(value)) for (const [key, child] of Object.entries(value)) validateNoSecretMaterial(child, `${path}.${key}`, issues);
+}
+
+function containsSecret(value: string): boolean {
+  const lower = value.toLowerCase();
+  return lower.includes("bearer ") || lower.includes("ghp_") || lower.includes("github_pat_") || lower.includes("-----begin") || lower.includes("private_key");
 }
 
 function canonicalDigest(value: unknown): string { return `sha-fnv1a-${fnv1a(canonicalStringify(value)).toString(16).padStart(8, "0")}`; }

@@ -24,6 +24,10 @@ Findings and repair:
   `label_contains_secret_material` as secret material. The detector now matches
   token/private-key shapes instead of diagnostic words, and the unsafe-label
   test validates the invalid result itself.
+- PR #18 self-audit hardening added token/private-key material rejection across
+  T050 review finding summaries, T051 PR body notes and labels, T056 artifact
+  labels, T057 rollout gate summaries, and T060 issue diagnostics. Unsafe
+  input values are not echoed back in invalid terminal manifests.
 
 High-risk surfaces reviewed:
 
@@ -40,7 +44,7 @@ High-risk surfaces reviewed:
 Verification:
 
 - `npm.cmd --prefix packages\mutate test`
-  - Result: passed, 102/102.
+  - Result: passed, 104/104.
 - `npm.cmd test`
   - Result: passed.
 - `git diff --check`

@@ -26,6 +26,8 @@ approval records, approve, merge, or auto-merge.
 - Explicit reviewer rejection produces `evolution_guard_reject`.
 - Any high, critical, or explicitly blocking finding produces
   `evolution_guard_reject`.
+- Review finding summaries reject token/private-key material and invalid
+  terminal manifests do not echo the unsafe summary value.
 - Missing routed reviews, reviewer hold requests, or unmet approval quorum
   produce `evolution_guard_hold`.
 - Read-back validation rejects tampered side-effect flags, weakened guardrails,
@@ -39,6 +41,8 @@ approval records, approve, merge, or auto-merge.
 ## Verification
 
 - `npm.cmd --prefix packages\mutate test` - 56/56 passing after T050 addition.
+- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` - 104/104
+  passing across T046-T060 after secret-material hardening.
 - `npm.cmd test` - all npm workspace tests passed.
 - `git diff --check` - passed.
 - `cargo test --workspace --locked` - not run because `cargo` is not available

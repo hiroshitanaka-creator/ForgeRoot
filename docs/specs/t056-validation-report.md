@@ -21,8 +21,12 @@ Task: T056 dry-run execution artifact receipt
 - Ready receipts require a valid ready T055 execution plan.
 - Artifact metadata summarizes unexecuted steps without write targets.
 - Malformed labels and tampered T055 plans are invalidated.
+- Artifact labels reject token/private-key material and invalid terminal
+  manifests fall back to the safe default label instead of echoing unsafe input.
 - Read-back validation rejects write targets, side effects, guard weakening, and
   stale digests.
+- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` passed
+  104/104 across T046-T060 after secret-material hardening.
 
 ## Not run locally
 

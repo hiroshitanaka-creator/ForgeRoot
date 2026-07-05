@@ -87,6 +87,7 @@ const RFC3339_UTC = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}
 const DIGEST = /^sha-[a-z0-9-]+-[0-9a-f]{8,}$/;
 const ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*-[0-9a-f]{8}$/;
 const LABEL = /^[A-Za-z0-9_.:-]{1,80}$/;
+const DEFAULT_LABEL = "t056-artifact";
 
 export function runExecutionArtifactReceipt(input: unknown): ExecutionArtifactReceiptResult {
   const envelope = normalizeInput(input);
@@ -195,8 +196,7 @@ function normalizeInput(input: unknown): {
   const plan = isRecord(input.plan) ? input.plan as unknown as TransportExecutionPlanResult : emptyPlan();
   if (!isRecord(input.plan)) issue(issues, "plan", "plan_must_be_object", "plan must be a T055 execution plan object");
   const now = optionalString(input.now, "now", issues);
-  const label = optionalString(input.artifact_label, "artifact_label", issues) ?? "t056-artifact";
-  if (!LABEL.test(label)) issue(issues, "artifact_label", "invalid_artifact_label", "artifact_label must be a safe short label");
+  const label = normalizeLabel(input.artifact_label, issues);
   return { input: { plan, artifact_label: label, ...(now === undefined ? {} : { now }) }, now, plan, label, issues };
 }
 
@@ -296,6 +296,29 @@ function validateNoSecretMaterial(value: unknown, path: string, issues: Executio
   }
   if (Array.isArray(value)) { value.forEach((entry, index) => validateNoSecretMaterial(entry, `${path}[${index}]`, issues)); return; }
   if (isRecord(value)) for (const [key, child] of Object.entries(value)) validateNoSecretMaterial(child, `${path}.${key}`, issues);
+}
+
+function normalizeLabel(value: unknown, issues: ExecutionArtifactReceiptIssue[]): string {
+  if (value === undefined) return DEFAULT_LABEL;
+  if (typeof value !== "string") {
+    issue(issues, "artifact_label", "string_required", "artifact_label must be a string when provided");
+    return DEFAULT_LABEL;
+  }
+  const label = value.trim();
+  if (!LABEL.test(label)) {
+    issue(issues, "artifact_label", "invalid_artifact_label", "artifact_label must be a safe short label");
+    return DEFAULT_LABEL;
+  }
+  if (containsSecret(label)) {
+    issue(issues, "artifact_label", "secret_material_forbidden", "artifact_label must not contain token or private-key material");
+    return DEFAULT_LABEL;
+  }
+  return label;
+}
+
+function containsSecret(value: string): boolean {
+  const lower = value.toLowerCase();
+  return lower.includes("bearer ") || lower.includes("ghp_") || lower.includes("github_pat_") || lower.includes("-----begin") || lower.includes("private_key");
 }
 
 function optionalString(value: unknown, path: string, issues: ExecutionArtifactReceiptIssue[]): string | undefined {

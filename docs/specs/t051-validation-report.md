@@ -25,6 +25,8 @@ auto-merge.
   base/default branch.
 - Repository names, labels, reviewers, target paths, Class C review gates,
   side-effect flags, plan IDs, and plan digests are validated on read-back.
+- PR body notes and labels reject token/private-key material; invalid terminal
+  manifests do not echo unsafe note or label values.
 - Terminal blocked/invalid results cannot carry PR metadata.
 - Returned proposal and scope metadata are cloned before returning.
 - Compatibility aliases are exported:
@@ -35,6 +37,8 @@ auto-merge.
 ## Verification
 
 - `npm.cmd --prefix packages\mutate test` - 63/63 passing after T051 addition.
+- PR #18 self-audit rerun: `npm.cmd --prefix packages\mutate test` - 104/104
+  passing across T046-T060 after secret-material hardening.
 - `npm.cmd test` - all npm workspace tests passed.
 - `git diff --check` - passed.
 - `cargo test --workspace --locked` - not run because `cargo` is not available

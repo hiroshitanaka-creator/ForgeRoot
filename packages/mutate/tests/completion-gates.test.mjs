@@ -141,6 +141,28 @@ describe("T057-T059 completion gates", () => {
     assert.ok(handoff.handoff_entries.every((entry) => entry.persisted === false));
   });
 
+  it("rejects secret material in rollout gate summaries without echoing it", () => {
+    const receipt = receiptReady();
+    const checklist = runRolloutGateChecklist({
+      now: NOW,
+      receipt,
+      checks: [{ gate_id: "manual-rollout-window", status: "fail", summary: "github_pat_abc123" }],
+    });
+
+    assert.equal(checklist.status, "invalid");
+    assert.ok(checklist.reasons.includes("secret_material_forbidden"));
+    assert.equal(JSON.stringify(checklist).includes("github_pat_abc123"), false);
+    assert.deepEqual(validateRolloutGateChecklistResult(checklist), { ok: true, issues: [] });
+
+    const ready = runRolloutGateChecklist({ now: NOW, receipt });
+    const tampered = {
+      ...ready,
+      checks: [{ ...ready.checks[0], summary: "github_pat_abc123" }, ...ready.checks.slice(1)],
+    };
+    assert.equal(validateRolloutGateChecklistResult(tampered).ok, false);
+    assert.ok(validateRolloutGateChecklistResult(tampered).issues.some((entry) => entry.code === "secret_material_forbidden"));
+  });
+
   it("invalidates tampered upstream manifests and read-back tampering", () => {
     const receipt = receiptReady();
     const staleReceipt = runRolloutGateChecklist({ now: NOW, receipt: { ...receipt, receipt_digest: "sha-fnv1a-00000000" } });

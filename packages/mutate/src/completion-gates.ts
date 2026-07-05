@@ -245,6 +245,7 @@ export function validateRolloutGateChecklistResult(result: unknown): CompletionV
   validateSummary(value.summary, value.checks ?? [], issues);
   validateGuards(value.guards, issues);
   validateDryRun(value.dry_run, issues);
+  validateNoSecretMaterial(value, "result", issues);
   validateTerminal(value.status, value.decision, value.issues, issues, ["rollout_gate_ready", "rollout_gate_blocked", "invalid_rollout_gate_input"]);
   validateDigest(value as unknown as Record<string, unknown>, "checklist_digest", "checklist_id", "rollout-gate-checklist", (candidate) => checklistDigestPayload(candidate as RolloutGateChecklistResult), issues);
   return { ok: issues.length === 0, issues };
@@ -259,6 +260,7 @@ export function validatePostTransportAuditPlanResult(result: unknown): Completio
   else value.audit_steps.forEach((entry, index) => validateAuditStep(entry, `audit_steps[${index}]`, issues));
   validateGuards(value.guards, issues);
   validateDryRun(value.dry_run, issues);
+  validateNoSecretMaterial(value, "result", issues);
   validateTerminal(value.status, value.decision, value.issues, issues, ["post_transport_audit_plan_ready", "post_transport_audit_plan_blocked", "invalid_post_transport_audit_input"]);
   validateDigest(value as unknown as Record<string, unknown>, "audit_plan_digest", "audit_plan_id", "post-transport-audit-plan", (candidate) => auditPlanDigestPayload(candidate as PostTransportAuditPlanResult), issues);
   return { ok: issues.length === 0, issues };
@@ -273,6 +275,7 @@ export function validateLineageHandoffPackResult(result: unknown): CompletionVal
   else value.handoff_entries.forEach((entry, index) => validateHandoffEntry(entry, `handoff_entries[${index}]`, issues));
   validateGuards(value.guards, issues);
   validateDryRun(value.dry_run, issues);
+  validateNoSecretMaterial(value, "result", issues);
   validateTerminal(value.status, value.decision, value.issues, issues, ["lineage_handoff_pack_ready", "lineage_handoff_pack_blocked", "invalid_lineage_handoff_input"]);
   validateDigest(value as unknown as Record<string, unknown>, "handoff_digest", "handoff_pack_id", "lineage-handoff-pack", (candidate) => handoffDigestPayload(candidate as LineageHandoffPackResult), issues);
   return { ok: issues.length === 0, issues };
@@ -399,8 +402,12 @@ function normalizeInputGate(value: unknown, path: string, issues: CompletionGate
   if (!GATE_ID.test(gateId)) issue(issues, `${path}.gate_id`, "invalid_gate_id", "gate_id must be lowercase kebab-case");
   const status = value.status === "pass" || value.status === "fail" || value.status === "pending" ? value.status : "fail";
   if (status !== value.status) issue(issues, `${path}.status`, "invalid_gate_status", "status must be pass, fail, or pending");
-  const summary = typeof value.summary === "string" && value.summary.trim().length > 0 ? value.summary.trim() : "";
+  let summary = typeof value.summary === "string" && value.summary.trim().length > 0 ? value.summary.trim() : "";
   if (summary.length === 0) issue(issues, `${path}.summary`, "summary_required", "summary is required");
+  else if (containsSecret(summary)) {
+    issue(issues, `${path}.summary`, "secret_material_forbidden", "gate summary must not contain token or private-key material");
+    summary = "redacted";
+  }
   const evidenceDigest = optionalString(value.evidence_digest, `${path}.evidence_digest`, issues);
   if (evidenceDigest !== undefined && !DIGEST.test(evidenceDigest)) issue(issues, `${path}.evidence_digest`, "invalid_evidence_digest", "evidence_digest must be stable");
   return { gate_id: gateId, status, summary, ...(evidenceDigest === undefined ? {} : { evidence_digest: evidenceDigest }) };
@@ -467,6 +474,23 @@ function validateTerminal(status: string, decision: string, issuesValue: unknown
   if (status === "invalid") {
     if (!Array.isArray(issuesValue) || issuesValue.length === 0) issue(issues, "issues", "invalid_issues_required", "invalid results must carry issues");
   } else if (issuesValue !== undefined) issue(issues, "issues", "non_invalid_issues_forbidden", "non-invalid results must not carry issues");
+}
+
+function validateNoSecretMaterial(value: unknown, path: string, issues: CompletionGateIssue[]): void {
+  if (typeof value === "string") {
+    if (containsSecret(value)) issue(issues, path, "secret_material_forbidden", "completion gate manifests must not contain token or private-key material");
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => validateNoSecretMaterial(entry, `${path}[${index}]`, issues));
+    return;
+  }
+  if (isRecord(value)) for (const [key, child] of Object.entries(value)) validateNoSecretMaterial(child, `${path}.${key}`, issues);
+}
+
+function containsSecret(value: string): boolean {
+  const lower = value.toLowerCase();
+  return lower.includes("bearer ") || lower.includes("ghp_") || lower.includes("github_pat_") || lower.includes("-----begin") || lower.includes("private_key");
 }
 
 function validateDigest(value: Record<string, unknown>, digestKey: string, idKey: string, prefix: string, payload: (value: unknown) => unknown, issues: CompletionGateIssue[]): void {

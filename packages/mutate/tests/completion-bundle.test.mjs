@@ -170,6 +170,17 @@ describe("T060 completion bundle", () => {
     assert.equal(unsafe.bundle.label, "t060-completion-bundle");
     assert.deepEqual(validateCompletionBundleResult(unsafe), { ok: true, issues: [] });
 
+    const tamperedIssue = {
+      ...unsafe,
+      issues: [
+        ...unsafe.issues,
+        { path: "tampered", code: "tampered_issue", message: "github_pat_abc123" },
+      ],
+    };
+    const tamperedIssueValidation = validateCompletionBundleResult(tamperedIssue);
+    assert.equal(tamperedIssueValidation.ok, false);
+    assert.ok(tamperedIssueValidation.issues.some((entry) => entry.code === "secret_material_forbidden"));
+
     for (const fn of [createCompletionBundle, runT060CompletionBundle]) {
       const bundle = fn({ now: NOW, handoff_pack: handoff });
       assert.equal(bundle.status, "completion_bundle_ready");

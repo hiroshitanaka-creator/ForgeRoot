@@ -124,6 +124,15 @@ describe("T056 execution artifact receipt", () => {
     const badLabel = runExecutionArtifactReceipt({ now: NOW, plan, artifact_label: "bad label with spaces" });
     assert.equal(badLabel.status, "invalid");
     assert.ok(badLabel.reasons.includes("invalid_artifact_label"));
+    assert.equal(badLabel.artifact.label, "t056-artifact");
+    assert.deepEqual(validateExecutionArtifactReceiptResult(badLabel), { ok: true, issues: [] });
+
+    const secretLabel = runExecutionArtifactReceipt({ now: NOW, plan, artifact_label: "github_pat_abc123" });
+    assert.equal(secretLabel.status, "invalid");
+    assert.ok(secretLabel.reasons.includes("secret_material_forbidden"));
+    assert.equal(secretLabel.artifact.label, "t056-artifact");
+    assert.equal(JSON.stringify(secretLabel).includes("github_pat_abc123"), false);
+    assert.deepEqual(validateExecutionArtifactReceiptResult(secretLabel), { ok: true, issues: [] });
 
     const stalePlan = runExecutionArtifactReceipt({ now: NOW, plan: { ...plan, execution_plan_digest: "sha-fnv1a-00000000" } });
     assert.equal(stalePlan.status, "invalid");
@@ -149,6 +158,10 @@ describe("T056 execution artifact receipt", () => {
     const staleDigest = { ...result, receipt_digest: "sha-fnv1a-00000000" };
     assert.equal(validateExecutionArtifactReceiptResult(staleDigest).ok, false);
     assert.ok(validateExecutionArtifactReceiptResult(staleDigest).issues.some((entry) => entry.code === "receipt_digest_mismatch"));
+
+    const secretArtifact = { ...result, artifact: { ...result.artifact, label: "github_pat_abc123" } };
+    assert.equal(validateExecutionArtifactReceiptResult(secretArtifact).ok, false);
+    assert.ok(validateExecutionArtifactReceiptResult(secretArtifact).issues.some((entry) => entry.code === "secret_material_forbidden"));
   });
 
   it("supports stable aliases", () => {

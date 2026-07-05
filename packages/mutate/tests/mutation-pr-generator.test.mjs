@@ -179,6 +179,17 @@ describe("T051 mutation PR generator", () => {
     const unsafeLabel = runMutationPrGenerator({ now: NOW, guard, labels: ["bad\nlabel"] });
     assert.equal(unsafeLabel.status, "invalid");
     assert.ok(unsafeLabel.reasons.includes("unsafe_label"));
+
+    const secretNote = runMutationPrGenerator({ now: NOW, guard, body_notes: ["github_pat_abc123"] });
+    assert.equal(secretNote.status, "invalid");
+    assert.ok(secretNote.reasons.includes("secret_material_forbidden"));
+    assert.equal(JSON.stringify(secretNote).includes("github_pat_abc123"), false);
+    assert.deepEqual(validateMutationPrGeneratorResult(secretNote), { ok: true, issues: [] });
+
+    const secretLabel = runMutationPrGenerator({ now: NOW, guard, labels: ["github_pat_abc123"] });
+    assert.equal(secretLabel.status, "invalid");
+    assert.ok(secretLabel.reasons.includes("secret_material_forbidden"));
+    assert.equal(JSON.stringify(secretLabel).includes("github_pat_abc123"), false);
   });
 
   it("clones guard proposal metadata before returning the PR manifest", () => {
