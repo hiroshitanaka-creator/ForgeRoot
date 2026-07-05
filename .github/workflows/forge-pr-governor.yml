@@ -10,6 +10,16 @@ on:
       - ready_for_review
       - labeled
       - unlabeled
+  pull_request_review:
+    types:
+      - submitted
+      - edited
+      - dismissed
+  pull_request_review_comment:
+    types:
+      - created
+      - edited
+      - deleted
   workflow_dispatch:
     inputs:
       pr_number:
@@ -64,7 +74,7 @@ jobs:
               per_page: 100,
             });
 
-            async function listReviewThreads() {
+            async function listReviewThreads(number) {
               const query = `
                 query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
                   repository(owner: $owner, name: $repo) {
@@ -86,7 +96,7 @@ jobs:
               const threads = [];
               let cursor = null;
               do {
-                const data = await github.graphql(query, { owner, repo, number: prNumber, cursor });
+                const data = await github.graphql(query, { owner, repo, number, cursor });
                 const page = data.repository.pullRequest.reviewThreads;
                 threads.push(...page.nodes);
                 cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
@@ -94,11 +104,22 @@ jobs:
               return threads;
             }
 
+            async function listOpenPulls() {
+              const pulls = await github.paginate(github.rest.pulls.list, {
+                owner,
+                repo,
+                state: 'open',
+                per_page: 100,
+              });
+              return pulls.map((item) => ({ number: item.number, title: item.title }));
+            }
+
             const basename = (path) => path.split('/').pop() || path;
             const labels = new Set((issue.labels || []).map((label) => typeof label === 'string' ? label : label.name));
             const hasAnyLabel = (accepted) => [...labels].some((label) => accepted.has(label));
             const allowDocsOnly = hasAnyLabel(docOnlyLabels);
             const allowManifestOnly = hasAnyLabel(manifestOnlyLabels);
+            const rootWorkspaceManifests = new Set(['package.json', 'package-lock.json', 'Cargo.toml', 'Cargo.lock']);
             const isGovernance = (path) => path.startsWith('.github/workflows/') ||
               path === '.github/pull_request_template.md' ||
               path.startsWith('.forge/skills/') ||
@@ -117,20 +138,32 @@ jobs:
             const isImplementation = (path) => {
               if (isGovernance(path)) return true;
               if (isDoc(path)) return false;
+              if (rootWorkspaceManifests.has(path)) return true;
               const roots = ['apps/', 'crates/', 'packages/', 'runtime/', 'executor/', 'planner/', 'auditor/', 'pr-composer/', 'github-pr-adapter/', 'approval-checkpoint/', 'rate-governor/', 'forge-demo/', 'schemas/'];
               return roots.some((root) => path.startsWith(root)) && /\.(ts|tsx|js|jsx|mjs|cjs|rs|py|sh|sql|json|toml|yaml|yml)$/i.test(path);
             };
             const body = pull.body || '';
             const isVerification = (path) => /(^|\/)(test|tests|__tests__)\//i.test(path) ||
               /\.(test|spec)\.(mjs|js|ts|tsx|rs)$/i.test(basename(path)) ||
-              /validation[-_ ]output|test[-_ ]output|validation[-_ ]report/i.test(path) ||
-              /(^|\n)\s*-?\s*`?(npm|pnpm|yarn|cargo|node|git)\b[^\n]*(test|check|lint|build|clippy|fmt)[^\n]*`?\s*(-|:)?\s*(passed|passing|ok|success|succeeded|[0-9]+\/[0-9]+ passing)/i.test(body);
-            const hasBodyEvidence = /##\s*(Implementation evidence|Implementation|Code changes|Changed files)/i.test(body) &&
-              /##\s*(Verification|Verification result|Test plan|Tests)/i.test(body) &&
-              !/Verification result\s*\n\s*-\s*not run/i.test(body);
-            const hasManifestOnlyLanguage = /\b(manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\b/i.test(`${pull.title || ''}\n${body}`);
+              /validation[-_ ]output|test[-_ ]output|validation[-_ ]report/i.test(path);
+            const hasSection = (name) => new RegExp(`(^|\\n)##\\s*${name}\\b`, 'i').test(body);
+            const hasNonEmptyBulletField = (name) => new RegExp(`(^|\\n)\\s*-\\s*${name}:\\s*(?!\\s*(?:$|\\n))(?:\`[^\`\\n]+\`|[^\\n]*\\S)`, 'i').test(body);
+            const hasVerificationCommand = hasNonEmptyBulletField('Command');
+            const hasVerificationResult = /(^|\n)\s*-\s*Result:\s*(?!\s*(?:not run|not-run|n\/a|none|todo|pending)\b)(?:`?[^`\n]*\b(?:passed|passing|ok|success|succeeded|yaml ok|[0-9]+\/[0-9]+\s+passing)\b[^`\n]*`?|[^`\n]*\b(?:passed|passing|ok|success|succeeded|yaml ok|[0-9]+\/[0-9]+\s+passing)\b[^\n]*)/i.test(body);
+            const hasBodyEvidence = (hasSection('Implementation evidence') || hasSection('Implementation') || hasSection('Code changes') || hasSection('Changed files')) &&
+              (hasSection('Verification') || hasSection('Verification result') || hasSection('Test plan') || hasSection('Tests')) &&
+              hasVerificationCommand &&
+              hasVerificationResult &&
+              !/(^|\n)\s*-\s*Result:\s*(?:not run|not-run|n\/a|none|todo|pending)\b/i.test(body);
+            const manifestAnswerLine = body.split(/\r?\n/).find((line) => /Manifest-only or dry-run work\?/i.test(line)) || '';
+            const manifestAnswer = manifestAnswerLine.replace(/^.*Manifest-only or dry-run work\?\s*/i, '').trim();
+            const manifestAnswerDeclaresYes = /^(yes|true|manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\b/i.test(manifestAnswer) &&
+              !/^(no|false|n\/a|none)\b/i.test(manifestAnswer);
+            const bodyWithoutManifestPrompt = body.split(/\r?\n/).filter((line) => !/Manifest-only or dry-run work\?/i.test(line)).join('\n');
+            const hasManifestOnlyLanguage = manifestAnswerDeclaresYes ||
+              /\b(manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\b/i.test(`${pull.title || ''}\n${bodyWithoutManifestPrompt}`);
 
-            const changed = files.filter((file) => file.status !== 'removed');
+            const changed = files;
             const docs = changed.filter((file) => isDoc(file.filename));
             const implementation = changed.filter((file) => isImplementation(file.filename));
             const verification = changed.filter((file) => isVerification(file.filename));
@@ -138,13 +171,18 @@ jobs:
             const docLines = docs.reduce((sum, file) => sum + file.additions + file.deletions, 0);
             const docRatio = totalLines > 0 ? docLines / totalLines : 0;
 
-            const threads = await listReviewThreads();
-            const severity = (body) => /P0|critical/i.test(body) ? 'P0' : /P1|high/i.test(body) ? 'P1' : /P2|medium/i.test(body) ? 'P2' : /P3|low/i.test(body) ? 'P3' : 'unknown';
-            const codexThreads = threads.flatMap((thread) => {
+            const openPulls = await listOpenPulls();
+            const threadGroups = await Promise.all(openPulls.map(async (pr) => ({ ...pr, threads: await listReviewThreads(pr.number) })));
+            const severity = (body) => {
+              const match = String(body || '').match(/(?:\[P([0-3])(?:\s+Badge)?\]|\bP([0-3])\b|badge\/P([0-3])(?:-|_|\?))/i);
+              const priority = match?.[1] || match?.[2] || match?.[3];
+              return priority ? `P${priority}` : 'unknown';
+            };
+            const codexThreads = threadGroups.flatMap((group) => group.threads.flatMap((thread) => {
               const comments = thread.comments.nodes.filter((comment) => codexLogins.has(comment.author?.login || '') || /Codex Review|Useful\? React with/i.test(comment.body || ''));
               if (!comments.length) return [];
-              return [{ active: !thread.isResolved && !thread.isOutdated, severities: comments.map((comment) => severity(comment.body || '')), path: thread.path }];
-            });
+              return [{ prNumber: group.number, active: !thread.isResolved && !thread.isOutdated, severities: comments.map((comment) => severity(comment.body || '')), path: thread.path }];
+            }));
             const active = codexThreads.filter((thread) => thread.active);
             const activeP1 = active.filter((thread) => thread.severities.includes('P1') || thread.severities.includes('P0')).length;
             const activeP2 = active.filter((thread) => thread.severities.includes('P2')).length;
@@ -172,6 +210,7 @@ jobs:
               `- Documentation files: ${docs.length} (${list(docs)})`,
               `- Verification artifacts/evidence: ${verification.length}`,
               `- Docs line ratio: ${Math.round(docRatio * 100)}%`,
+              `- Open PRs scanned for Codex review debt: ${threadGroups.length}`,
               `- Active Codex threads: ${active.length} / total ${codexThreads.length}`,
               `- Active Codex P1/P0: ${activeP1}`,
               `- Active Codex P2: ${activeP2}`,

@@ -1,14 +1,46 @@
+## Summary
+
+-
+
+## Task
+
+-
+
+## Scope
+
+-
+
+## Out of scope
+
+-
+
+## Risk class
+
+-
+
+## Safety boundaries
+
+-
+
 ## Implementation evidence
 
 - Runtime/code artifact changed:
 - Test artifact changed:
 - Behavior now possible that was not possible before:
 
-## Verification
+## Test plan
+
+-
+
+## Verification result
 
 - Command:
 - Result:
 - Current head commit:
+
+## Changed files
+
+-
 
 ## Codex review debt
 
@@ -30,3 +62,7 @@
 ## Rollback
 
 - Revert strategy:
+
+## Handoff
+
+-
