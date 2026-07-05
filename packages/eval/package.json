@@ -5,6 +5,7 @@
   "type": "module",
   "description": "ForgeRoot deterministic eval and shadow-run harnesses.",
   "scripts": {
+    "prebuild": "node ../../scripts/clean-package-dist.mjs",
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test tests/*.test.mjs"
   },
