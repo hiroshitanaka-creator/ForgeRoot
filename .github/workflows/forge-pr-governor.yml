@@ -160,8 +160,17 @@ jobs:
             const manifestAnswerDeclaresYes = /^(yes|true|manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\b/i.test(manifestAnswer) &&
               !/^(no|false|n\/a|none)\b/i.test(manifestAnswer);
             const bodyWithoutManifestPrompt = body.split(/\r?\n/).filter((line) => !/Manifest-only or dry-run work\?/i.test(line)).join('\n');
+            const manifestOnlyTerms = /\b(manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\b/i;
+            const declaresManifestOnly = (line) => {
+              const value = String(line || '').trim();
+              if (!manifestOnlyTerms.test(value)) return false;
+              return /^\s*[-*]?\s*(manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\s*$/i.test(value) ||
+                /\b(this\s+(pr|change|work)|the\s+(pr|change|work)|scope|change|work|status)\b.*\b(is|are|was|remains|only|just)\b.*\b(manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\b/i.test(value) ||
+                /\b(manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\b\s*(work|change|pr)?\s*[:=-]?\s*(yes|true)\b/i.test(value);
+            };
             const hasManifestOnlyLanguage = manifestAnswerDeclaresYes ||
-              /\b(manifest[- ]only|dry[- ]run|proposal[- ]only|docs[- ]only)\b/i.test(`${pull.title || ''}\n${bodyWithoutManifestPrompt}`);
+              manifestOnlyTerms.test(pull.title || '') ||
+              bodyWithoutManifestPrompt.split(/\r?\n/).some((line) => declaresManifestOnly(line));
 
             const changed = files;
             const docs = changed.filter((file) => isDoc(file.filename));
