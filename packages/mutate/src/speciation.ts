@@ -228,32 +228,84 @@ export function createSpeciationProposal(input: unknown): SpeciationProposalResu
 
 export function validateSpeciationProposal(result: SpeciationProposalResult): SpeciationValidationResult {
   const issues: SpeciationValidationIssue[] = [];
-  const status = result.status as string;
+  if (!isRecord(result)) {
+    issue(issues, "result", "result_must_be_object", "speciation proposal result must be an object");
+    return { ok: false, issues };
+  }
+  const candidate = result as Partial<SpeciationProposalResult>;
+  const status = typeof candidate.status === "string" ? candidate.status : "";
   const expectedReviewGate = reviewGate();
-  const reviewGateRisk = result.review_gate.risk as string;
-  const reviewGateReasons = Array.isArray(result.review_gate.reasons) ? result.review_gate.reasons : [];
-  if (result.manifest_version !== SPECIATION_VERSION) issue(issues, "manifest_version", "invalid_manifest_version", "manifest_version must be 1");
-  if (result.schema_ref !== SPECIATION_SCHEMA_REF) issue(issues, "schema_ref", "invalid_schema_ref", "schema_ref must identify speciation v1");
-  if (!isRfc3339Utc(result.created_at)) issue(issues, "created_at", "invalid_created_at", "created_at must be RFC3339 UTC");
+  const reviewGateRecord = isRecord(candidate.review_gate) ? candidate.review_gate : null;
+  const reviewGateReasons = reviewGateRecord !== null && Array.isArray(reviewGateRecord.reasons) ? reviewGateRecord.reasons : [];
+  const mutationRecord = isRecord(candidate.mutation_record) ? candidate.mutation_record : null;
+  if (candidate.manifest_version !== SPECIATION_VERSION) issue(issues, "manifest_version", "invalid_manifest_version", "manifest_version must be 1");
+  if (candidate.schema_ref !== SPECIATION_SCHEMA_REF) issue(issues, "schema_ref", "invalid_schema_ref", "schema_ref must identify speciation v1");
+  if (typeof candidate.created_at !== "string" || !isRfc3339Utc(candidate.created_at)) issue(issues, "created_at", "invalid_created_at", "created_at must be RFC3339 UTC");
   if (status !== "dry_run_valid" && status !== "rejected") issue(issues, "status", "invalid_status", "status must be dry_run_valid or rejected");
-  if (reviewGateRisk !== "high") issue(issues, "review_gate.risk", "high_risk_required", "speciation proposals must remain high risk");
-  if (result.review_gate.approval_class !== "C" || result.review_gate.escalation_required !== true) issue(issues, "review_gate", "class_c_required", "speciation proposals must remain Class C review-gated");
-  if (result.review_gate.human_review_required_before_execution !== true) issue(issues, "review_gate.human_review_required_before_execution", "human_review_before_execution_required", "speciation proposals must require human review before execution");
-  if (result.review_gate.human_review_required_before_merge !== true) issue(issues, "review_gate.human_review_required_before_merge", "human_review_before_merge_required", "speciation proposals must require human review before merge");
+  if (reviewGateRecord === null) issue(issues, "review_gate", "review_gate_required", "speciation proposals must carry a review gate");
+  else {
+    if (reviewGateRecord.risk !== "high") issue(issues, "review_gate.risk", "high_risk_required", "speciation proposals must remain high risk");
+    if (reviewGateRecord.approval_class !== "C" || reviewGateRecord.escalation_required !== true) issue(issues, "review_gate", "class_c_required", "speciation proposals must remain Class C review-gated");
+    if (reviewGateRecord.human_review_required_before_execution !== true) issue(issues, "review_gate.human_review_required_before_execution", "human_review_before_execution_required", "speciation proposals must require human review before execution");
+    if (reviewGateRecord.human_review_required_before_merge !== true) issue(issues, "review_gate.human_review_required_before_merge", "human_review_before_merge_required", "speciation proposals must require human review before merge");
+  }
   if (!arraysEqual(reviewGateReasons, expectedReviewGate.reasons)) issue(issues, "review_gate.reasons", "review_gate_reasons_mismatch", "review gate reasons must remain the canonical speciation review reasons");
-  if (status === "dry_run_valid" && result.approval.approval_class !== "C") issue(issues, "approval.approval_class", "class_c_approval_required", "approval metadata must remain Class C");
-  if (status === "dry_run_valid" && result.approval.human_review_required_before_execution !== true) issue(issues, "approval.human_review_required_before_execution", "approval_execution_gate_required", "approval metadata must require human review before execution");
-  if (status === "dry_run_valid" && result.approval.human_review_required_before_merge !== true) issue(issues, "approval.human_review_required_before_merge", "approval_merge_gate_required", "approval metadata must require human review before merge");
-  if (result.mutation_record.class !== "speciation" || result.mutation_record.approval_class !== "C") issue(issues, "mutation_record", "invalid_mutation_record", "mutation record must be Class C speciation");
-  if (status === "dry_run_valid") validateAcceptedProposalShape(result, issues);
-  else if (status === "rejected") validateRejectedProposalShape(result, issues);
-  if (result.dry_run.file_written !== false) issue(issues, "dry_run.file_written", "file_write_forbidden", "speciation dry-run must not write files");
-  if (result.dry_run.child_genomes_written !== false) issue(issues, "dry_run.child_genomes_written", "child_genome_write_forbidden", "speciation dry-run must not write child genomes");
-  if (result.dry_run.parent_genomes_replaced !== false) issue(issues, "dry_run.parent_genomes_replaced", "parent_replacement_forbidden", "speciation dry-run must not replace parent genomes");
-  if (result.dry_run.github_api_called !== false) issue(issues, "dry_run.github_api_called", "github_api_forbidden", "speciation dry-run must not call GitHub APIs");
-  if (result.dry_run.auto_merged !== false) issue(issues, "dry_run.auto_merged", "auto_merge_forbidden", "speciation dry-run must not auto-merge");
-  if (result.dry_run.policy_or_workflow_targeted !== false) issue(issues, "dry_run.policy_or_workflow_targeted", "policy_or_workflow_target_forbidden", "speciation must not target policy or workflow paths");
+  if (status === "dry_run_valid") {
+    if (!isRecord(candidate.approval)) issue(issues, "approval", "approval_required", "accepted speciation proposals must carry approval metadata");
+    else {
+      if (candidate.approval.approval_class !== "C") issue(issues, "approval.approval_class", "class_c_approval_required", "approval metadata must remain Class C");
+      if (candidate.approval.human_review_required_before_execution !== true) issue(issues, "approval.human_review_required_before_execution", "approval_execution_gate_required", "approval metadata must require human review before execution");
+      if (candidate.approval.human_review_required_before_merge !== true) issue(issues, "approval.human_review_required_before_merge", "approval_merge_gate_required", "approval metadata must require human review before merge");
+    }
+  }
+  if (mutationRecord === null) issue(issues, "mutation_record", "mutation_record_required", "speciation proposals must carry a mutation record");
+  else {
+    if (mutationRecord.class !== "speciation" || mutationRecord.approval_class !== "C") issue(issues, "mutation_record", "invalid_mutation_record", "mutation record must be Class C speciation");
+    if (mutationRecord.patch_format !== "forgeroot-speciation-proposal-v1") issue(issues, "mutation_record.patch_format", "invalid_patch_format", "speciation mutation records must keep the canonical manifest patch format");
+    if (mutationRecord.patch_ref !== null) issue(issues, "mutation_record.patch_ref", "patch_ref_forbidden", "speciation mutation records must not reference executable patches");
+    if (!Array.isArray(mutationRecord.target_paths)) issue(issues, "mutation_record.target_paths", "target_paths_must_be_array", "mutation_record target_paths must be an array");
+  }
+  if (status === "dry_run_valid" && canValidateProposalShape(candidate, issues)) validateAcceptedProposalShape(candidate, issues);
+  else if (status === "rejected" && canValidateProposalShape(candidate, issues)) validateRejectedProposalShape(candidate, issues);
+  if (!isRecord(candidate.dry_run)) {
+    issue(issues, "dry_run", "dry_run_required", "speciation proposals must carry dry-run flags");
+  } else {
+    if (candidate.dry_run.file_written !== false) issue(issues, "dry_run.file_written", "file_write_forbidden", "speciation dry-run must not write files");
+    if (candidate.dry_run.child_genomes_written !== false) issue(issues, "dry_run.child_genomes_written", "child_genome_write_forbidden", "speciation dry-run must not write child genomes");
+    if (candidate.dry_run.parent_genomes_replaced !== false) issue(issues, "dry_run.parent_genomes_replaced", "parent_replacement_forbidden", "speciation dry-run must not replace parent genomes");
+    if (candidate.dry_run.github_api_called !== false) issue(issues, "dry_run.github_api_called", "github_api_forbidden", "speciation dry-run must not call GitHub APIs");
+    if (candidate.dry_run.auto_merged !== false) issue(issues, "dry_run.auto_merged", "auto_merge_forbidden", "speciation dry-run must not auto-merge");
+    if (candidate.dry_run.policy_or_workflow_targeted !== false) issue(issues, "dry_run.policy_or_workflow_targeted", "policy_or_workflow_target_forbidden", "speciation must not target policy or workflow paths");
+  }
   return { ok: issues.length === 0, issues };
+}
+
+function canValidateProposalShape(result: Partial<SpeciationProposalResult>, issues: SpeciationValidationIssue[]): result is SpeciationProposalResult {
+  let ok = true;
+  const requireArray = (value: unknown, path: string): void => {
+    if (!Array.isArray(value)) {
+      issue(issues, path, "array_required", `${path} must be an array`);
+      ok = false;
+    }
+  };
+  requireArray(result.parents, "parents");
+  requireArray(result.children, "children");
+  requireArray(result.supporting_mutations, "supporting_mutations");
+  requireArray(result.lineage_events, "lineage_events");
+  if (!isRecord(result.rationale)) {
+    issue(issues, "rationale", "rationale_required", "speciation proposals must carry rationale metadata");
+    ok = false;
+  }
+  if (!isRecord(result.approval)) {
+    issue(issues, "approval", "approval_required", "speciation proposals must carry approval metadata");
+    ok = false;
+  }
+  if (!isRecord(result.mutation_record)) {
+    ok = false;
+  } else if (!Array.isArray(result.mutation_record.target_paths)) {
+    ok = false;
+  }
+  return ok;
 }
 
 function validateAcceptedProposalShape(result: SpeciationProposalResult, issues: SpeciationValidationIssue[]): void {
@@ -275,7 +327,7 @@ function validateAcceptedProposalShape(result: SpeciationProposalResult, issues:
 }
 
 function validateRejectedProposalShape(result: SpeciationProposalResult, issues: SpeciationValidationIssue[]): void {
-  if (result.decision === "speciation_proposal_ready") issue(issues, "decision", "invalid_rejected_decision", "rejected speciation proposals must not use speciation_proposal_ready");
+  if (result.decision !== "blocked_by_forbidden_target" && result.decision !== "invalid_speciation_input") issue(issues, "decision", "invalid_rejected_decision", "rejected speciation proposals must use a known rejected decision");
   if (result.mutation_record.decision !== "rejected") issue(issues, "mutation_record.decision", "invalid_rejected_mutation_record_decision", "rejected speciation mutation records must remain rejected");
   if (result.lineage_events.length !== 0) issue(issues, "lineage_events", "rejected_lineage_events_forbidden", "rejected speciation proposals must not carry accepted lineage events");
   if (result.proposal_digest !== canonicalDigest(null)) issue(issues, "proposal_digest", "rejected_proposal_digest_mismatch", "rejected speciation proposals must use the rejected proposal digest sentinel");
@@ -456,9 +508,13 @@ function validateCanonicalParentContent(parent: SpeciationParentTarget, prefix: 
 
 function validateLineageCycles(parents: readonly SpeciationParentTarget[], children: readonly SpeciationChildDraft[], issues: SpeciationValidationIssue[]): void {
   const parentAncestryIds = new Set<string>();
-  for (const parent of parents) {
+  for (const [index, parent] of parents.entries()) {
     if (!isRecord(parent.content.evolution)) continue;
-    collectSpeciationIds(parent.content.evolution.parents, parentAncestryIds);
+    const parentIds = new Set<string>();
+    collectSpeciationIds(parent.content.evolution.parents, parentIds);
+    const parentSpeciationId = readSpeciationId(parent.content);
+    if (parentSpeciationId !== null && parentIds.has(parentSpeciationId)) issue(issues, `parents[${index}].content.evolution.parents`, "lineage_cycle_forbidden", "parent ancestry must not contain its own speciation_id");
+    for (const parentId of parentIds) parentAncestryIds.add(parentId);
   }
   for (const [index, child] of children.entries()) {
     if (parentAncestryIds.has(child.speciation_id)) issue(issues, `children[${index}].speciation_id`, "lineage_cycle_forbidden", "child speciation_id must not already appear in parent ancestry");

@@ -236,6 +236,22 @@ describe("T048 speciation proposal", () => {
     assert.deepEqual(validateSpeciationProposal(result), { ok: true, issues: [] });
   });
 
+  it("rejects parent lineage self-cycles before proposing lineage", () => {
+    const result = createSpeciationProposal(splitInput({
+      parents: [parent({
+        ...PLANNER_PARENT,
+        evolution: {
+          ...PLANNER_PARENT.evolution,
+          parents: [{ speciation_id: "sp_planner_alpha" }],
+        },
+      })],
+    }));
+
+    assert.equal(result.status, "rejected", JSON.stringify(result, null, 2));
+    assert.ok(result.reasons.includes("lineage_cycle_forbidden"));
+    assert.deepEqual(validateSpeciationProposal(result), { ok: true, issues: [] });
+  });
+
   it("rejects forbidden targets and non-canonical parent identity", () => {
     const forbiddenChild = createSpeciationProposal(splitInput({
       children: [
@@ -320,6 +336,14 @@ describe("T048 speciation proposal", () => {
     };
     assert.equal(validateSpeciationProposal(withoutReviewGate).ok, false);
     assert.ok(validateSpeciationProposal(withoutReviewGate).issues.some((entry) => entry.code === "human_review_before_merge_required"));
+
+    const missingReviewGate = {
+      ...result,
+      review_gate: null,
+    };
+    assert.doesNotThrow(() => validateSpeciationProposal(missingReviewGate));
+    assert.equal(validateSpeciationProposal(missingReviewGate).ok, false);
+    assert.ok(validateSpeciationProposal(missingReviewGate).issues.some((entry) => entry.code === "review_gate_required"));
 
     const downgradedReviewGate = {
       ...result,
@@ -418,6 +442,34 @@ describe("T048 speciation proposal", () => {
     assert.equal(tamperedIdValidation.ok, false);
     assert.ok(tamperedIdValidation.issues.some((entry) => entry.code === "proposal_id_mismatch"));
     assert.ok(tamperedIdValidation.issues.some((entry) => entry.code === "mutation_id_mismatch"));
+
+    const withExecutablePatchRef = {
+      ...result,
+      mutation_record: {
+        ...result.mutation_record,
+        patch_format: "unified-diff",
+        patch_ref: "patches/speciation.diff",
+      },
+    };
+    const executablePatchValidation = validateSpeciationProposal(withExecutablePatchRef);
+    assert.equal(executablePatchValidation.ok, false);
+    assert.ok(executablePatchValidation.issues.some((entry) => entry.code === "invalid_patch_format"));
+    assert.ok(executablePatchValidation.issues.some((entry) => entry.code === "patch_ref_forbidden"));
+
+    const rejected = createSpeciationProposal(splitInput({
+      children: [
+        child({ path: ".forge/policies/constitution.forge", species: "constitution.root" }),
+        child({ path: ".forge/agents/planner.scheduler.forge", species: "planner.scheduler", speciation_id: "sp_planner_scheduler" }),
+      ],
+    }));
+    assert.equal(rejected.status, "rejected", JSON.stringify(rejected, null, 2));
+    const rejectedWithUnknownDecision = {
+      ...rejected,
+      decision: "approved",
+    };
+    const rejectedDecisionValidation = validateSpeciationProposal(rejectedWithUnknownDecision);
+    assert.equal(rejectedDecisionValidation.ok, false);
+    assert.ok(rejectedDecisionValidation.issues.some((entry) => entry.code === "invalid_rejected_decision"));
   });
 
   it("supports stable aliases", () => {
