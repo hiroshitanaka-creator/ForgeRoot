@@ -2,7 +2,7 @@
 
 ## Current phase
 
-T034 - eval suite DSL.
+T036 - merge outcome collector.
 
 ## Initial assessment summary
 
@@ -15,33 +15,34 @@ T034 - eval suite DSL.
   retrieval context manifests that preserve source refs within a token budget.
 - T034 defines manifest-only eval suite validation, benchmark task fixture
   schema, separated grader definitions, risk class, and shadow-only boundaries.
+- T036 collects explicit PR outcome metadata into deterministic outcome
+  manifests without guessing missing merge results.
 
 ## Selected work
 
-Implement T034 - eval suite DSL.
+Implement T036 - merge outcome collector.
 
 ## Why this work
 
-- T042 needs score provenance before it can explain fitness, trust, or risk.
-- T035-T037 need a reusable suite and grader boundary before fixtures and
-  scoring can be added safely.
-- It keeps benchmark execution, fitness calculation, mutation selection, live
-  CI integration, federation, and self-evolution out of scope.
+- T037 and T042 need merge outcome facts before they can calculate or report
+  fitness, trust, and risk without guessing.
+- T036 is implementation-heavy and moves repository completion forward more
+  directly than another docs/fixture-only step.
+- It keeps GitHub API polling, score calculation, memory writes, rollback,
+  federation, and self-evolution out of scope.
 
 ## Intended scope
 
-- Add `.forge/evals/core.eval.forge`.
-- Add `docs/specs/eval-suite.md`.
-- Add `packages/eval/src/eval-suite.ts`.
-- Add `packages/eval/tests/eval-suite.test.mjs`.
-- Export T034 APIs from `packages/eval/src/index.ts`.
-- Document eval suite boundaries in `packages/eval/README.md`.
-- Add `docs/specs/t034-validation-report.md`.
+- Add `packages/eval/src/outcomes.ts`.
+- Add `packages/eval/tests/outcomes.test.mjs`.
+- Export T036 APIs from `packages/eval/src/index.ts`.
+- Add `docs/specs/t036-validation-report.md`.
 
 ## Verification plan
 
 - Run `npm.cmd --prefix packages\eval test`.
 - Run `npm.cmd --prefix packages\eval run build`.
+- Run `npm.cmd run validate:skills`.
 - Run `npm.cmd test`.
 - Run `npm.cmd run build`.
 - Run `git diff --check`.
@@ -49,8 +50,8 @@ Implement T034 - eval suite DSL.
 
 ## Current status
 
-- T034 implementation complete locally.
-- Verification passed: `npm.cmd --prefix packages\eval test` (11/11).
+- T036 implementation complete locally.
+- Verification passed: `npm.cmd --prefix packages\eval test` (22/22).
 - Verification passed: `npm.cmd --prefix packages\eval run build`.
 - Verification passed: `npm.cmd run validate:skills`.
 - Verification passed: `npm.cmd test`.

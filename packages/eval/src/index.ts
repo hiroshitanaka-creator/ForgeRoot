@@ -17,6 +17,34 @@ export type {
   EvalSuiteValidationSummary,
 } from "./eval-suite.js";
 export {
+  MERGE_OUTCOME_CONTRACT,
+  MERGE_OUTCOME_SCHEMA_REF,
+  MERGE_OUTCOME_VERSION,
+  collectMergeOutcome,
+  collectPrOutcome,
+  collectPullRequestOutcome,
+  validateMergeOutcomeManifest,
+  validateT036MergeOutcomeManifest,
+} from "./outcomes.js";
+export type {
+  CiOutcomeKind,
+  MergeOutcomeCiInput,
+  MergeOutcomeCollectorInput,
+  MergeOutcomeCommitTrailerRef,
+  MergeOutcomeIssue,
+  MergeOutcomeKind,
+  MergeOutcomeManifest,
+  MergeOutcomePullRequestRef,
+  MergeOutcomeQuarantineInput,
+  MergeOutcomeReviewInput,
+  MergeOutcomeRevertInput,
+  MergeOutcomeSourceInput,
+  MergeOutcomeStaleInput,
+  MergeOutcomeStatus,
+  MergeOutcomeValidationResult,
+  ReviewOutcomeKind,
+} from "./outcomes.js";
+export {
   EVAL_SHADOW_RUN_CONTRACT,
   EVAL_SHADOW_RUN_SCHEMA_REF,
   EVAL_SHADOW_RUN_VERSION,
