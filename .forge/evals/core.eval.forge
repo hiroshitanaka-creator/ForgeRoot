@@ -1,0 +1,76 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:eval_suite:v1
+kind: eval_suite
+id: forge://hiroshitanaka-creator/ForgeRoot/eval_suite/core.eval
+revision: 01KQ1000000000000000000034
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: seeded
+title: ForgeRoot Core Eval Suite
+summary: Manifest-only benchmark task and grader definitions for Phase 2 eval validation.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-07-06T00:00:00Z
+updated_at: 2026-07-06T00:00:00Z
+suite_name: core.eval
+tasks:
+  - task_id: docs_contract_review
+    fixture_ref: labs/benchmarks/fixtures/docs-contract-review.json
+    input_kind: docs
+    expected_outcome: pass
+    risk_class: B
+    grader_refs:
+      - manifest_boundary_grader
+  - task_id: invalid_scope_rejection
+    fixture_ref: labs/benchmarks/fixtures/invalid-scope-rejection.json
+    input_kind: scope
+    expected_outcome: blocked
+    risk_class: B
+    grader_refs:
+      - scope_boundary_grader
+graders:
+  - grader_id: manifest_boundary_grader
+    description: Checks whether eval outputs stay manifest-only and source-referenced.
+    input_schema_ref: urn:forgeroot:eval:task_fixture:v1
+    output_schema_ref: urn:forgeroot:eval:grader_result:v1
+    decision_values:
+      - pass
+      - fail
+      - blocked
+      - unknown
+    score_output: unknown_until_t037
+  - grader_id: scope_boundary_grader
+    description: Checks whether forbidden live execution and mutation paths remain blocked.
+    input_schema_ref: urn:forgeroot:eval:task_fixture:v1
+    output_schema_ref: urn:forgeroot:eval:grader_result:v1
+    decision_values:
+      - pass
+      - fail
+      - blocked
+      - quarantined
+      - unknown
+    score_output: unknown_until_t037
+risk_class: B
+success_metrics:
+  deterministic_manifest_outputs: unknown
+  policy_compliance: unknown
+  reviewability: unknown
+  low_blast_radius: unknown
+shadow_only: true
+provenance:
+  task_id: T034
+  source: docs/specs/t029-t039-canonical-task-source.md#t034-eval-suite-dsl
+  generated_by: codex
+  manifest_only: true
+integrity:
+  canonical_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  attachment_hashes: []
+  signatures: []
+extensions:
+  t034_guards:
+    no_benchmark_execution: true
+    no_grader_execution: true
+    no_score_calculation: true
+    no_mutation_selection: true
+    no_live_ci_integration: true

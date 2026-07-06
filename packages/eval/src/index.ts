@@ -1,4 +1,22 @@
 export {
+  EVAL_SUITE_CONTRACT,
+  EVAL_SUITE_SCHEMA_REF,
+  validateEvalSuite,
+  validateT034EvalSuite,
+} from "./eval-suite.js";
+export type {
+  EvalExpectedOutcome,
+  EvalInputKind,
+  EvalRiskClass,
+  EvalSuiteGrader,
+  EvalSuiteManifest,
+  EvalSuiteTask,
+  EvalSuiteValidationInput,
+  EvalSuiteValidationIssue,
+  EvalSuiteValidationResult,
+  EvalSuiteValidationSummary,
+} from "./eval-suite.js";
+export {
   EVAL_SHADOW_RUN_CONTRACT,
   EVAL_SHADOW_RUN_SCHEMA_REF,
   EVAL_SHADOW_RUN_VERSION,
