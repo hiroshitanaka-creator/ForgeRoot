@@ -4,7 +4,10 @@
 Define ForgeRoot's minimum Phase 2 memory partition contract before any MemoryKeeper runtime exists.
 
 ## Non-goals
-No semantic retrieval, archive packer, evaluator, federation, self-evolution, live GitHub mutation, runtime DB authority, or direct `.forge` memory write is introduced.
+This model does not itself introduce semantic retrieval, evaluators, federation,
+self-evolution, live GitHub mutation, runtime DB authority, or direct `.forge`
+memory writes. Archive pack creation is handled by T032 pack manifests and still
+requires PR review before becoming source of truth.
 
 ## Source of truth rule
 `.forge` is the genome and curated memory surface. A curated memory update must move through PR review before it can become source truth. Runtime DBs, caches, and vector indexes are derived state only and may be rebuilt from repository artifacts.
@@ -18,7 +21,7 @@ Role: short-lived current facts for active planning. Source-of-truth: only accep
 Role: compact heads for accepted, rejected, blocked, quarantined, failed, reverted, and unknown outcomes. Source-of-truth: PR-accepted digest artifacts. Update method: `episode_digest` manifest, then PR. Approval class: B. Retention/TTL: preserve rejected and blocked events; pack candidates may later move to packs. Source refs: task, PR/audit/outcome, and artifact hash mandatory. Boundary: head metadata may be inline; full bodies move to packs.
 
 ### Episodic Packs
-Role: larger archive records for old or bulky episodes. Source-of-truth: pack files committed through PR. Update method: future T032 packer only. Approval class: B or C. Retention/TTL: long-lived unless policy expires. Source refs: mandatory hashes back to source artifacts. Boundary: pack memory is not inline `.forge` working memory.
+Role: larger archive records for old or bulky episodes. Source-of-truth: pack files committed through PR. Update method: T032 archive packer manifest, then PR. Approval class: B or C. Retention/TTL: long-lived unless policy expires. Source refs: mandatory hashes back to source artifacts. Boundary: pack memory is not inline `.forge` working memory.
 
 ### Semantic Digests
 Role: curated abstractions distilled from source-backed episodes. Source-of-truth: committed digest artifacts, not embeddings. Update method: future digest curation PR. Approval class: C when it affects behavior. Retention/TTL: explicit policy per digest. Source refs: mandatory backreferences to source episodes and hashes. Boundary: vector index rows are derived from semantic digests, never authoritative.

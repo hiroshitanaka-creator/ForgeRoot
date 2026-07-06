@@ -2,67 +2,52 @@
 
 ## Current phase
 
-T060 - dry-run completion bundle after lineage handoff packs.
+T032 - deterministic archive packer.
 
 ## Initial assessment summary
 
-- T048 implemented a dry-run role split/merge speciation proposal surface.
-- T049 implemented manifest-only N-version audit routing for high-risk Class C
-  mutation proposal refs.
-- T050 implemented a decision-only EvolutionGuard accept/reject/hold manifest.
-- T051 consumes accepted T050 decisions and emits a deterministic draft PR plan
-  manifest without performing GitHub or git transport.
-- T052 consumes ready T051 PR plans and emits deterministic dry-run GitHub PR
-  transport request manifests without live transport.
-- T053 consumes T052 transport request manifests and emits deterministic
-  readiness replay ledgers without live transport or file writes.
-- T054 consumes T053 readiness ledgers and explicit human approval receipts,
-  verifying scope and digest matches without writing approval records.
-- T055 consumes T054 approval verification and T052 request manifests to build a
-  deterministic, unexecuted transport operation plan.
-- T056 consumes T055 execution plans and emits deterministic artifact receipts
-  without persisting artifacts.
-- T057 consumes T056 receipts and evaluates rollout gates.
-- T058 consumes T057 ready checklists and emits unexecuted audit-plan steps.
-- T059 consumes T058 ready audit plans and emits non-persisted lineage handoff
-  packs.
-- T060 consumes T059 lineage handoff packs and emits deterministic,
-  non-persisted completion bundle manifests.
+- T029 defines the memory partition and source-of-truth policy.
+- T030 implements deterministic working memory update manifests.
+- T031 implements deterministic episode digest manifests.
+- T032 consumes source-backed memory records and emits deterministic archive
+  pack manifests with canonical JSONL, zstd hashes, and pack boundaries.
 
 ## Selected work
 
-Implement T060 - dry-run completion bundle.
+Implement T032 - deterministic archive packer.
 
 ## Why this work
 
-- It advances the Evolution loop after T059 by adding a final deterministic
-  completion bundle for scoped handoff or PR preparation.
-- It blocks valid non-ready handoff packs and invalidates tampered T059 input.
-- It keeps artifact persistence, token handling, live GitHub calls, branch
-  creation, git push, mutation execution, file writes, and merge out of scope.
+- T032 is the next missing memory dependency after T030/T031.
+- T033 retrieval, T038 compaction, and T039 provenance need canonical pack
+  hashes and source-ref boundaries.
+- It keeps direct `.forge` writes, external storage authority, semantic
+  retrieval, federation, and compaction scheduling out of scope.
 
 ## Intended scope
 
-- Add `packages/mutate/src/completion-bundle.ts`.
-- Add `packages/mutate/tests/completion-bundle.test.mjs`.
-- Export T060 APIs from `packages/mutate/src/index.ts`.
-- Document the T060 schema and validation result under `docs/specs/`.
-- Add `docs/ops/thread-handoff-after-t060.md`.
+- Add `packages/memory/src/packer.ts`.
+- Add `packages/memory/tests/packer.test.mjs`.
+- Export T032 APIs from `packages/memory/src/index.ts`.
+- Document archive pack boundaries under `.forge/packs/README.md` and
+  `docs/specs/archive-packer.md`.
+- Add `docs/specs/t032-validation-report.md`.
 
 ## Verification plan
 
-- Run `npm.cmd --prefix packages\mutate test`.
+- Run `npm.cmd --prefix packages\memory test`.
+- Run `npm.cmd --prefix packages\memory run build`.
 - Run `npm.cmd test`.
 - Run `git diff --check`.
 - Run `cargo test --workspace --locked` when Rust is available.
 
 ## Current status
 
-- T060 implementation complete.
-- Verification passed: `npm.cmd --prefix packages\mutate test` (102/102).
+- T032 implementation complete locally.
+- Verification passed: `npm.cmd --prefix packages\memory run build`.
+- Verification passed: `npm.cmd --prefix packages\memory test` (197/197).
 - Verification passed: `npm.cmd test`.
-- Verification passed: `git diff --check` (LF/CRLF warnings only).
-- Re-audit repair complete: T060 invalid unsafe-label results now pass their own
-  read-back validation without weakening token/private-key detection.
-- Rust verification not run locally because `cargo` is not available on PATH.
-- Ten-task batch status: T050-T059 complete locally; T060 complete locally.
+- Verification passed: `npm.cmd run build`.
+- Verification passed: `git diff --check`.
+- Local Rust verification is blocked by Windows linker setup; GitHub Actions is
+  the Rust verification surface for this PR.

@@ -4,6 +4,8 @@ Shared TypeScript packages live here.
 
 Current packages:
 
+- `memory/` now includes T032 deterministic archive pack manifests after T030
+  working memory updates and T031 episode digests.
 - `mutate/` now includes T060 dry-run completion bundles after lineage handoff packs.
 
 - `planner/` — planner-side primitives. T015 adds deterministic issue intake classification and normalized task candidate output.
