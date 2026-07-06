@@ -133,7 +133,7 @@ function baseResult(createdAt: string, inputs: EvalShadowRunResult["inputs"], au
 
 function validateInput(input: EvalShadowRunInput): EvalShadowRunValidationIssue[] {
   const issues: EvalShadowRunValidationIssue[] = [];
-  validateRef(issues, "suite", input.suite, "eval_suite", /^\.forge\/evals\/[a-z0-9][a-z0-9-]*\.forge$/);
+  validateRef(issues, "suite", input.suite, "eval_suite", /^\.forge\/evals\/[a-z0-9][a-z0-9._-]*\.forge$/);
   validateRef(issues, "baselineResult", input.baselineResult, "eval_result", /^\.forge\/evals\/results\/[a-z0-9][a-z0-9-]*\.forge$/);
   validateRef(issues, "candidate", input.candidate, "forge_document", /^\.forge\/.+\.forge$/);
   return issues;
