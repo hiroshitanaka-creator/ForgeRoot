@@ -1,6 +1,6 @@
 {
   "name": "@forgeroot/memory",
-  "version": "0.0.0-t032",
+  "version": "0.0.0-t033",
   "private": true,
   "type": "module",
   "description": "ForgeRoot Phase 2 deterministic memory foundation manifests.",
