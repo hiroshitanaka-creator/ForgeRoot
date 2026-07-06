@@ -14,3 +14,9 @@ export {
   packMemoryRecords,
   validateArchivePack,
 } from "./packer.js";
+export {
+  MEMORY_CONTEXT_SCHEMA_REF,
+  MEMORY_CONTEXT_VERSION,
+  retrieveMemoryContext,
+  validateMemoryContext,
+} from "./retrieval.js";
