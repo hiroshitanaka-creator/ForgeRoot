@@ -195,3 +195,4 @@ Claudeが次にすること:
 | `references/pr-review-method.md` | PRをレビューするとき |
 | `references/handoff-method.md` | handoffを書くとき |
 | `../forgeroot-pr-quality-gate/SKILL.md` | コード変更をpushする前(operating loop step 10)。Codexレビュー指摘をpush前に潰す品質ゲート |
+| `../forgeroot-completion-engine/SKILL.md` | 実装タスクの実行時(operating loop step 9〜12)。読む→設計→実装→テスト→二重レンズ監査→自己修復→PRの実行規律(品質ゲート統合済み) |
