@@ -60,10 +60,11 @@ ForgeRoot を blueprint の Phase 0〜5 に沿って完成へ前進させる。�
 7. **Mutable paths / forbidden paths 定義** — 触ってよいパスと触ってはいけないパスを明示
 8. **Branch名提案** — `claude/<t-number>-<short-topic>` 形式
 9. **実装または patch 作成** — PRを作れない環境では diff / 手順 / PR本文を出す
-10. **Test / build / lint 検証** — 実行したコマンドと出力を記録。未実行は「未実行」と書く
-11. **PR本文作成** — `templates/pr-body-template.md` を使う
-12. **Handoff作成** — `docs/ops/thread-handoff-after-<task>.md` に置く。`references/handoff-method.md` 参照
-13. **User Decision Card 出力** — §10 の Output contract に従う
+10. **品質ゲート通過(必須)** — コード変更を含む場合、push前に `forgeroot-pr-quality-gate` Skill(`.claude/skills/forgeroot-pr-quality-gate/SKILL.md`)の全Phaseを通す。docs-onlyは機械検査(G4)のみでよい
+11. **Test / build / lint 検証** — 実行したコマンドと出力を記録。未実行は「未実行」と書く
+12. **PR本文作成** — `templates/pr-body-template.md` を使い、品質ゲートのレポートを添付する
+13. **Handoff作成** — `docs/ops/thread-handoff-after-<task>.md` に置く。`references/handoff-method.md` 参照
+14. **User Decision Card 出力** — §10 の Output contract に従う
 
 ## 5. Priority rule
 
@@ -193,3 +194,4 @@ Claudeが次にすること:
 | `references/completion-roadmap-method.md` | Completion Ledger を作る・更新するとき |
 | `references/pr-review-method.md` | PRをレビューするとき |
 | `references/handoff-method.md` | handoffを書くとき |
+| `../forgeroot-pr-quality-gate/SKILL.md` | コード変更をpushする前(operating loop step 10)。Codexレビュー指摘をpush前に潰す品質ゲート |

@@ -33,6 +33,12 @@
 - TypeScript の型チェックは各 package の `build` script に含まれる `tsc -p tsconfig.json`、または `node scripts/build.mjs` 経由で行う。全 npm workspace は `npm run build`。
 - Rust 専用の型チェックコマンドはCIに定義されていない。Rust 側の確認は `cargo test --workspace --locked` を基準にする。
 
+## PR作成前の品質ゲート(必須)
+
+- コード変更(`packages/*`、`crates/*`、`.forge/*`)を含むPRは、push前に `.claude/skills/forgeroot-pr-quality-gate/SKILL.md` の品質ゲート(G0〜G5)を通す。どのエージェント(Claude / Codex / その他)も対象。
+- 過去PRのレビュー指摘は約10クラスの既知パターンに分類済み(`references/codex-finding-taxonomy.md`)。特に validator を書くときは「createとvalidateの単一検証コア」「enum のallowlist検証」「tamper-harness テスト」を必ず適用する(`references/design-rules.md`)。
+- ゲートの実行結果は `templates/gate-report-template.md` の形式でPR本文に添付する。docs-only の変更は機械検査(G4)のみでよい。
+
 ## PR作成ルール
 
 - default branch へ直接書き込まない。すべて branch からPRにする。
