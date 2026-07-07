@@ -29,6 +29,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
   issues: read
   pull-requests: read
 
@@ -111,7 +112,7 @@ jobs:
                 state: 'open',
                 per_page: 100,
               });
-              return pulls.map((item) => ({ number: item.number, title: item.title }));
+              return pulls.map((item) => ({ number: item.number, title: item.title, headSha: item.head?.sha || null }));
             }
 
             const basename = (path) => path.split('/').pop() || path;
@@ -152,19 +153,29 @@ jobs:
               const match = body.match(new RegExp(`(^|\\n)\\s*-\\s*${name}:\\s*([^\\n]+)`, 'i'));
               return match ? match[2].replace(/`/g, '').trim() : '';
             };
+            const isPlaceholderVerificationValue = (value) => {
+              const normalized = String(value || '').replace(/`/g, '').trim().toLowerCase();
+              return normalized.length === 0 ||
+                /^(?:not run|not-run|n\/a|na|none|todo|pending|skip|skipped|no command|no verification)$/i.test(normalized);
+            };
             const isPassingVerificationResult = (value) => {
-              const normalized = value.toLowerCase();
-              if (/\b(error|errored|not ok|no tests passed|not passed|cancelled|canceled|timed out|timeout|partial|failing)\b/.test(normalized)) return false;
-              const ratio = normalized.match(/\b([0-9]+)\/([0-9]+)\s+passing\b/);
-              if (ratio) return Number(ratio[1]) > 0 && ratio[1] === ratio[2];
+              const normalized = String(value || '').toLowerCase().trim();
+              if (isPlaceholderVerificationValue(normalized)) return false;
+              if (/\b0\s+(?:tests?|checks?|commands?|cases?)\s+(?:passed|passing|succeeded|successful|ok)\b/.test(normalized)) return false;
               if (/\b(?:[1-9][0-9]*\s+(?:fail|fails|failed|failure|failures)|(?:fail|fails|failed|failure|failures)\s*[:=]?\s*[1-9][0-9]*)\b/.test(normalized)) return false;
-              const hasZeroFailures = /\b(?:0\s+(?:fail|fails|failed|failure|failures)|(?:fail|fails|failed|failure|failures)\s*[:=]?\s*0)\b/.test(normalized);
-              if (/\b(fail|failed|failure|failing)\b/.test(normalized) && !hasZeroFailures) return false;
+              const zeroFailures = /\b(?:0\s+(?:fail|fails|failed|failure|failures)|(?:fail|fails|failed|failure|failures)\s*[:=]?\s*0)\b/g;
+              const hasZeroFailures = zeroFailures.test(normalized);
+              zeroFailures.lastIndex = 0;
+              const withoutZeroFailures = normalized.replace(zeroFailures, ' ');
+              if (/\b(error|errored|not ok|no tests passed|not passed|cancelled|canceled|timed out|timeout|partial|failing|failed|failure|failures?)\b/.test(withoutZeroFailures)) return false;
+              const ratio = normalized.match(/\b([0-9]+)\/([0-9]+)\s+(?:passing|passed)\b/);
+              if (ratio) return Number(ratio[1]) > 0 && ratio[1] === ratio[2];
               return /^(passed|passing|ok|success|succeeded|yaml ok)\b/.test(normalized) ||
                 /\b(all tests passed|tests passed)\b/.test(normalized) ||
                 hasZeroFailures;
             };
-            const hasVerificationCommand = hasNonEmptyBulletField('Command');
+            const verificationCommand = bulletFieldValue('Command');
+            const hasVerificationCommand = hasNonEmptyBulletField('Command') && !isPlaceholderVerificationValue(verificationCommand);
             const verificationResult = bulletFieldValue('Result');
             const currentHeadCommit = bulletFieldValue('Current head commit');
             const hasVerificationResult = isPassingVerificationResult(verificationResult);
@@ -183,6 +194,7 @@ jobs:
               /(^|\n)\s*-\s*Acceptance:\s*[1-9][0-9]*\/[1-9][0-9]*\s+passed,\s*0\s+failed\b/i.test(body) &&
               /(^|\n)###\s*Changed paths\b/i.test(body) &&
               /(^|\n)###\s*Sandbox evidence\b/i.test(body) &&
+              hasCurrentHeadCommit &&
               /(^|\n)\s*-\s*Command IDs:\s*(?!none\b)[^\n]*\S/i.test(body);
             const hasBodyEvidence = hasTemplateBodyEvidence || hasComposerBodyEvidence;
             const manifestAnswerLine = body.split(/\r?\n/).find((line) => /Manifest-only or dry-run work\?/i.test(line)) || '';
@@ -192,6 +204,7 @@ jobs:
             const manifestAnswerDeclaresYes = /^(yes|true|manifest[- ]only|dry[- ]run|proposal[- ]only)\b/i.test(manifestAnswer) &&
               !manifestAnswerDeclaresDocsOnly &&
               !/^(no|false|n\/a|none)\b/i.test(manifestAnswer);
+            const manifestAnswerDeclaresLabel = /\b(?:governor\/)?manifest-only-approved\b/i.test(manifestAnswer);
             const bodyWithoutManifestPrompt = body.split(/\r?\n/).filter((line) => !/Manifest-only or dry-run work\?/i.test(line)).join('\n');
             const manifestOnlyTerms = /\b(manifest[- ]only|dry[- ]run|proposal[- ]only)\b/i;
             const docsOnlyTerms = /\bdocs[- ]only\b/i;
@@ -199,12 +212,15 @@ jobs:
               const value = String(line || '').trim();
               if (!terms.test(value)) return false;
               const termSource = terms.source;
+              if (new RegExp(`\\b(?:not|no|never|without)\\b(?:\\W+\\w+){0,5}\\W+(?:${termSource})`, 'i').test(value) ||
+                new RegExp(`\\bnon[- ]?(?:${termSource})`, 'i').test(value)) return false;
               return new RegExp(`^\\s*[-*]?\\s*(?:${termSource})\\s*$`, 'i').test(value) ||
                 new RegExp(`\\b(this\\s+(pr|change|work)|the\\s+(pr|change|work)|scope|change|work|status)\\b.*\\b(is|are|was|remains|only|just)\\b.*(?:${termSource})\\b`, 'i').test(value) ||
                 new RegExp(`(?:${termSource})\\s*(work|change|pr)?\\s*[:=-]?\\s*(yes|true)\\b`, 'i').test(value);
             };
             const bodyLinesForRestrictedWork = [pull.title || '', ...bodyWithoutManifestPrompt.split(/\r?\n/)];
             const hasManifestOnlyLanguage = manifestAnswerDeclaresYes ||
+              manifestAnswerDeclaresLabel ||
               bodyLinesForRestrictedWork.some((line) => declaresRestrictedWork(line, manifestOnlyTerms));
             const hasDocsOnlyLanguage = manifestAnswerDeclaresDocsOnly ||
               bodyLinesForRestrictedWork.some((line) => declaresRestrictedWork(line, docsOnlyTerms));
@@ -232,6 +248,41 @@ jobs:
             const active = codexThreads.filter((thread) => thread.active);
             const activeP1 = active.filter((thread) => thread.severities.includes('P1') || thread.severities.includes('P0')).length;
             const activeP2 = active.filter((thread) => thread.severities.includes('P2')).length;
+            const globalDebtFailures = [];
+            if (activeP1 > max.activeCodexP1) globalDebtFailures.push(`Active Codex P1/P0 review threads: ${activeP1}. Must be zero.`);
+            if (activeP2 > max.activeCodexP2) globalDebtFailures.push(`Active Codex P2 review threads: ${activeP2}. Must be zero.`);
+            if (active.length > max.activeCodexThreads) globalDebtFailures.push(`Active Codex review threads: ${active.length}. Limit is ${max.activeCodexThreads}; collapse review debt before expanding scope.`);
+
+            async function mirrorGlobalDebtToOpenPrChecks(groups, messages) {
+              const isReviewDebtEvent = context.eventName === 'pull_request_review' || context.eventName === 'pull_request_review_comment';
+              if (!isReviewDebtEvent || messages.length === 0) return 0;
+              let mirrored = 0;
+              for (const group of groups) {
+                if (group.number === prNumber || typeof group.headSha !== 'string' || group.headSha.length === 0) continue;
+                try {
+                  await github.rest.checks.create({
+                    owner,
+                    repo,
+                    name: 'completion gate',
+                    head_sha: group.headSha,
+                    status: 'completed',
+                    conclusion: 'failure',
+                    output: {
+                      title: 'Forge PR Governor: global Codex review debt',
+                      summary: [
+                        `A review event on PR #${prNumber} changed repository-wide Codex review debt.`,
+                        '',
+                        ...messages.map((message) => `- ${message}`),
+                      ].join('\n'),
+                    },
+                  });
+                  mirrored += 1;
+                } catch (error) {
+                  core.warning(`Could not mirror global review-debt check to PR #${group.number}: ${error.message}`);
+                }
+              }
+              return mirrored;
+            }
 
             const failures = [];
             const fail = (message) => { failures.push(message); core.error(message); };
@@ -245,9 +296,8 @@ jobs:
             if (hasManifestOnlyLanguage && !allowManifestOnly) fail('Manifest-only/dry-run/proposal-only work is blocked in completion mode unless explicitly approved by label.');
             if (hasDocsOnlyLanguage && !allowDocsOnly) fail('Docs-only work is blocked in completion mode unless explicitly approved by docs-only label.');
             if (!hasBodyEvidence) fail('PR body lacks Implementation evidence and Verification sections. Use the ForgeRoot PR template.');
-            if (activeP1 > max.activeCodexP1) fail(`Active Codex P1/P0 review threads: ${activeP1}. Must be zero.`);
-            if (activeP2 > max.activeCodexP2) fail(`Active Codex P2 review threads: ${activeP2}. Must be zero.`);
-            if (active.length > max.activeCodexThreads) fail(`Active Codex review threads: ${active.length}. Limit is ${max.activeCodexThreads}; collapse review debt before expanding scope.`);
+            for (const message of globalDebtFailures) fail(message);
+            const mirroredGlobalDebtChecks = await mirrorGlobalDebtToOpenPrChecks(threadGroups, globalDebtFailures);
 
             const summary = [
               '# Forge PR Governor',
@@ -261,6 +311,7 @@ jobs:
               `- Active Codex threads: ${active.length} / total ${codexThreads.length}`,
               `- Active Codex P1/P0: ${activeP1}`,
               `- Active Codex P2: ${activeP2}`,
+              `- Mirrored global review-debt checks: ${mirroredGlobalDebtChecks}`,
               '',
               failures.length ? '## Failures' : '## Result',
               failures.length ? failures.map((item) => `- ${item}`).join('\n') : 'Governor passed.',

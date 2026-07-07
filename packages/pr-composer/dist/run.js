@@ -10,6 +10,7 @@ const RISKS = new Set(["low", "medium", "high", "critical"]);
 const AUDIT_ALLOWED_STATUSES = new Set(["passed", "failed", "blocked", "invalid"]);
 const AUDIT_DECISIONS = new Set(["allow_pr_composition", "request_changes", "block_pr_composition", "invalid"]);
 const COMPOSITION_STATUSES = new Set(["ready_for_github_adapter"]);
+const GIT_SHA = /^[a-f0-9]{40}$/i;
 const MAX_LABEL_LENGTH = 64;
 const MAX_TITLE_LENGTH = 120;
 const MAX_BODY_LENGTH = 65_536;
@@ -49,6 +50,7 @@ export function composePullRequest(input) {
         ...validateSandboxForComposer(input?.sandboxRequest).issues,
         ...validateSandboxOutputForComposer(input?.sandboxOutput).issues,
         ...validateAuditResultForComposer(auditResult).issues,
+        ...validateComposerOptions(input).issues,
     ];
     if (structuralIssues.length > 0) {
         return invalidResult(["invalid_pr_composer_input", ...structuralIssues.map(formatIssue)], [...auditTrail, "input:invalid"], structuralIssues);
@@ -205,6 +207,13 @@ function extractAuditResult(input) {
             return report;
     }
     return raw;
+}
+function validateComposerOptions(input) {
+    const issues = [];
+    if (gitShaValue(input?.headSha) === null) {
+        issues.push(issue("/headSha", "git_sha", "headSha must be a 40-character git SHA so the generated PR body can satisfy the completion gate"));
+    }
+    return { ok: issues.length === 0, issues };
 }
 function validatePlanForComposer(value) {
     const issues = [];
@@ -413,6 +422,7 @@ function buildComposition(plan, worktreePlan, sandboxRequest, sandboxOutput, aud
     const sandboxRequestId = stringValue(sandboxRequest["request_id"]) ?? "forge-sandbox://unknown";
     const auditId = stringValue(audit["audit_id"]) ?? "forge-audit://unknown";
     const head = stringValue(branch["name"]) ?? "forge/p1/task";
+    const headSha = gitShaValue(input.headSha) ?? "";
     const base = stringValue(branch["base_ref"]) ?? "main";
     const repository = normalizeOptionalString(input.repository) ?? stringValue(source["repository"]) ?? stringValue(asRecord(worktreePlan["source"])?.["repository"]);
     const humanReviewRequired = booleanValue(risk["human_review_required_before_merge"]) ?? booleanValue(asRecord(audit["risk_summary"])?.["human_review_required_before_merge"]) ?? true;
@@ -438,7 +448,7 @@ function buildComposition(plan, worktreePlan, sandboxRequest, sandboxOutput, aud
         artifact_paths: artifacts.map((artifact) => artifact.path),
     };
     const checks = checksFor(audit, checkSummary);
-    const body = bodyFor({ plan, source, scope: planScope, audit, auditAcceptance, changedPaths, commandIds, artifacts, approvalClass, riskLevel, humanReviewRequired, planId, worktreeManifestId, sandboxRequestId, auditId, head, base });
+    const body = bodyFor({ plan, source, scope: planScope, audit, auditAcceptance, changedPaths, commandIds, artifacts, approvalClass, riskLevel, humanReviewRequired, planId, worktreeManifestId, sandboxRequestId, auditId, head, headSha, base });
     const compositionId = `forge-pr://${stableSlug(planId)}-${stableHash(`${auditId}:${head}:${createdAt}`).slice(0, 8)}`;
     return {
         manifest_version: PR_COMPOSER_VERSION,
@@ -574,6 +584,7 @@ function bodyFor(context) {
         `- Sandbox request: ${context.sandboxRequestId}`,
         `- Audit result: ${context.auditId}`,
         `- Head branch: ${context.head}`,
+        `- Current head commit: ${context.headSha}`,
         `- Base branch: ${context.base}`,
         "",
         "### Safety gates preserved",
@@ -797,6 +808,7 @@ function invalidResult(reasons, auditTrail, issues) { return { status: "invalid"
 function asRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null; }
 function arrayValue(value) { return Array.isArray(value) ? value : []; }
 function stringValue(value) { return typeof value === "string" && value.length > 0 ? value : null; }
+function gitShaValue(value) { return typeof value === "string" && GIT_SHA.test(value) ? value : null; }
 function normalizeOptionalString(value) { return typeof value === "string" && value.trim().length > 0 ? value.trim() : null; }
 function booleanValue(value) { return typeof value === "boolean" ? value : null; }
 function numberValue(value) { return Number.isSafeInteger(value) ? value : null; }

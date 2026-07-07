@@ -14,6 +14,7 @@ import {
 } from "../dist/index.js";
 
 const NOW = "2026-04-18T00:00:00Z";
+const HEAD_SHA = "a".repeat(40);
 
 function makePlan({
   title = "docs: update setup guide",
@@ -118,6 +119,7 @@ describe("T024 PR composer", () => {
       ...chain,
       auditResult: chain.auditResult.report,
       now: NOW,
+      headSha: HEAD_SHA,
       reviewers: ["@maintainer-one"],
       labels: ["ready-for-review"],
     });
@@ -134,6 +136,7 @@ describe("T024 PR composer", () => {
     assert.equal(result.composition.pull_request.draft, true);
     assert.ok(result.composition.pull_request.title.startsWith("[ForgeRoot]"));
     assert.ok(result.composition.pull_request.body.includes("### Audit gate"));
+    assert.ok(result.composition.pull_request.body.includes(`- Current head commit: ${HEAD_SHA}`));
     assert.ok(result.composition.pull_request.body.includes("### Safety gates preserved"));
     assert.ok(result.composition.pull_request.labels.includes("forge:pr-composed"));
     assert.ok(result.composition.pull_request.labels.includes("ready-for-review"));
@@ -149,11 +152,22 @@ describe("T024 PR composer", () => {
 
   it("supports audit run wrappers via auditResult.report and alias exports", () => {
     const chain = makeChain();
-    const result = composePr({ ...chain, auditResult: chain.auditResult, now: NOW });
-    const resultViaAlias = composePR({ ...chain, audit: chain.auditResult, now: NOW });
+    const result = composePr({ ...chain, auditResult: chain.auditResult, now: NOW, headSha: HEAD_SHA });
+    const resultViaAlias = composePR({ ...chain, audit: chain.auditResult, now: NOW, headSha: HEAD_SHA });
     assert.equal(result.status, "ready");
     assert.equal(resultViaAlias.status, "ready");
     assert.equal(result.composition.composition_id, resultViaAlias.composition.composition_id);
+  });
+
+  it("requires a current head commit for completion-gate-ready PR bodies", () => {
+    const chain = makeChain();
+    const missing = composePullRequest({ ...chain, auditResult: chain.auditResult.report, now: NOW });
+    const malformed = composePullRequest({ ...chain, auditResult: chain.auditResult.report, now: NOW, headSha: "main" });
+
+    assert.equal(missing.status, "invalid");
+    assert.ok(missing.issues.some((issue) => issue.path === "/headSha" && issue.code === "git_sha"));
+    assert.equal(malformed.status, "invalid");
+    assert.ok(malformed.issues.some((issue) => issue.path === "/headSha" && issue.code === "git_sha"));
   });
 
   it("blocks composition when audit has not passed or does not allow PR composition", () => {
@@ -164,7 +178,7 @@ describe("T024 PR composer", () => {
       decision: "request_changes",
       gates: { ...chain.auditResult.report.gates, pr_composition: "blocked" },
     };
-    const result = composePullRequest({ ...chain, auditResult: blockedAudit, now: NOW });
+    const result = composePullRequest({ ...chain, auditResult: blockedAudit, now: NOW, headSha: HEAD_SHA });
 
     assert.equal(result.status, "blocked");
     assert.equal(result.composition, undefined);
@@ -177,6 +191,7 @@ describe("T024 PR composer", () => {
       ...chain,
       auditResult: { ...chain.auditResult.report, plan_id: "forge-plan://different" },
       now: NOW,
+      headSha: HEAD_SHA,
     });
 
     assert.equal(result.status, "invalid");
@@ -187,7 +202,7 @@ describe("T024 PR composer", () => {
     const chain = makeChain();
     const badWorktree = { ...chain.worktreePlan, branch: { ...chain.worktreePlan.branch, name: "main" } };
     const badSandbox = { ...chain.sandboxRequest, branch: { ...chain.sandboxRequest.branch, name: "main" } };
-    const result = composePullRequest({ ...chain, worktreePlan: badWorktree, sandboxRequest: badSandbox, auditResult: chain.auditResult.report, now: NOW });
+    const result = composePullRequest({ ...chain, worktreePlan: badWorktree, sandboxRequest: badSandbox, auditResult: chain.auditResult.report, now: NOW, headSha: HEAD_SHA });
 
     assert.equal(result.status, "invalid");
     assert.ok(result.reasons.some((reason) => reason.includes("default_branch")) || result.reasons.some((reason) => reason.includes("must start with 'forge/'")));
@@ -199,7 +214,7 @@ describe("T024 PR composer", () => {
       ...chain.auditResult.report,
       evidence: { ...chain.auditResult.report.evidence, artifacts: chain.auditResult.report.evidence.artifacts.slice(1) },
     };
-    const result = composePullRequest({ ...chain, auditResult: missingAuditArtifact, now: NOW });
+    const result = composePullRequest({ ...chain, auditResult: missingAuditArtifact, now: NOW, headSha: HEAD_SHA });
 
     assert.equal(result.status, "invalid");
     assert.ok(result.issues.some((issue) => issue.path === "/chain/evidence/artifacts"));
@@ -207,7 +222,7 @@ describe("T024 PR composer", () => {
 
   it("validator rejects compositions that weaken composer safety guards", () => {
     const chain = makeChain();
-    const result = composePullRequest({ ...chain, auditResult: chain.auditResult.report, now: NOW });
+    const result = composePullRequest({ ...chain, auditResult: chain.auditResult.report, now: NOW, headSha: HEAD_SHA });
     assert.equal(result.status, "ready");
     const mutated = {
       ...result.composition,

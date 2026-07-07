@@ -30,6 +30,7 @@ import {
 } from "../dist/index.js";
 
 const NOW = "2026-04-18T00:00:00Z";
+const HEAD_SHA = "a".repeat(40);
 let cachedAuthorization;
 
 function makeAuthorization() {
@@ -57,7 +58,7 @@ function makeAuthorization() {
   const sandboxOutput = observedFor(sandbox.request);
   const audit = runAuditor({ plan, worktreePlan: worktree.plan, sandboxRequest: sandbox.request, sandboxOutput, evidence: evidenceFor(plan), now: NOW });
   assert.equal(audit.status, "passed", JSON.stringify(audit, null, 2));
-  const composition = composePullRequest({ plan, worktreePlan: worktree.plan, sandboxRequest: sandbox.request, sandboxOutput, auditResult: audit.report, now: NOW, labels: ["ready-for-review"], reviewers: ["maintainer-one"], teamReviewers: ["core-reviewers"] });
+  const composition = composePullRequest({ plan, worktreePlan: worktree.plan, sandboxRequest: sandbox.request, sandboxOutput, auditResult: audit.report, now: NOW, headSha: HEAD_SHA, labels: ["ready-for-review"], reviewers: ["maintainer-one"], teamReviewers: ["core-reviewers"] });
   assert.equal(composition.status, "ready", JSON.stringify(composition, null, 2));
   const prepared = prepareGitHubPullRequest({ composition: composition.composition, installation: installation(), now: NOW, dryRun: false, runtime: liveRuntime(), rateLimit: liveRateLimit() });
   assert.equal(prepared.status, "ready", JSON.stringify(prepared, null, 2));

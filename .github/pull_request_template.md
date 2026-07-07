@@ -57,7 +57,8 @@
 
 - One task / one PR boundary:
 - Explicitly out of scope:
-- Manifest-only or dry-run work? If yes, approved label:
+- Manifest-only or dry-run work? No
+- Approved label if yes: none
 
 ## Rollback
 

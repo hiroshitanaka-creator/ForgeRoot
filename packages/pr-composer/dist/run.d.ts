@@ -10,6 +10,7 @@ export interface PullRequestComposerInput {
     readonly auditReport?: unknown;
     readonly audit?: unknown;
     readonly now?: string;
+    readonly headSha?: string;
     readonly repository?: string;
     readonly draft?: boolean;
     readonly labels?: readonly string[];

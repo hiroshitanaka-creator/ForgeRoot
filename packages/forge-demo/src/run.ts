@@ -48,6 +48,7 @@ export interface ForgeDemoInput {
   readonly labels?: readonly string[];
   readonly reviewers?: readonly string[];
   readonly teamReviewers?: readonly string[];
+  readonly headSha?: string;
   readonly draft?: boolean;
   readonly dryRun?: boolean;
   readonly idempotencyKey?: string;
@@ -179,6 +180,7 @@ export const E2E_FORGED_PR_DEMO_CONTRACT = {
 } as const;
 
 const NOW = "2026-04-18T00:00:00Z";
+const DEMO_HEAD_SHA = "a".repeat(40);
 const RFC3339_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 
 export function runEndToEndForgedPrDemo(input: ForgeDemoInput = {}): ForgeDemoResult {
@@ -271,6 +273,7 @@ export function runEndToEndForgedPrDemo(input: ForgeDemoInput = {}): ForgeDemoRe
     sandboxOutput: sandboxObservedOutput,
     auditResult: auditReport,
     now: createdAt,
+    headSha: input.headSha ?? DEMO_HEAD_SHA,
     labels: input.labels ?? [],
     reviewers: input.reviewers ?? [],
     teamReviewers: input.teamReviewers ?? [],
