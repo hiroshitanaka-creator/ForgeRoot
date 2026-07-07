@@ -15,6 +15,8 @@ T069 - three-repo forge-net testnet complete locally.
   retrieval context manifests that preserve source refs within a token budget.
 - T034 defines manifest-only eval suite validation, benchmark task fixture
   schema, separated grader definitions, risk class, and shadow-only boundaries.
+- T036 collects explicit PR outcome metadata into deterministic outcome
+  manifests without guessing missing merge results.
 - T049-T060 provide dry-run mutation transport, rollout, handoff, and completion
   bundle gates.
 - T061 adds deterministic lineage export/import pack manifests for allowlisted
@@ -56,14 +58,20 @@ T069 - three-repo forge-net testnet.
 
 ## Verification plan
 
+- Run `npm.cmd --prefix packages\network test`.
+- Run `npm.cmd --prefix packages\reporting test`.
+- Run `npm.cmd run validate:skills`.
 - Run `npm.cmd test`.
 - Run `npm.cmd run build`.
-- Run `npm.cmd run validate:skills`.
 - Run `git diff --check`.
 - Run `cargo test --workspace --locked` when Rust is available.
 
 ## Current status
 
+- T036 implementation complete on main.
+- Verification passed: `npm.cmd --prefix packages\eval test` (22/22).
+- Verification passed: `npm.cmd --prefix packages\eval run build`.
+- Verification passed: `npm.cmd run validate:skills`.
 - T061 implementation complete locally.
 - Verification passed: `npm.cmd --prefix packages\network test` (11/11).
 - Verification passed: `npm.cmd test`.
