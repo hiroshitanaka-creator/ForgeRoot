@@ -181,6 +181,10 @@ const STALE_KEYS = new Set(["stale", "stale_as_of", "reason"]);
 const EVIDENCE_KEYS = new Set(["outcome_evidence", "missing_outcome_evidence", "source_pr_metadata_present", "task_ref_present", "commit_trailer_refs_present"]);
 const GUARD_KEYS = new Set(["no_github_api_call", "no_outcome_guessing", "no_score_calculation", "no_memory_write", "no_auto_rollback"]);
 const ISSUE_KEYS = new Set(["path", "code", "message"]);
+const NORMALIZED_SAME_PATH_ISSUE_CODES = new Map<string, ReadonlySet<string>>([
+  ["ci.failed_check_names", new Set(["invalid_names", "passed_with_failures", "failed_requires_names"])],
+  ["quarantine.reasons", new Set(["invalid_reasons", "reasons_required"])],
+]);
 
 type EvidenceResolution = Pick<MergeOutcomeManifest, "status" | "outcome" | "reasons"> & { readonly evidence: readonly string[] };
 type ManifestContent = Omit<MergeOutcomeManifest, "outcome_id">;
@@ -243,25 +247,15 @@ export function validateMergeOutcomeManifest(manifest: MergeOutcomeManifest): Me
   if (manifest.evidence.task_ref_present !== expectedEvidence.task_ref_present) issues.push(issue("evidence.task_ref_present", "evidence_flag_mismatch", "task_ref_present does not match source"));
   if (manifest.evidence.commit_trailer_refs_present !== expectedEvidence.commit_trailer_refs_present) issues.push(issue("evidence.commit_trailer_refs_present", "evidence_flag_mismatch", "commit_trailer_refs_present does not match source"));
 
-  const reconstructed = reconstructInput(manifest);
-  const nestedIssues = validateInput(reconstructed);
   if (manifest.status === "invalid") {
-    if (!Array.isArray(manifest.issues) || manifest.issues.length === 0) issues.push(issue("issues", "invalid_requires_issues", "invalid manifests must record issues"));
-    if (manifest.outcome !== "unknown") issues.push(issue("outcome", "invalid_requires_unknown_outcome", "invalid manifests must not carry a resolved outcome"));
-    if (manifest.evidence.missing_outcome_evidence !== true) issues.push(issue("evidence.missing_outcome_evidence", "invalid_requires_missing_evidence", "invalid manifests must record missing evidence"));
-    if (!manifest.reasons.includes("invalid_merge_outcome_input")) issues.push(issue("reasons", "invalid_requires_reason", "invalid manifests must record invalid_merge_outcome_input"));
-    if (manifest.evidence.outcome_evidence.length > 0) issues.push(issue("evidence.outcome_evidence", "invalid_carries_outcome_evidence", "invalid manifests must not carry resolved outcome evidence"));
-    const manifestIssues = Array.isArray(manifest.issues) ? manifest.issues : [];
-    const expectedInvalidReasons = unique(["invalid_merge_outcome_input", ...manifestIssues.map((entry) => entry.code)]);
-    if (!stringArraysEqual(expectedInvalidReasons, manifest.reasons)) issues.push(issue("reasons", "reasons_mismatch", "invalid manifest reasons must match recorded issue codes"));
-    if (nestedIssues.length === 0) {
-      issues.push(issue("status", "invalid_without_input_issues", "invalid manifests must be backed by recomputed invalid input evidence"));
-    }
+    validateInvalidManifest(manifest, issues);
     return { ok: issues.length === 0, issues };
   }
 
   if (manifest.issues !== undefined) issues.push(issue("issues", "non_invalid_carries_issues", "ready/unknown manifests must not carry issues"));
 
+  const reconstructed = reconstructInput(manifest);
+  const nestedIssues = validateInput(reconstructed);
   for (const entry of nestedIssues) issues.push(issue(entry.path, entry.code, entry.message));
   if (nestedIssues.length === 0) {
     const resolution = resolveOutcome(reconstructed);
@@ -272,6 +266,54 @@ export function validateMergeOutcomeManifest(manifest: MergeOutcomeManifest): Me
     if (manifest.evidence.missing_outcome_evidence !== (resolution.outcome === "unknown")) issues.push(issue("evidence.missing_outcome_evidence", "evidence_mismatch", "missing_outcome_evidence does not match recomputed resolution"));
   }
   return { ok: issues.length === 0, issues };
+}
+
+function validateInvalidManifest(manifest: MergeOutcomeManifest, issues: MergeOutcomeIssue[]): void {
+  if (!Array.isArray(manifest.issues) || manifest.issues.length === 0) issues.push(issue("issues", "invalid_requires_issues", "invalid manifests must record issues"));
+  if (manifest.outcome !== "unknown") issues.push(issue("outcome", "invalid_requires_unknown_outcome", "invalid manifests must not carry a resolved outcome"));
+  if (manifest.evidence.missing_outcome_evidence !== true) issues.push(issue("evidence.missing_outcome_evidence", "invalid_requires_missing_evidence", "invalid manifests must record missing evidence"));
+  if (!manifest.reasons.includes("invalid_merge_outcome_input")) issues.push(issue("reasons", "invalid_requires_reason", "invalid manifests must record invalid_merge_outcome_input"));
+  if (manifest.evidence.outcome_evidence.length > 0) issues.push(issue("evidence.outcome_evidence", "invalid_carries_outcome_evidence", "invalid manifests must not carry resolved outcome evidence"));
+
+  const manifestIssues = Array.isArray(manifest.issues) ? manifest.issues : [];
+  const expectedInvalidReasons = unique(["invalid_merge_outcome_input", ...manifestIssues.map((entry) => entry.code)]);
+  if (!stringArraysEqual(expectedInvalidReasons, manifest.reasons)) issues.push(issue("reasons", "reasons_mismatch", "invalid manifest reasons must match recorded issue codes"));
+
+  const nestedIssues = validateInput(reconstructInput(manifest));
+  const missingNested = nestedIssues.filter((nested) => !manifestIssues.some((recorded) => issueCovers(recorded, nested)));
+  if (missingNested.length > 0) {
+    issues.push(issue("issues", "issues_mismatch", `recorded invalid issues must cover recomputed input issues: ${missingNested.map(issueKey).join(",")}`));
+  }
+
+  const extraRecorded = manifestIssues.filter((recorded) => !nestedIssues.some((nested) => issueCovers(recorded, nested)) && !isNormalizedAwayIssue(recorded));
+  if (extraRecorded.length > 0) {
+    issues.push(issue("issues", "issues_mismatch", `recorded invalid issues are not backed by recomputed or normalized evidence: ${extraRecorded.map(issueKey).join(",")}`));
+  }
+}
+
+function issueKey(entry: MergeOutcomeIssue): string {
+  return `${entry.path}|${entry.code}`;
+}
+
+function issueCovers(recorded: MergeOutcomeIssue, recomputed: MergeOutcomeIssue): boolean {
+  if (issueKey(recorded) === issueKey(recomputed)) return true;
+  if (recorded.path === recomputed.path && samePathNormalizedIssue(recorded.path, recorded.code, recomputed.code)) return true;
+  if (recorded.code !== "must_be_object" && recorded.code !== "required") return false;
+  return recomputed.path.startsWith(`${recorded.path}.`);
+}
+
+function samePathNormalizedIssue(path: string, recordedCode: string, recomputedCode: string): boolean {
+  const equivalentCodes = NORMALIZED_SAME_PATH_ISSUE_CODES.get(path);
+  return !!equivalentCodes?.has(recordedCode) && equivalentCodes.has(recomputedCode);
+}
+
+function isNormalizedAwayIssue(entry: MergeOutcomeIssue): boolean {
+  return (
+    (entry.path === "now" && entry.code === "invalid_timestamp") ||
+    (["review", "ci", "revert", "quarantine", "stale"].includes(entry.path) && entry.code === "must_be_object") ||
+    (entry.path.startsWith("source.commit_trailers.") && entry.code === "must_be_object") ||
+    (entry.path === "source.pr" && entry.code === "required")
+  );
 }
 
 function manifestShapeIssues(manifest: unknown): MergeOutcomeIssue[] {
@@ -321,7 +363,7 @@ function manifestShapeIssues(manifest: unknown): MergeOutcomeIssue[] {
   if (typeof manifest.outcome_id !== "string" || !manifest.outcome_id.startsWith("merge-outcome-")) issues.push(issue("outcome_id", "invalid_outcome_id", "outcome_id must use merge-outcome prefix"));
   if (typeof manifest.collected_at !== "string") issues.push(issue("collected_at", "must_be_string", "collected_at must be a string"));
   if (!Array.isArray(manifest.reasons)) issues.push(issue("reasons", "must_be_array", "reasons must be an array"));
-  if (manifest.issues !== undefined) validateRecordArray(issues, "issues", manifest.issues, ISSUE_KEYS);
+  if (manifest.issues !== undefined) validateIssueArray(issues, manifest.issues);
   return issues;
 }
 
@@ -340,6 +382,26 @@ function validateRecordArray(issues: MergeOutcomeIssue[], path: string, value: u
       return;
     }
     validateKnownKeys(issues, `${path}.${index}`, entry, allowedKeys);
+  });
+}
+
+function validateIssueArray(issues: MergeOutcomeIssue[], value: unknown): void {
+  if (!Array.isArray(value)) {
+    issues.push(issue("issues", "must_be_array", "issues must be an array"));
+    return;
+  }
+  value.forEach((entry, index) => {
+    const path = `issues.${index}`;
+    if (!isRecord(entry)) {
+      issues.push(issue(path, "must_be_object", `${path} must be an object`));
+      return;
+    }
+    validateKnownKeys(issues, path, entry, ISSUE_KEYS);
+    for (const field of ISSUE_KEYS) {
+      if (typeof entry[field] !== "string" || entry[field].length === 0) {
+        issues.push(issue(`${path}.${field}`, "must_be_string", `${path}.${field} must be a non-empty string`));
+      }
+    }
   });
 }
 
@@ -597,7 +659,7 @@ function manifestBase(input: MergeOutcomeCollectorInput, collectedAt: string): O
     evidence: {
       outcome_evidence: [],
       missing_outcome_evidence: true,
-      source_pr_metadata_present: prMetadataPresent(source?.pr),
+      source_pr_metadata_present: prMetadataPresent(pr),
       task_ref_present: typeof source?.task_id === "string" && TASK_ID.test(source.task_id),
       commit_trailer_refs_present: commitTrailers.length > 0,
     },

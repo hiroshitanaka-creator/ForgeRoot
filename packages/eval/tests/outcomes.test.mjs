@@ -195,6 +195,7 @@ describe("T036 merge outcome collector", () => {
     assert.ok(manifest.issues.some((entry) => entry.path === "revert" && entry.code === "must_be_object"));
     assert.ok(manifest.issues.some((entry) => entry.path === "quarantine" && entry.code === "must_be_object"));
     assert.ok(manifest.issues.some((entry) => entry.path === "stale" && entry.code === "must_be_object"));
+    assert.deepEqual(validateMergeOutcomeManifest(manifest), { ok: true, issues: [] });
   });
 
   it("normalizes malformed source references in invalid manifests", () => {
@@ -406,7 +407,7 @@ describe("T036 review hardening (PR #26 findings sweep)", () => {
     invalidRecast.issues = [{ path: "source.task_id", code: "arbitrary_issue", message: "forged invalid state" }];
     const invalidRecastResult = validateMergeOutcomeManifest(invalidRecast);
     assert.equal(invalidRecastResult.ok, false);
-    assert.ok(invalidRecastResult.issues.some((entry) => entry.code === "invalid_without_input_issues"));
+    assert.ok(invalidRecastResult.issues.some((entry) => entry.code === "issues_mismatch"));
 
     const invalidReasonsMismatch = collectMergeOutcome({
       ...BASE_INPUT,
@@ -460,6 +461,103 @@ describe("T036 review hardening (PR #26 findings sweep)", () => {
     const evidence = structuredClone(manifest);
     evidence.evidence.extra_claim = true;
     assert.ok(validateMergeOutcomeManifest(evidence).issues.some((entry) => entry.path === "evidence.extra_claim" && entry.code === "unknown_key"));
+  });
+
+  it("fails closed on malformed nested arrays instead of throwing (round 2)", () => {
+    const manifest = collectMergeOutcome(BASE_INPUT);
+    for (const [section, field] of [["quarantine", "reasons"], ["review_outcome", "reviewer_refs"], ["ci_outcome", "failed_check_names"], ["source", "commit_trailers"], ["evidence", "outcome_evidence"]]) {
+      for (const bad of [null, "not-an-array", 1]) {
+        const broken = structuredClone(manifest);
+        broken[section][field] = bad;
+        const result = validateMergeOutcomeManifest(broken);
+        assert.equal(result.ok, false, `${section}.${field}=${JSON.stringify(bad)} must fail closed`);
+        assert.ok(result.issues.length > 0);
+      }
+    }
+  });
+
+  it("rejects unknown manifest keys explicitly, not only via stale ids", () => {
+    const manifest = collectMergeOutcome(BASE_INPUT);
+    const injected = structuredClone(manifest);
+    injected.extra_claim = "looks-official";
+    const result = validateMergeOutcomeManifest(injected);
+    assert.equal(result.ok, false);
+    assert.ok(result.issues.some((entry) => entry.code === "unknown_key"), "unknown top-level key must be rejected by an explicit unknown_key issue");
+
+    const nested = structuredClone(manifest);
+    nested.source.pr.extra = true;
+    const nestedResult = validateMergeOutcomeManifest(nested);
+    assert.equal(nestedResult.ok, false);
+    assert.ok(nestedResult.issues.some((entry) => entry.code === "unknown_key"), "unknown nested key must be rejected by an explicit unknown_key issue");
+  });
+
+  it("rejects failed CI outcomes when failed_check_names is omitted", () => {
+    const manifest = collectMergeOutcome({
+      ...BASE_INPUT,
+      ci: { outcome: "failed", required_check_count: 3, passed_check_count: 1 },
+    });
+    assert.equal(manifest.status, "invalid");
+    assert.ok(manifest.issues.some((entry) => entry.code === "failed_requires_names"));
+  });
+
+  it("keeps validator symmetry for every collector output, including invalid envelopes", () => {
+    const malformedInputs = [
+      { ...BASE_INPUT, source: { ...SOURCE, commit_trailers: ["Task: T036"] } },
+      { ...BASE_INPUT, source: { ...SOURCE, task_id: "" } },
+      { ...BASE_INPUT, review: { ...BASE_INPUT.review, reviewer_refs: "github://maintainer" } },
+      { ...BASE_INPUT, now: "2026-99-99T99:99:99Z" },
+      { ...BASE_INPUT, ci: { outcome: "failed", required_check_count: 3, passed_check_count: 1 } },
+      BASE_INPUT,
+    ];
+    for (const input of malformedInputs) {
+      const manifest = collectMergeOutcome(input);
+      const result = validateMergeOutcomeManifest(manifest);
+      assert.deepEqual(result, { ok: true, issues: [] }, `validate(collect(x)) must be ok for status=${manifest.status}`);
+    }
+  });
+
+  it("preserves normalized invalid evidence for read-back comparison", () => {
+    const manifest = collectMergeOutcome({ ...BASE_INPUT, source: { ...SOURCE, task_id: "" } });
+    assert.equal(manifest.status, "invalid");
+    assert.equal(manifest.source.task_id, "");
+    assert.equal(manifest.source.pr.repository, BASE_PR.repository);
+    assert.equal(manifest.source.commit_trailers.length, SOURCE.commit_trailers.length);
+    assert.equal(manifest.evidence.source_pr_metadata_present, true);
+    assert.deepEqual(validateMergeOutcomeManifest(manifest), { ok: true, issues: [] });
+  });
+
+  it("rejects ready manifests recast as invalid with forged issues", () => {
+    const manifest = collectMergeOutcome(BASE_INPUT);
+    assert.equal(manifest.status, "ready");
+    const recast = structuredClone(manifest);
+    recast.status = "invalid";
+    recast.outcome = "unknown";
+    recast.issues = [{ path: "now", code: "invalid_timestamp", message: "forged" }];
+    recast.reasons = ["invalid_merge_outcome_input", "invalid_timestamp"];
+    const result = validateMergeOutcomeManifest(recast);
+    assert.equal(result.ok, false);
+    assert.ok(result.issues.some((entry) => entry.code === "invalid_carries_outcome_evidence"), "recast invalid manifest carrying ready evidence must be rejected");
+  });
+
+  it("rejects malformed invalid issue fields before deriving reasons", () => {
+    const manifest = collectMergeOutcome({ ...BASE_INPUT, source: { ...SOURCE, task_id: "" } });
+    assert.equal(manifest.status, "invalid");
+    const malformed = structuredClone(manifest);
+    malformed.issues[0].code = null;
+    const result = validateMergeOutcomeManifest(malformed);
+    assert.equal(result.ok, false);
+    assert.ok(result.issues.some((entry) => entry.path === "issues.0.code" && entry.code === "must_be_string"));
+  });
+
+  it("rejects invalid manifests whose recorded issues do not match recomputed input errors", () => {
+    const manifest = collectMergeOutcome({ ...BASE_INPUT, source: { ...SOURCE, task_id: "" } });
+    assert.equal(manifest.status, "invalid");
+    const forged = structuredClone(manifest);
+    forged.issues = [{ path: "ci.failed_check_names", code: "failed_requires_names", message: "forged issue" }];
+    forged.reasons = ["invalid_merge_outcome_input", "failed_requires_names"];
+    const result = validateMergeOutcomeManifest(forged);
+    assert.equal(result.ok, false);
+    assert.ok(result.issues.some((entry) => entry.code === "issues_mismatch"));
   });
 
   it("rejects syntactically valid but impossible timestamps", () => {
