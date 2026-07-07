@@ -89,12 +89,14 @@ validate-asymmetry class is recorded as a follow-up task candidate.
 
 The 5 Codex findings on the hardening PR itself were repaired as one sweep:
 
-- Invalid manifests are now **empty envelopes**: they carry issues, reasons,
-  and canonical empty sections instead of partially-normalized input data.
-  This restores collector/validator symmetry for every collector output
+- Invalid manifests preserve normalized input evidence while clearing resolved
+  outcome evidence. The validator replays that normalized input and compares
+  the recorded invalid issues against recomputed input errors, with explicit
+  allowance only for raw evidence that is intentionally normalized away.
+  This keeps collector/validator symmetry for every collector output
   (`validateMergeOutcomeManifest(collectMergeOutcome(x)).ok === true` for all
-  inputs, machine-checked) and makes a ready manifest recast as `invalid`
-  detectable (`invalid_carries_content`), closing the forged-invalid gap.
+  inputs, machine-checked) and closes the forged-invalid gap via
+  `issues_mismatch` / `invalid_carries_outcome_evidence`.
 - `manifestShapeIssues` now rejects unknown keys explicitly at every level
   (top-level, source, pr, trailers, review/ci/revert/quarantine/stale,
   evidence, guards, issues) via `unknown_key`, so externally authored
@@ -112,7 +114,8 @@ The 5 Codex findings on the hardening PR itself were repaired as one sweep:
 
 ### Round 2 verification
 
-- `npm --prefix packages/eval test` - passed, 41 tests (6 added: round-2
+- `npm --prefix packages/eval test` - passed, 43 tests (8 added: round-2
   fail-closed arrays, explicit unknown-key rejection, omitted failed names,
-  collector/validator symmetry loop, empty-envelope shape, forged-invalid
+  collector/validator symmetry loop, normalized invalid read-back shape,
+  malformed invalid issue fields, recomputed issue mismatch, forged-invalid
   recast rejection).
