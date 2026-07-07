@@ -2,7 +2,10 @@
 
 ## Current phase
 
-T069 - three-repo forge-net testnet complete locally.
+T069 - three-repo forge-net testnet complete on main via PR #32.
+
+Next candidate: T070 distributed evolution demo, pending explicit approval for
+federation and self-evolution boundary work.
 
 ## Initial assessment summary
 
@@ -40,31 +43,36 @@ T069 - three-repo forge-net testnet complete locally.
 
 ## Selected work
 
-T069 - three-repo forge-net testnet.
+T069 post-merge handoff and source-of-truth normalization.
 
 ## Why this work
 
 - T069 depends on T057-T068.
 - T069 is class C / high-risk federation topology work.
-- AGENTS.md requires explicit approval before touching federation topology,
-  treaty-link, or network-boundary surfaces for this high-risk task.
+- T069 was merged through PR #32, but the standard
+  `docs/ops/thread-handoff-after-t069.md` handoff was missing.
+- `02_REPO_MAP.md` and `03_INTERFACE_REGISTRY.md` still described the repo at
+  T041-3 even though T042-T069 surfaces now exist on main.
+- AGENTS.md requires explicit approval before touching the next high-risk
+  T070 federation/self-evolution boundary work.
 
 ## Intended scope
 
-- Add `labs/forge-net/topology.yml`.
-- Add `labs/forge-net/README.md`.
-- Add `docs/ops/t069-three-repo-testnet.md`.
-- Add `docs/specs/t069-validation-report.md`.
+- Add `docs/ops/thread-handoff-after-t069.md`.
+- Update this progress file to record that T069 is complete on main via PR #32.
+- Update `02_REPO_MAP.md` and `03_INTERFACE_REGISTRY.md` to reflect existing
+  implemented packages and exported APIs through T069.
+- Update `README.md` so the public implementation summary no longer stops at
+  T028.
+- Record that T070 requires explicit approval before implementation.
 
 ## Verification plan
 
-- Run `npm.cmd --prefix packages\network test`.
-- Run `npm.cmd --prefix packages\reporting test`.
+- Run `git diff --check`.
 - Run `npm.cmd run validate:skills`.
 - Run `npm.cmd test`.
 - Run `npm.cmd run build`.
-- Run `git diff --check`.
-- Run `cargo test --workspace --locked` when Rust is available.
+- Check whether `cargo` is available before Rust verification.
 
 ## Current status
 
@@ -183,6 +191,9 @@ T069 - three-repo forge-net testnet.
 - T069 user approval received for class C / high-risk federation topology,
   treaty-link, and network-boundary work.
 - T069 implementation complete locally.
+- PR #32 merged T069 into `main` at `2026-07-07T11:27:45Z`.
+- T069 merge commit:
+  `8d53a02f9f964364bf73bc2ef8fb7f58c3fe5c95`.
 - Verification passed: `npm.cmd --prefix packages\network test` (38/38).
 - Verification passed: `npm.cmd --prefix packages\reporting test` (8/8).
 - Verification passed: T069 topology safety-boundary scan.
@@ -196,3 +207,19 @@ T069 - three-repo forge-net testnet.
   not on PATH in this Windows session.
 - Final T069 implementation audit found no remaining architectural,
   state/concurrency, or structural issues.
+- T069 post-merge handoff normalization complete locally.
+- Repo map and interface registry source-of-truth normalization complete
+  locally for implemented surfaces through T069.
+- README implementation summary normalization complete locally through T069.
+- Verification passed: `git diff --check` with LF/CRLF warnings.
+- Verification passed: `npm.cmd run validate:skills`.
+- Verification passed: `npm.cmd test`.
+- Verification passed: `npm.cmd run build`.
+- Verification failed locally: `cargo test --workspace --locked` with
+  `C:\Users\tanak\.cargo\bin\cargo.exe` and the default MSVC toolchain; the
+  Windows linker `link.exe` is not available.
+- Verification failed locally: `cargo +stable-x86_64-pc-windows-gnu test
+  --workspace --locked`; GNU binutils `dlltool.exe` is not available.
+- Docs-only quality gate report added to
+  `docs/ops/thread-handoff-after-t069.md`.
+- Draft PR package added to `docs/ops/thread-handoff-after-t069.md`.
