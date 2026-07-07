@@ -1,0 +1,205 @@
+schema_ref: urn:forgeroot:forge-net-topology:v1
+manifest_version: 1
+topology_id: t069-three-repo-forge-net-testnet
+created_at: 2026-07-07T00:00:00Z
+scope: lab_only
+source_of_truth: false
+
+approval_gate:
+  task: T069
+  approval_class: C
+  risk: high
+  authoring_approved: true
+  approved_scope:
+    - federation topology
+    - treaty-link
+    - network-boundary
+  approved_by_user_text: class C/high risk federation topology / treaty-link / network-boundary work approved
+  human_review_required_before_execution: true
+  human_review_required_before_merge: true
+  codeowner_required_before_execution: true
+  production_enablement_authorized: false
+
+authoritative_refs:
+  boundary_policy_ref: forge://hiroshitanaka-creator/ForgeRoot/policy/network-boundary
+  boundary_policy_path: .forge/policies/network-boundary.forge
+  reputation_ref: forge://hiroshitanaka-creator/ForgeRoot/reputation/t063
+  observability_spec: docs/specs/federation-observability.md
+  network_boundary_spec: docs/specs/network-boundary.md
+
+repositories:
+  - peer_id: forge-root
+    repository_full_name: hiroshitanaka-creator/ForgeRoot
+    role: governance_root
+    status: active
+    registry_known: true
+    source_of_truth_for:
+      - boundary_policy
+      - observability_report_shape
+  - peer_id: forge-lab-lib
+    repository_full_name: forgeroot-labs/forge-lab-lib
+    role: library_provider
+    status: active
+    registry_known: true
+    source_of_truth_for: []
+  - peer_id: forge-lab-app
+    repository_full_name: forgeroot-labs/forge-lab-app
+    role: application_consumer
+    status: active
+    registry_known: true
+    source_of_truth_for: []
+
+treaty_links:
+  - treaty_id: t069-root-lib-aaaaaaaa
+    status: active
+    source_peer_id: forge-root
+    target_peer_id: forge-lab-lib
+    allowed_actions:
+      - gossip_sync
+      - lineage_import_candidate
+      - reputation_update
+    expires_at: 2026-08-07T00:00:00Z
+    production_treaty: false
+  - treaty_id: t069-root-app-bbbbbbbb
+    status: active
+    source_peer_id: forge-root
+    target_peer_id: forge-lab-app
+    allowed_actions:
+      - gossip_sync
+      - lineage_import_candidate
+      - reputation_update
+    expires_at: 2026-08-07T00:00:00Z
+    production_treaty: false
+  - treaty_id: t069-lib-app-cccccccc
+    status: active
+    source_peer_id: forge-lab-lib
+    target_peer_id: forge-lab-app
+    allowed_actions:
+      - lineage_export
+      - lineage_import_candidate
+      - cross_repo_pr
+    expires_at: 2026-08-07T00:00:00Z
+    production_treaty: false
+
+network_boundaries:
+  default_action: deny
+  runtime_mode_required: federate
+  open_federation_default: false
+  open_peer_discovery: false
+  unknown_peer_action: quarantine
+  lineage_import_mode: candidate_only
+  adoption_allowed: false
+  allowlisted_edges:
+    - edge_id: root-to-lib
+      treaty_id: t069-root-lib-aaaaaaaa
+      source_peer_id: forge-root
+      target_peer_id: forge-lab-lib
+      allowed_actions:
+        - gossip_sync
+        - lineage_import_candidate
+        - reputation_update
+    - edge_id: root-to-app
+      treaty_id: t069-root-app-bbbbbbbb
+      source_peer_id: forge-root
+      target_peer_id: forge-lab-app
+      allowed_actions:
+        - gossip_sync
+        - lineage_import_candidate
+        - reputation_update
+    - edge_id: lib-to-app
+      treaty_id: t069-lib-app-cccccccc
+      source_peer_id: forge-lab-lib
+      target_peer_id: forge-lab-app
+      allowed_actions:
+        - lineage_export
+        - lineage_import_candidate
+        - cross_repo_pr
+  denied_actions:
+    - open_federation
+    - peer_auto_discovery
+    - automatic_treaty_change
+    - automatic_lineage_adoption
+    - live_network_transport
+    - github_pr_creation
+    - git_push
+    - policy_mutation
+
+lineage_routes:
+  - route_id: lib-api-stability-to-app
+    source_peer_id: forge-lab-lib
+    target_peer_id: forge-lab-app
+    treaty_id: t069-lib-app-cccccccc
+    export_ref: lineage-pack:lib-app-api-stability-11111111
+    import_status: candidate_registered
+    adoption_performed: false
+    boundary_decision_ref: network-boundary-t069-lib-app-aaaaaaaa
+  - route_id: root-observes-lib
+    source_peer_id: forge-root
+    target_peer_id: forge-lab-lib
+    treaty_id: t069-root-lib-aaaaaaaa
+    export_ref: federation-report:root-lib-observation-11111111
+    import_status: candidate_registered
+    adoption_performed: false
+    boundary_decision_ref: network-boundary-t069-root-lib-bbbbbbbb
+  - route_id: root-observes-app
+    source_peer_id: forge-root
+    target_peer_id: forge-lab-app
+    treaty_id: t069-root-app-bbbbbbbb
+    export_ref: federation-report:root-app-observation-11111111
+    import_status: candidate_registered
+    adoption_performed: false
+    boundary_decision_ref: network-boundary-t069-root-app-cccccccc
+
+gossip_cadence:
+  schedule_only: true
+  runtime_mode: federate
+  base_interval_seconds: 900
+  jitter_max_seconds: 60
+  max_peers_per_sync: 2
+  max_syncs_per_window: 5
+  network_transport_performed: false
+  workflow_mutated: false
+
+observability:
+  derived_report_only: true
+  report_id: t069-three-repo-forge-net-report
+  peer_registry_ref: labs/forge-net/topology.yml#repositories
+  treaty_refs:
+    - labs/forge-net/topology.yml#treaty_links/t069-root-lib-aaaaaaaa
+    - labs/forge-net/topology.yml#treaty_links/t069-root-app-bbbbbbbb
+    - labs/forge-net/topology.yml#treaty_links/t069-lib-app-cccccccc
+  boundary_refs:
+    - labs/forge-net/topology.yml#network_boundaries
+  lineage_refs:
+    - labs/forge-net/topology.yml#lineage_routes
+
+safety_boundaries:
+  lab_only: true
+  source_of_truth_replacement: false
+  production_treaty_created: false
+  open_federation_enabled: false
+  open_peer_discovery_enabled: false
+  network_transport_performed: false
+  github_api_called: false
+  github_pr_created: false
+  git_push_performed: false
+  file_write_performed_by_runtime: false
+  policy_mutation_performed: false
+  treaty_changed_automatically: false
+  reputation_written_authoritatively: false
+  lineage_adoption_performed: false
+
+promotion_requirements:
+  - create real repositories in a separate human-approved operation
+  - create production treaties in a separate class C review
+  - run enforceNetworkBoundary for every edge action
+  - run renderFederationReport as a derived report only
+  - collect two human approvals including code owner approval
+  - keep open federation disabled
+
+rollback:
+  reversible_by:
+    - remove labs/forge-net/topology.yml
+    - remove docs/ops/t069-three-repo-testnet.md
+    - remove docs/specs/t069-validation-report.md
+  external_state_to_rollback: none
