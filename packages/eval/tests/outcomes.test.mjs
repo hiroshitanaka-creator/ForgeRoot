@@ -169,13 +169,13 @@ describe("T036 merge outcome collector", () => {
 
     assert.equal(manifest.status, "invalid");
     assert.equal(manifest.outcome, "unknown");
-    assert.deepEqual(manifest.review_outcome.reviewer_refs, []);
-    assert.deepEqual(manifest.ci_outcome.failed_check_names, []);
-    assert.deepEqual(manifest.quarantine.reasons, []);
+    assert.deepEqual(manifest.review_outcome.reviewer_refs, [""]);
+    assert.deepEqual(manifest.ci_outcome.failed_check_names, [""]);
+    assert.deepEqual(manifest.quarantine.reasons, [""]);
     assert.ok(manifest.issues.some((entry) => entry.code === "invalid_refs"));
     assert.ok(manifest.issues.some((entry) => entry.code === "invalid_names"));
     assert.ok(manifest.issues.some((entry) => entry.code === "invalid_reasons"));
-    assert.ok(manifest.issues.some((entry) => entry.code === "reasons_required"));
+    assert.deepEqual(validateMergeOutcomeManifest(manifest), { ok: true, issues: [] });
   });
 
   it("returns invalid manifest instead of throwing on malformed optional evidence objects", () => {
@@ -218,10 +218,12 @@ describe("T036 merge outcome collector", () => {
       merge_commit_sha: null,
       closed_at: null,
     });
-    assert.deepEqual(manifest.source.commit_trailers, []);
+    assert.deepEqual(manifest.source.commit_trailers, [{ key: "", value: "" }]);
     assert.equal(manifest.evidence.source_pr_metadata_present, false);
+    assert.equal(manifest.evidence.commit_trailer_refs_present, true);
     assert.ok(manifest.issues.some((entry) => entry.path === "source.pr" && entry.code === "required"));
     assert.ok(manifest.issues.some((entry) => entry.path === "source.commit_trailers.0" && entry.code === "must_be_object"));
+    assert.deepEqual(validateMergeOutcomeManifest(manifest), { ok: true, issues: [] });
   });
 
   it("supports stable aliases", () => {
@@ -355,6 +357,14 @@ describe("T036 review hardening (PR #26 findings sweep)", () => {
     });
     assert.equal(failedWithoutNames.status, "invalid");
     assert.ok(failedWithoutNames.issues.some((entry) => entry.code === "failed_requires_names"));
+
+    const failedWithOmittedNames = collectMergeOutcome({
+      ...BASE_INPUT,
+      ci: { outcome: "failed", required_check_count: 3, passed_check_count: 2 },
+    });
+    assert.equal(failedWithOmittedNames.status, "invalid");
+    assert.ok(failedWithOmittedNames.issues.some((entry) => entry.code === "failed_requires_names"));
+    assert.deepEqual(validateMergeOutcomeManifest(failedWithOmittedNames), { ok: true, issues: [] });
   });
 
   it("rejects tampered ready manifests on read-back", () => {
@@ -373,6 +383,12 @@ describe("T036 review hardening (PR #26 findings sweep)", () => {
     swappedOutcome.outcome = "rejected";
     assert.equal(validateMergeOutcomeManifest(swappedOutcome).ok, false);
 
+    const emptyIssues = structuredClone(manifest);
+    emptyIssues.issues = [];
+    const emptyIssuesResult = validateMergeOutcomeManifest(emptyIssues);
+    assert.equal(emptyIssuesResult.ok, false);
+    assert.ok(emptyIssuesResult.issues.some((entry) => entry.code === "non_invalid_carries_issues"));
+
     const invalidRecastReady = collectMergeOutcome({ ...BASE_INPUT, source: { ...SOURCE, task_id: "" } });
     assert.equal(invalidRecastReady.status, "invalid");
     const recast = structuredClone(invalidRecastReady);
@@ -380,6 +396,35 @@ describe("T036 review hardening (PR #26 findings sweep)", () => {
     recast.outcome = "merged";
     delete recast.issues;
     assert.equal(validateMergeOutcomeManifest(recast).ok, false);
+
+    const invalidRecast = collectMergeOutcome(BASE_INPUT);
+    invalidRecast.status = "invalid";
+    invalidRecast.outcome = "unknown";
+    invalidRecast.reasons = ["invalid_merge_outcome_input", "arbitrary_issue"];
+    invalidRecast.evidence.outcome_evidence = [];
+    invalidRecast.evidence.missing_outcome_evidence = true;
+    invalidRecast.issues = [{ path: "source.task_id", code: "arbitrary_issue", message: "forged invalid state" }];
+    const invalidRecastResult = validateMergeOutcomeManifest(invalidRecast);
+    assert.equal(invalidRecastResult.ok, false);
+    assert.ok(invalidRecastResult.issues.some((entry) => entry.code === "invalid_without_input_issues"));
+
+    const invalidReasonsMismatch = collectMergeOutcome({
+      ...BASE_INPUT,
+      ci: { outcome: "failed", required_check_count: 1, passed_check_count: 0 },
+    });
+    invalidReasonsMismatch.reasons = ["invalid_merge_outcome_input", "arbitrary_issue"];
+    const invalidReasonsMismatchResult = validateMergeOutcomeManifest(invalidReasonsMismatch);
+    assert.equal(invalidReasonsMismatchResult.ok, false);
+    assert.ok(invalidReasonsMismatchResult.issues.some((entry) => entry.code === "reasons_mismatch"));
+
+    const invalidWithEvidence = collectMergeOutcome({
+      ...BASE_INPUT,
+      ci: { outcome: "failed", required_check_count: 1, passed_check_count: 0 },
+    });
+    invalidWithEvidence.evidence.outcome_evidence = ["source.pr.merged:true"];
+    const invalidWithEvidenceResult = validateMergeOutcomeManifest(invalidWithEvidence);
+    assert.equal(invalidWithEvidenceResult.ok, false);
+    assert.ok(invalidWithEvidenceResult.issues.some((entry) => entry.code === "invalid_carries_outcome_evidence"));
   });
 
   it("fails closed instead of throwing on malformed manifests", () => {
@@ -395,6 +440,26 @@ describe("T036 review hardening (PR #26 findings sweep)", () => {
       const result = validateMergeOutcomeManifest(broken);
       assert.equal(result.ok, false, `null ${section} must fail closed`);
     }
+    const malformedReasons = structuredClone(manifest);
+    malformedReasons.quarantine.reasons = null;
+    const malformedReasonsResult = validateMergeOutcomeManifest(malformedReasons);
+    assert.equal(malformedReasonsResult.ok, false);
+    assert.ok(malformedReasonsResult.issues.some((entry) => entry.path === "quarantine.reasons" && entry.code === "must_be_array"));
+  });
+
+  it("rejects unknown top-level and nested manifest keys explicitly", () => {
+    const manifest = collectMergeOutcome(BASE_INPUT);
+    const topLevel = structuredClone(manifest);
+    topLevel.extra_claim = true;
+    assert.ok(validateMergeOutcomeManifest(topLevel).issues.some((entry) => entry.path === "manifest.extra_claim" && entry.code === "unknown_key"));
+
+    const nested = structuredClone(manifest);
+    nested.source.pr.extra_claim = true;
+    assert.ok(validateMergeOutcomeManifest(nested).issues.some((entry) => entry.path === "source.pr.extra_claim" && entry.code === "unknown_key"));
+
+    const evidence = structuredClone(manifest);
+    evidence.evidence.extra_claim = true;
+    assert.ok(validateMergeOutcomeManifest(evidence).issues.some((entry) => entry.path === "evidence.extra_claim" && entry.code === "unknown_key"));
   });
 
   it("rejects syntactically valid but impossible timestamps", () => {
