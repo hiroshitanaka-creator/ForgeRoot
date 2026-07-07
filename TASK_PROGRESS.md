@@ -2,7 +2,7 @@
 
 ## Current phase
 
-T069 - three-repo forge-net testnet complete locally.
+T070 - distributed evolution demo implementation complete locally.
 
 ## Initial assessment summary
 
@@ -37,29 +37,34 @@ T069 - three-repo forge-net testnet complete locally.
 - T068 adds deterministic Markdown/JSON federation observability reports for
   peer, treaty, lineage, reputation, and boundary summaries without becoming
   source-of-truth state.
+- T070 adds a lab-only distributed evolution demo in `packages/forge-demo` that
+  runs the T069 topology through lineage, reputation, boundary, cross-repo PR
+  composition, arena comparison, and federation reporting manifests without
+  live federation or automatic adoption.
 
 ## Selected work
 
-T069 - three-repo forge-net testnet.
+T070 - distributed evolution demo.
 
 ## Why this work
 
-- T069 depends on T057-T068.
-- T069 is class C / high-risk federation topology work.
-- AGENTS.md requires explicit approval before touching federation topology,
-  treaty-link, or network-boundary surfaces for this high-risk task.
+- T070 depends on T069 and is the bridge before T071 self-host bootstrap.
+- The user requested implementation progress instead of more docs-only work.
+- T070 remains lab-only and manifest-only; it does not approve production
+  federation, live transport, automatic lineage adoption, or self-evolution.
 
 ## Intended scope
 
-- Add `labs/forge-net/topology.yml`.
-- Add `labs/forge-net/README.md`.
-- Add `docs/ops/t069-three-repo-testnet.md`.
-- Add `docs/specs/t069-validation-report.md`.
+- Add `packages/forge-demo/src/distributed-evolution.ts`.
+- Export stable T070 aliases from `packages/forge-demo/src/index.ts`.
+- Add behavioral tests in `packages/forge-demo/tests/distributed-evolution.test.mjs`.
+- Keep T070 side-effect boundaries closed in runtime output and tests.
 
 ## Verification plan
 
 - Run `npm.cmd --prefix packages\network test`.
 - Run `npm.cmd --prefix packages\reporting test`.
+- Run `npm.cmd --prefix packages\forge-demo test`.
 - Run `npm.cmd run validate:skills`.
 - Run `npm.cmd test`.
 - Run `npm.cmd run build`.
@@ -196,3 +201,10 @@ T069 - three-repo forge-net testnet.
   not on PATH in this Windows session.
 - Final T069 implementation audit found no remaining architectural,
   state/concurrency, or structural issues.
+- T070 implementation complete locally.
+- Verification passed: `npm.cmd --prefix packages\forge-demo test` (16/16).
+- Verification passed: `npm.cmd run build`.
+- Verification passed: `npm.cmd test`.
+- Verification passed: T070 tamper harness for every ready demo manifest leaf.
+- Verification passed: T070 open-federation request blocks instead of weakening
+  network boundary.

@@ -22,6 +22,7 @@ import {
 } from "../dist/index.js";
 
 const NOW = "2026-04-18T00:00:00Z";
+const HEAD_SHA = "a".repeat(40);
 
 let cachedClassARequest;
 
@@ -61,6 +62,7 @@ function makeRequest() {
     sandboxOutput,
     auditResult: audit.report,
     now: NOW,
+    headSha: HEAD_SHA,
     labels: ["ready-for-review"],
     reviewers: ["maintainer-one"],
     teamReviewers: ["core-reviewers"],

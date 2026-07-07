@@ -17,6 +17,7 @@ import {
 } from "../dist/index.js";
 
 const NOW = "2026-04-18T00:00:00Z";
+const HEAD_SHA = "a".repeat(40);
 
 function makePlan({
   title = "docs: update setup guide",
@@ -65,6 +66,7 @@ function makeChain(plan = makePlan(), changedPaths = ["docs/setup.md"]) {
     sandboxOutput,
     auditResult: auditResult.report,
     now: NOW,
+    headSha: HEAD_SHA,
     reviewers: ["@maintainer-one"],
     teamReviewers: ["core-reviewers"],
     labels: ["ready-for-review"],

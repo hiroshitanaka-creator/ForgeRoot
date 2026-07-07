@@ -2,7 +2,7 @@
 
 This file is the canonical registry of inter-agent data contracts in ForgeRoot. It is the source of truth for what each agent produces and consumes.
 
-**Last updated:** 2026-06-17 (T041-3 Genome Integrity)
+**Last updated:** 2026-07-08 (T070 Distributed Evolution Demo)
 
 ---
 
@@ -147,3 +147,26 @@ Fields: action (dispatch | queue | block | cooldown), dispatch_at (timestamp), r
 - `packages/memory` produces deterministic artifacts only.
 - Runtime DBs and vector indexes remain derived state, not memory source of truth.
 - The package does not call GitHub APIs, write `.forge`, implement MemoryKeeper, calculate eval scores, or generate mutations.
+
+---
+
+## packages/forge-demo
+
+| API | Task | Input | Output | Forbidden |
+|---|---:|---|---|---|
+| runEndToEndForgedPrDemo(input) | T028 | forge:auto issue-like input | Phase 1 forged PR demo manifest | live GitHub transport, real PR creation |
+| validateEndToEndForgedPrDemo(result) | T028 | T028 demo result | validation result | weak read-back validation |
+| runDistributedEvolutionDemo(input) | T070 | T069 lab topology + route controls | distributed evolution demo manifest | open federation, live network transport, GitHub API call, automatic lineage adoption |
+| validateDistributedEvolutionDemo(result) | T070 | T070 demo result | validation result | unchecked side-effect flags |
+| runT070DistributedEvolutionDemo(input) | T070 | stable alias for T070 demo | distributed evolution demo manifest | API-name drift |
+| validateT070DistributedEvolutionDemo(result) | T070 | stable alias validator | validation result | API-name drift |
+
+### T070 distributed evolution invariants
+
+- `packages/forge-demo/src/distributed-evolution.ts` composes existing T061,
+  T062, T063, T065, T067, and T068 manifests into one lab-only T070 result.
+- The T070 result keeps live federation, GitHub transport, PR creation, git
+  push, policy mutation, authoritative reputation writes, automatic merge, and
+  lineage adoption disabled.
+- The T070 validator checks the generated chain with the existing package
+  read-back validators and protects the demo result with a deterministic digest.

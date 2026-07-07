@@ -31,6 +31,7 @@ export interface ForgeDemoInput {
     readonly labels?: readonly string[];
     readonly reviewers?: readonly string[];
     readonly teamReviewers?: readonly string[];
+    readonly headSha?: string;
     readonly draft?: boolean;
     readonly dryRun?: boolean;
     readonly idempotencyKey?: string;
