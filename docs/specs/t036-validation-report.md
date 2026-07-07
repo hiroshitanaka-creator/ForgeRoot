@@ -84,3 +84,35 @@ validate-asymmetry class is recorded as a follow-up task candidate.
 - `npm --prefix packages/eval test` - passed, 35 tests (13 added: findings
   sweep, fail-closed, impossible timestamps, tamper harness with 40+
   single-field mutations, unknown-key injection, evidence reordering).
+
+## Review hardening round 2 (2026-07-06, PR #29 findings)
+
+The 5 Codex findings on the hardening PR itself were repaired as one sweep:
+
+- Invalid manifests are now **empty envelopes**: they carry issues, reasons,
+  and canonical empty sections instead of partially-normalized input data.
+  This restores collector/validator symmetry for every collector output
+  (`validateMergeOutcomeManifest(collectMergeOutcome(x)).ok === true` for all
+  inputs, machine-checked) and makes a ready manifest recast as `invalid`
+  detectable (`invalid_carries_content`), closing the forged-invalid gap.
+- `manifestShapeIssues` now rejects unknown keys explicitly at every level
+  (top-level, source, pr, trailers, review/ci/revert/quarantine/stale,
+  evidence, guards, issues) via `unknown_key`, so externally authored
+  manifests cannot smuggle extra claims even if they recompute the
+  deterministic id.
+- All nested arrays (`quarantine.reasons`, `review_outcome.reviewer_refs`,
+  `ci_outcome.failed_check_names`, `source.commit_trailers`,
+  `evidence.outcome_evidence`, `reasons`, `issues`) are shape-checked before
+  any dereference, so malformed persisted manifests fail closed instead of
+  throwing.
+- `ci.outcome === "failed"` now requires failed check names even when the
+  optional field is omitted entirely (`failed_requires_names`).
+- Evidence flags are computed from normalized data in the collector, removing
+  the raw-vs-normalized divergence class.
+
+### Round 2 verification
+
+- `npm --prefix packages/eval test` - passed, 41 tests (6 added: round-2
+  fail-closed arrays, explicit unknown-key rejection, omitted failed names,
+  collector/validator symmetry loop, empty-envelope shape, forged-invalid
+  recast rejection).

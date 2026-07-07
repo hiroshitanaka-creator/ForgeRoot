@@ -178,18 +178,21 @@ export function collectMergeOutcome(input: MergeOutcomeCollectorInput): MergeOut
   const collectedAt = resolveTimestamp(input?.now, DEFAULT_NOW);
   if (collectedAt === null) issues.push(issue("now", "invalid_timestamp", "now must be RFC3339 UTC when provided"));
 
-  const base = manifestBase(input, collectedAt ?? DEFAULT_NOW);
   let content: ManifestContent;
   if (issues.length > 0) {
+    // Invalid manifests are rejection envelopes: they carry the issues and
+    // canonical empty sections, never partial input data. This keeps
+    // validateMergeOutcomeManifest symmetric with the collector and makes a
+    // ready manifest recast as "invalid" detectable (its sections are not empty).
     content = {
-      ...base,
+      ...emptyManifestSections(collectedAt ?? DEFAULT_NOW),
       status: "invalid",
       outcome: "unknown",
       reasons: unique(["invalid_merge_outcome_input", ...issues.map((entry) => entry.code)]),
-      evidence: { ...base.evidence, outcome_evidence: [], missing_outcome_evidence: true },
       issues,
     };
   } else {
+    const base = manifestBase(input, collectedAt ?? DEFAULT_NOW);
     const resolution = resolveOutcome(input);
     content = {
       ...base,
@@ -222,6 +225,21 @@ export function validateMergeOutcomeManifest(manifest: MergeOutcomeManifest): Me
   const { outcome_id: recordedId, ...content } = manifest;
   if (computeOutcomeId(content) !== recordedId) issues.push(issue("outcome_id", "outcome_id_mismatch", "outcome_id does not match manifest content"));
 
+  if (manifest.status === "invalid") {
+    if (!Array.isArray(manifest.issues) || manifest.issues.length === 0) issues.push(issue("issues", "invalid_requires_issues", "invalid manifests must record issues"));
+    if (manifest.outcome !== "unknown") issues.push(issue("outcome", "invalid_requires_unknown_outcome", "invalid manifests must not carry a resolved outcome"));
+    const recordedIssues = Array.isArray(manifest.issues) ? manifest.issues : [];
+    const expectedReasons = unique(["invalid_merge_outcome_input", ...recordedIssues.map((entry) => String(entry?.code ?? ""))]);
+    if (!stringArraysEqual(expectedReasons, manifest.reasons)) issues.push(issue("reasons", "invalid_reasons_mismatch", "invalid manifest reasons must match recorded issue codes"));
+    const empty = emptyManifestSections(manifest.collected_at);
+    for (const section of ["source", "review_outcome", "ci_outcome", "revert_linkage", "quarantine", "stale", "evidence"] as const) {
+      if (canonicalize(manifest[section]) !== canonicalize(empty[section])) {
+        issues.push(issue(section, "invalid_carries_content", "invalid manifests must carry canonical empty sections, not input data"));
+      }
+    }
+    return { ok: issues.length === 0, issues };
+  }
+
   const expectedEvidence = {
     source_pr_metadata_present: prMetadataPresent(manifest.source.pr),
     task_ref_present: typeof manifest.source.task_id === "string" && TASK_ID.test(manifest.source.task_id),
@@ -230,14 +248,6 @@ export function validateMergeOutcomeManifest(manifest: MergeOutcomeManifest): Me
   if (manifest.evidence.source_pr_metadata_present !== expectedEvidence.source_pr_metadata_present) issues.push(issue("evidence.source_pr_metadata_present", "evidence_flag_mismatch", "source_pr_metadata_present does not match source"));
   if (manifest.evidence.task_ref_present !== expectedEvidence.task_ref_present) issues.push(issue("evidence.task_ref_present", "evidence_flag_mismatch", "task_ref_present does not match source"));
   if (manifest.evidence.commit_trailer_refs_present !== expectedEvidence.commit_trailer_refs_present) issues.push(issue("evidence.commit_trailer_refs_present", "evidence_flag_mismatch", "commit_trailer_refs_present does not match source"));
-
-  if (manifest.status === "invalid") {
-    if (!Array.isArray(manifest.issues) || manifest.issues.length === 0) issues.push(issue("issues", "invalid_requires_issues", "invalid manifests must record issues"));
-    if (manifest.outcome !== "unknown") issues.push(issue("outcome", "invalid_requires_unknown_outcome", "invalid manifests must not carry a resolved outcome"));
-    if (manifest.evidence.missing_outcome_evidence !== true) issues.push(issue("evidence.missing_outcome_evidence", "invalid_requires_missing_evidence", "invalid manifests must record missing evidence"));
-    if (!manifest.reasons.includes("invalid_merge_outcome_input")) issues.push(issue("reasons", "invalid_requires_reason", "invalid manifests must record invalid_merge_outcome_input"));
-    return { ok: issues.length === 0, issues };
-  }
 
   if (Array.isArray(manifest.issues) && manifest.issues.length > 0) issues.push(issue("issues", "non_invalid_carries_issues", "ready/unknown manifests must not carry issues"));
 
@@ -255,30 +265,88 @@ export function validateMergeOutcomeManifest(manifest: MergeOutcomeManifest): Me
   return { ok: issues.length === 0, issues };
 }
 
+const MANIFEST_KEYS = ["manifest_version", "schema_ref", "outcome_id", "collected_at", "status", "outcome", "reasons", "source", "review_outcome", "ci_outcome", "revert_linkage", "quarantine", "stale", "evidence", "guards", "issues"];
+const SOURCE_KEYS = ["task_id", "pr", "commit_trailers"];
+const PR_KEYS = ["repository", "number", "url", "head_ref", "base_ref", "head_sha", "state", "merged", "merged_at", "merge_commit_sha", "closed_at"];
+const TRAILER_KEYS = ["key", "value", "source_commit_sha"];
+const REVIEW_KEYS = ["outcome", "reviewed_commit_sha", "reviewer_refs", "decided_at"];
+const CI_KEYS = ["outcome", "required_check_count", "passed_check_count", "failed_check_names", "decided_at"];
+const REVERT_KEYS = ["reverted_by_pr", "revert_commit_sha", "reverted_at", "reason"];
+const QUARANTINE_KEYS = ["quarantined", "reasons", "policy_ref", "decided_at"];
+const STALE_KEYS = ["stale", "stale_as_of", "reason"];
+const EVIDENCE_KEYS = ["outcome_evidence", "missing_outcome_evidence", "source_pr_metadata_present", "task_ref_present", "commit_trailer_refs_present"];
+const GUARD_KEYS = ["no_github_api_call", "no_outcome_guessing", "no_score_calculation", "no_memory_write", "no_auto_rollback"];
+const ISSUE_KEYS = ["path", "code", "message"];
+
 function manifestShapeIssues(manifest: unknown): MergeOutcomeIssue[] {
   if (!isRecord(manifest)) return [issue("manifest", "must_be_object", "manifest must be an object")];
   const issues: MergeOutcomeIssue[] = [];
-  const requireRecord = (path: string, value: unknown): boolean => {
-    if (isRecord(value)) return true;
+  const rejectUnknownKeys = (path: string, value: Record<string, unknown>, allowed: readonly string[]): void => {
+    for (const key of Object.keys(value)) {
+      if (!allowed.includes(key)) issues.push(issue(path === "manifest" ? key : `${path}.${key}`, "unknown_key", "manifests must not carry unknown keys"));
+    }
+  };
+  const requireRecord = (path: string, value: unknown, allowed: readonly string[]): value is Record<string, unknown> => {
+    if (isRecord(value)) {
+      rejectUnknownKeys(path, value, allowed);
+      return true;
+    }
     issues.push(issue(path, "must_be_object", `${path} must be an object`));
     return false;
   };
-  if (requireRecord("source", manifest.source)) {
-    requireRecord("source.pr", (manifest.source as Record<string, unknown>).pr);
-    if (!Array.isArray((manifest.source as Record<string, unknown>).commit_trailers)) issues.push(issue("source.commit_trailers", "must_be_array", "source.commit_trailers must be an array"));
+  const requireArray = (path: string, value: unknown): value is unknown[] => {
+    if (Array.isArray(value)) return true;
+    issues.push(issue(path, "must_be_array", `${path} must be an array`));
+    return false;
+  };
+  rejectUnknownKeys("manifest", manifest, MANIFEST_KEYS);
+  if (requireRecord("source", manifest.source, SOURCE_KEYS)) {
+    const source = manifest.source as Record<string, unknown>;
+    requireRecord("source.pr", source.pr, PR_KEYS);
+    if (requireArray("source.commit_trailers", source.commit_trailers)) {
+      (source.commit_trailers as unknown[]).forEach((entry, index) => requireRecord(`source.commit_trailers.${index}`, entry, TRAILER_KEYS));
+    }
   }
-  requireRecord("review_outcome", manifest.review_outcome);
-  requireRecord("ci_outcome", manifest.ci_outcome);
-  requireRecord("revert_linkage", manifest.revert_linkage);
-  requireRecord("quarantine", manifest.quarantine);
-  requireRecord("stale", manifest.stale);
-  requireRecord("evidence", manifest.evidence);
-  requireRecord("guards", manifest.guards);
+  requireRecord("review_outcome", manifest.review_outcome, REVIEW_KEYS);
+  if (isRecord(manifest.review_outcome)) requireArray("review_outcome.reviewer_refs", manifest.review_outcome.reviewer_refs);
+  requireRecord("ci_outcome", manifest.ci_outcome, CI_KEYS);
+  if (isRecord(manifest.ci_outcome)) requireArray("ci_outcome.failed_check_names", manifest.ci_outcome.failed_check_names);
+  if (requireRecord("revert_linkage", manifest.revert_linkage, REVERT_KEYS)) {
+    const revertPr = (manifest.revert_linkage as Record<string, unknown>).reverted_by_pr;
+    if (revertPr !== null && revertPr !== undefined) requireRecord("revert_linkage.reverted_by_pr", revertPr, PR_KEYS);
+  }
+  requireRecord("quarantine", manifest.quarantine, QUARANTINE_KEYS);
+  if (isRecord(manifest.quarantine)) requireArray("quarantine.reasons", manifest.quarantine.reasons);
+  requireRecord("stale", manifest.stale, STALE_KEYS);
+  requireRecord("evidence", manifest.evidence, EVIDENCE_KEYS);
+  if (isRecord(manifest.evidence)) requireArray("evidence.outcome_evidence", manifest.evidence.outcome_evidence);
+  requireRecord("guards", manifest.guards, GUARD_KEYS);
   if (typeof manifest.outcome_id !== "string" || !manifest.outcome_id.startsWith("merge-outcome-")) issues.push(issue("outcome_id", "invalid_outcome_id", "outcome_id must use merge-outcome prefix"));
   if (typeof manifest.collected_at !== "string") issues.push(issue("collected_at", "must_be_string", "collected_at must be a string"));
-  if (!Array.isArray(manifest.reasons)) issues.push(issue("reasons", "must_be_array", "reasons must be an array"));
-  if (isRecord(manifest.evidence) && !Array.isArray((manifest.evidence as Record<string, unknown>).outcome_evidence)) issues.push(issue("evidence.outcome_evidence", "must_be_array", "outcome_evidence must be an array"));
+  requireArray("reasons", manifest.reasons);
+  if (manifest.issues !== undefined && requireArray("issues", manifest.issues)) {
+    (manifest.issues as unknown[]).forEach((entry, index) => requireRecord(`issues.${index}`, entry, ISSUE_KEYS));
+  }
   return issues;
+}
+
+function emptyManifestSections(collectedAt: string): ManifestContent {
+  return {
+    manifest_version: MERGE_OUTCOME_VERSION,
+    schema_ref: MERGE_OUTCOME_SCHEMA_REF,
+    collected_at: collectedAt,
+    status: "invalid",
+    outcome: "unknown",
+    reasons: [],
+    source: { task_id: "", pr: emptyPr(), commit_trailers: [] },
+    review_outcome: { outcome: "unknown", reviewed_commit_sha: null, reviewer_refs: [], decided_at: null },
+    ci_outcome: { outcome: "unknown", required_check_count: 0, passed_check_count: 0, failed_check_names: [], decided_at: null },
+    revert_linkage: { reverted_by_pr: null, revert_commit_sha: null, reverted_at: null, reason: null },
+    quarantine: { quarantined: false, reasons: [], policy_ref: null, decided_at: null },
+    stale: { stale: false, stale_as_of: null, reason: null },
+    evidence: { outcome_evidence: [], missing_outcome_evidence: true, source_pr_metadata_present: false, task_ref_present: false, commit_trailer_refs_present: false },
+    guards: { no_github_api_call: true, no_outcome_guessing: true, no_score_calculation: true, no_memory_write: true, no_auto_rollback: true },
+  };
 }
 
 function reconstructInput(manifest: MergeOutcomeManifest): MergeOutcomeCollectorInput {
@@ -430,7 +498,7 @@ function validateCi(issues: MergeOutcomeIssue[], ci: MergeOutcomeCiInput | null 
     if (Number.isSafeInteger(ci.required_check_count) && Number.isSafeInteger(ci.passed_check_count) && ci.passed_check_count !== ci.required_check_count) issues.push(issue("ci.passed_check_count", "passed_count_mismatch", "a passed CI outcome requires all required checks to pass"));
     if (failedNames.length > 0) issues.push(issue("ci.failed_check_names", "passed_with_failures", "a passed CI outcome must not carry failed check names"));
   }
-  if (ci.outcome === "failed" && Array.isArray(ci.failed_check_names) && failedNames.length === 0) issues.push(issue("ci.failed_check_names", "failed_requires_names", "a failed CI outcome must record failed check names"));
+  if (ci.outcome === "failed" && failedNames.length === 0) issues.push(issue("ci.failed_check_names", "failed_requires_names", "a failed CI outcome must record failed check names"));
 }
 
 function validateRevert(issues: MergeOutcomeIssue[], revert: MergeOutcomeRevertInput | null | undefined): void {
@@ -479,6 +547,7 @@ function validateStale(issues: MergeOutcomeIssue[], stale: MergeOutcomeStaleInpu
 function manifestBase(input: MergeOutcomeCollectorInput, collectedAt: string): Omit<ManifestContent, "status" | "outcome" | "reasons"> {
   const source = input?.source;
   const pr = normalizePr(source?.pr);
+  const trailers = normalizeTrailers(source?.commit_trailers);
   const review = input?.review;
   const ci = input?.ci;
   const revert = input?.revert ?? null;
@@ -493,7 +562,7 @@ function manifestBase(input: MergeOutcomeCollectorInput, collectedAt: string): O
     source: {
       task_id: typeof source?.task_id === "string" ? source.task_id : "",
       pr,
-      commit_trailers: normalizeTrailers(source?.commit_trailers),
+      commit_trailers: trailers,
     },
     review_outcome: {
       outcome: reviewOutcome,
@@ -528,9 +597,9 @@ function manifestBase(input: MergeOutcomeCollectorInput, collectedAt: string): O
     evidence: {
       outcome_evidence: [],
       missing_outcome_evidence: true,
-      source_pr_metadata_present: prMetadataPresent(source?.pr),
+      source_pr_metadata_present: prMetadataPresent(pr),
       task_ref_present: typeof source?.task_id === "string" && TASK_ID.test(source.task_id),
-      commit_trailer_refs_present: Array.isArray(source?.commit_trailers) && source.commit_trailers.length > 0,
+      commit_trailer_refs_present: trailers.length > 0,
     },
     guards: {
       no_github_api_call: true,

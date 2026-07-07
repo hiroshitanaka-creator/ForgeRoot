@@ -397,6 +397,81 @@ describe("T036 review hardening (PR #26 findings sweep)", () => {
     }
   });
 
+  it("fails closed on malformed nested arrays instead of throwing (round 2)", () => {
+    const manifest = collectMergeOutcome(BASE_INPUT);
+    for (const [section, field] of [["quarantine", "reasons"], ["review_outcome", "reviewer_refs"], ["ci_outcome", "failed_check_names"], ["source", "commit_trailers"], ["evidence", "outcome_evidence"]]) {
+      for (const bad of [null, "not-an-array", 1]) {
+        const broken = structuredClone(manifest);
+        broken[section][field] = bad;
+        const result = validateMergeOutcomeManifest(broken);
+        assert.equal(result.ok, false, `${section}.${field}=${JSON.stringify(bad)} must fail closed`);
+        assert.ok(result.issues.length > 0);
+      }
+    }
+  });
+
+  it("rejects unknown manifest keys explicitly, not only via stale ids", () => {
+    const manifest = collectMergeOutcome(BASE_INPUT);
+    const injected = structuredClone(manifest);
+    injected.extra_claim = "looks-official";
+    const result = validateMergeOutcomeManifest(injected);
+    assert.equal(result.ok, false);
+    assert.ok(result.issues.some((entry) => entry.code === "unknown_key"), "unknown top-level key must be rejected by an explicit unknown_key issue");
+
+    const nested = structuredClone(manifest);
+    nested.source.pr.extra = true;
+    const nestedResult = validateMergeOutcomeManifest(nested);
+    assert.equal(nestedResult.ok, false);
+    assert.ok(nestedResult.issues.some((entry) => entry.code === "unknown_key"), "unknown nested key must be rejected by an explicit unknown_key issue");
+  });
+
+  it("rejects failed CI outcomes when failed_check_names is omitted", () => {
+    const manifest = collectMergeOutcome({
+      ...BASE_INPUT,
+      ci: { outcome: "failed", required_check_count: 3, passed_check_count: 1 },
+    });
+    assert.equal(manifest.status, "invalid");
+    assert.ok(manifest.issues.some((entry) => entry.code === "failed_requires_names"));
+  });
+
+  it("keeps validator symmetry for every collector output, including invalid envelopes", () => {
+    const malformedInputs = [
+      { ...BASE_INPUT, source: { ...SOURCE, commit_trailers: ["Task: T036"] } },
+      { ...BASE_INPUT, source: { ...SOURCE, task_id: "" } },
+      { ...BASE_INPUT, review: { ...BASE_INPUT.review, reviewer_refs: "github://maintainer" } },
+      { ...BASE_INPUT, now: "2026-99-99T99:99:99Z" },
+      { ...BASE_INPUT, ci: { outcome: "failed", required_check_count: 3, passed_check_count: 1 } },
+      BASE_INPUT,
+    ];
+    for (const input of malformedInputs) {
+      const manifest = collectMergeOutcome(input);
+      const result = validateMergeOutcomeManifest(manifest);
+      assert.deepEqual(result, { ok: true, issues: [] }, `validate(collect(x)) must be ok for status=${manifest.status}`);
+    }
+  });
+
+  it("stores invalid manifests as empty envelopes without partial input data", () => {
+    const manifest = collectMergeOutcome({ ...BASE_INPUT, source: { ...SOURCE, task_id: "" } });
+    assert.equal(manifest.status, "invalid");
+    assert.equal(manifest.source.task_id, "");
+    assert.equal(manifest.source.pr.repository, "");
+    assert.deepEqual(manifest.source.commit_trailers, []);
+    assert.equal(manifest.evidence.source_pr_metadata_present, false);
+  });
+
+  it("rejects ready manifests recast as invalid with forged issues", () => {
+    const manifest = collectMergeOutcome(BASE_INPUT);
+    assert.equal(manifest.status, "ready");
+    const recast = structuredClone(manifest);
+    recast.status = "invalid";
+    recast.outcome = "unknown";
+    recast.issues = [{ path: "now", code: "invalid_timestamp", message: "forged" }];
+    recast.reasons = ["invalid_merge_outcome_input", "invalid_timestamp"];
+    const result = validateMergeOutcomeManifest(recast);
+    assert.equal(result.ok, false);
+    assert.ok(result.issues.some((entry) => entry.code === "invalid_carries_content"), "recast invalid manifest carrying real data must be rejected");
+  });
+
   it("rejects syntactically valid but impossible timestamps", () => {
     const impossibleNow = collectMergeOutcome({ ...BASE_INPUT, now: "2026-99-99T99:99:99Z" });
     assert.equal(impossibleNow.status, "invalid");
