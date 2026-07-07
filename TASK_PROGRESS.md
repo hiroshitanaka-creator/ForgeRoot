@@ -2,7 +2,8 @@
 
 ## Current phase
 
-T070 - distributed evolution demo implementation complete locally.
+T070 - distributed evolution demo implementation in PR #34 after T069
+post-merge source-of-truth normalization.
 
 ## Initial assessment summary
 
@@ -52,6 +53,8 @@ T070 - distributed evolution demo.
 - The user requested implementation progress instead of more docs-only work.
 - T070 remains lab-only and manifest-only; it does not approve production
   federation, live transport, automatic lineage adoption, or self-evolution.
+- PR #34 must incorporate the T069 post-merge source-of-truth normalization
+  that landed on `main` via PR #33 before it can be merged.
 
 ## Intended scope
 
@@ -59,17 +62,19 @@ T070 - distributed evolution demo.
 - Export stable T070 aliases from `packages/forge-demo/src/index.ts`.
 - Add behavioral tests in `packages/forge-demo/tests/distributed-evolution.test.mjs`.
 - Keep T070 side-effect boundaries closed in runtime output and tests.
+- Resolve README, progress, and interface-registry conflicts against the T069
+  post-merge normalization without changing T070 runtime behavior.
 
 ## Verification plan
 
 - Run `npm.cmd --prefix packages\network test`.
 - Run `npm.cmd --prefix packages\reporting test`.
 - Run `npm.cmd --prefix packages\forge-demo test`.
+- Run `git diff --check`.
 - Run `npm.cmd run validate:skills`.
 - Run `npm.cmd test`.
 - Run `npm.cmd run build`.
-- Run `git diff --check`.
-- Run `cargo test --workspace --locked` when Rust is available.
+- Check whether `cargo` is available before Rust verification.
 
 ## Current status
 
@@ -188,6 +193,9 @@ T070 - distributed evolution demo.
 - T069 user approval received for class C / high-risk federation topology,
   treaty-link, and network-boundary work.
 - T069 implementation complete locally.
+- PR #32 merged T069 into `main` at `2026-07-07T11:27:45Z`.
+- T069 merge commit:
+  `8d53a02f9f964364bf73bc2ef8fb7f58c3fe5c95`.
 - Verification passed: `npm.cmd --prefix packages\network test` (38/38).
 - Verification passed: `npm.cmd --prefix packages\reporting test` (8/8).
 - Verification passed: T069 topology safety-boundary scan.
@@ -201,6 +209,10 @@ T070 - distributed evolution demo.
   not on PATH in this Windows session.
 - Final T069 implementation audit found no remaining architectural,
   state/concurrency, or structural issues.
+- T069 post-merge handoff normalization complete on `main`.
+- Repo map and interface registry source-of-truth normalization complete for
+  implemented surfaces through T069.
+- README implementation summary normalization complete through T069.
 - T070 implementation complete locally.
 - Verification passed: `npm.cmd --prefix packages\forge-demo test` (16/16).
 - Verification passed: `npm.cmd run build`.
@@ -208,3 +220,20 @@ T070 - distributed evolution demo.
 - Verification passed: T070 tamper harness for every ready demo manifest leaf.
 - Verification passed: T070 open-federation request blocks instead of weakening
   network boundary.
+- T070 PR #34 merge-conflict resolution pulled in PR #33 changes from
+  `origin/main`.
+- Verification passed before conflict resolution: `git diff --check` with
+  LF/CRLF warnings.
+- Verification passed before conflict resolution: `npm.cmd run validate:skills`.
+- Verification passed before conflict resolution: `npm.cmd test`.
+- Verification passed before conflict resolution: `npm.cmd run build`.
+- Verification failed locally before conflict resolution:
+  `cargo test --workspace --locked` with
+  `C:\Users\tanak\.cargo\bin\cargo.exe` and the default MSVC toolchain; the
+  Windows linker `link.exe` is not available.
+- Verification failed locally before conflict resolution:
+  `cargo +stable-x86_64-pc-windows-gnu test
+  --workspace --locked`; GNU binutils `dlltool.exe` is not available.
+- Docs-only quality gate report added to
+  `docs/ops/thread-handoff-after-t069.md`.
+- Draft PR package added to `docs/ops/thread-handoff-after-t069.md`.

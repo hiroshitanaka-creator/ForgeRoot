@@ -2,7 +2,7 @@
 
 This file is the canonical surface inventory of ForgeRoot. It is updated when the directory structure changes.
 
-**Last updated:** 2026-06-17 (T041-3 Genome Integrity)
+**Last updated:** 2026-07-07 (T069 post-merge source-of-truth normalization)
 
 ---
 
@@ -14,13 +14,13 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 | `apps/` | application packages | GitHub App and related runtimes |
 | `crates/` | Rust crates | forge-kernel and CLI tooling |
 | `docs/` | documentation | Specs, ops runbooks, fixtures |
-| `packages/` | TypeScript packages | Agent runtime packages |
+| `packages/` | TypeScript packages | Agent runtime, memory, eval, mutation, network, and reporting packages |
 | `schemas/` | JSON Schema | Canonical `.forge` v1 schema |
 | `.github/` | CI/CD | Workflows and actions — **immutable** |
 | `Cargo.toml` | Rust workspace manifest | |
 | `Cargo.lock` | Rust lock file | |
 | `package.json` | Node workspace root | |
-| `README.md` | Repository overview | Do not modify |
+| `README.md` | Repository overview and implementation status summary | Update only for source-of-truth normalization |
 | `02_README.md` | Extended README | Do not modify |
 
 ---
@@ -68,6 +68,11 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 | `packages/github-pr-adapter/` | github-pr-adapter.alpha |
 | `packages/approval-checkpoint/` | approval-checkpoint.alpha |
 | `packages/rate-governor/` | rate-governor.alpha |
+| `packages/memory/` | memory manifests |
+| `packages/eval/` | eval, outcome, reputation, and arena manifests |
+| `packages/mutate/` | mutation, guard, transport, rollout, and completion manifests |
+| `packages/network/` | federation lineage, cross-repo, gossip, and boundary manifests |
+| `packages/reporting/` | derived report manifests |
 
 ---
 
@@ -80,6 +85,17 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 | `docs/specs/repo-integrity.md` | Repo surface integrity spec |
 | `docs/ops/` | Operations runbooks and thread handoffs |
 | `docs/ops/repo-hygiene-report.md` | Root surface hygiene findings |
+
+---
+
+## `labs/` - Lab Artifacts
+
+| Path | Purpose |
+|---|---|
+| `labs/arena/` | T065 conflict arena lab notes |
+| `labs/forge-net/` | T066-T070 forge-net lab artifacts |
+| `labs/forge-net/topology.yml` | T069 three-repo lab-only federation topology |
+| `labs/forge-net/lib-app-demo/README.md` | T066 library-to-application symbiosis demo |
 
 ---
 
@@ -98,8 +114,22 @@ This file is the canonical surface inventory of ForgeRoot. It is updated when th
 
 | Path | Purpose |
 |---|---|
-| `packages/memory/` | T030/T031 deterministic memory manifest writer and validator package; no MemoryKeeper runtime, no GitHub transport, no `.forge` direct write |
+| `packages/memory/` | T030-T033 deterministic memory manifest writer, packer, retriever, and validator package; no MemoryKeeper runtime, no GitHub transport, no `.forge` direct write |
 | `packages/memory/src/working.ts` | Working memory update manifest creation and validation |
 | `packages/memory/src/digest.ts` | Episode digest manifest creation and validation |
+| `packages/memory/src/packer.ts` | Archive pack manifest creation, canonical JSONL, and validation |
+| `packages/memory/src/retrieval.ts` | Bounded retrieval context manifest creation and validation |
 | `docs/specs/memory-model.md` | T029 memory partition contract |
 | `.forge/policies/memory.forge` | Memory policy declaring source-of-truth, PR, source-ref, derived-state, and memory/eval separation rules |
+
+---
+
+## Phase 2-4 Manifest Runtime Surfaces
+
+| Package | Implemented scope |
+|---|---|
+| `packages/eval/` | T034 eval suite validation, T036 merge outcome collection, T045 shadow-run harness, T063 peer reputation, T065 conflict arena |
+| `packages/auditor/` | T023 auditor runtime and T040 SARIF-like bridge exports |
+| `packages/mutate/` | T046-T060 mutation patch, routing, guard, transport, rollout, and completion bundle manifests |
+| `packages/network/` | T061 lineage packs, T062 cross-repo PR composition, T064 gossip cadence, T067 network boundary |
+| `packages/reporting/` | T068 federation observability report manifests |

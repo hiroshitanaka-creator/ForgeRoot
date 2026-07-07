@@ -2,7 +2,7 @@
 
 This file is the canonical registry of inter-agent data contracts in ForgeRoot. It is the source of truth for what each agent produces and consumes.
 
-**Last updated:** 2026-07-08 (T070 Distributed Evolution Demo)
+**Last updated:** 2026-07-08 (T070 Distributed Evolution Demo after T069 post-merge source-of-truth normalization)
 
 ---
 
@@ -141,12 +141,107 @@ Fields: action (dispatch | queue | block | cooldown), dispatch_at (timestamp), r
 | validateWorkingMemoryUpdate(update) | T030 | update manifest | validation result | guessed source refs |
 | createEpisodeDigest(input) | T031 | PR/audit/outcome refs | episode digest | source-less digest |
 | validateEpisodeDigest(digest) | T031 | digest manifest | validation result | missing source guessing |
+| createArchivePack(input) / packMemoryRecords(input) | T032 | source-backed memory records | archive pack manifest + canonical JSONL | external storage authority |
+| validateArchivePack(pack) | T032 | archive pack manifest | validation result | record-count/hash drift |
+| retrieveMemoryContext(input) | T033 | memory artifacts + token budget | bounded retrieval context manifest | vector DB authority |
+| validateMemoryContext(context) | T033 | retrieval context manifest | validation result | source-ref loss |
 
 ### Memory foundation invariants
 
 - `packages/memory` produces deterministic artifacts only.
 - Runtime DBs and vector indexes remain derived state, not memory source of truth.
 - The package does not call GitHub APIs, write `.forge`, implement MemoryKeeper, calculate eval scores, or generate mutations.
+
+---
+
+## packages/eval
+
+| API | Task | Input | Output | Forbidden |
+|---|---:|---|---|---|
+| validateEvalSuite(input) | T034 | eval suite manifest | validation result | live grader execution |
+| collectMergeOutcome(input) / collectPrOutcome(input) | T036 | explicit PR/outcome evidence | merge outcome manifest | guessed merge result |
+| runEvalShadowRun(input) | T045 | eval suite/result manifests | shadow-run manifest | authoritative score write |
+| evaluatePeerReputation(input) | T063 | peer proposal/policy/adoption outcomes | advisory reputation manifest | automatic adoption |
+| compareArenaCandidates(input) | T065 | candidate set + scoring evidence | arena comparison manifest | automatic winner adoption |
+
+### Eval invariants
+
+- `packages/eval` does not make scores authoritative unless a later approved task promotes them.
+- Reputation and arena outputs remain advisory and deterministic.
+- The package does not call GitHub APIs or perform live self-evolution.
+
+---
+
+## packages/auditor
+
+| API | Task | Input | Output | Forbidden |
+|---|---:|---|---|---|
+| runAuditor(input) | T023 | plan/worktree/sandbox evidence | audit result + PR-composition gate | command execution |
+| validateAuditResult(result) | T023 | audit result | validation result | PR composition without gate |
+| convertAuditFindingsToSarif(input) | T040 | audit findings | SARIF-like artifact | GitHub upload |
+| validateSarifLikeArtifact(artifact) | T040 | SARIF-like artifact | validation result | secret/path drift |
+
+### Auditor invariants
+
+- Auditor outputs are evidence and gates only.
+- The package does not execute commands, call GitHub APIs, upload Code Scanning results, approve, merge, update memory, or federate.
+
+---
+
+## packages/mutate
+
+| API | Task | Input | Output | Forbidden |
+|---|---:|---|---|---|
+| applyPromptPatchDryRun(input) | T046 | prompt patch request | dry-run diff manifest | policy/identity mutation |
+| applyToolRoutingPatchDryRun(input) | T047 | tool-routing patch request | dry-run diff manifest | permission expansion without approval |
+| createSpeciationProposal(input) | T048 | parent/child lineage input | speciation proposal manifest | silent replacement |
+| routeNVersionAudit(input) | T049 | mutation proposal | audit routing manifest | self-approval |
+| evaluateEvolutionGuard(input) | T050 | proposal + routed reviews | EvolutionGuard decision manifest | mutation execution |
+| createMutationPrManifest(input) | T051 | accepted guard decision | mutation PR manifest | live PR creation |
+| createMutationPrTransportRequest(input) | T052 | mutation PR manifest | transport request manifest | GitHub transport |
+| createTransportReadinessLedger(input) | T053 | transport readiness evidence | readiness ledger manifest | unapproved promotion |
+| createApprovalReceiptVerification(input) | T054 | approval receipt evidence | verification manifest | approval record write |
+| createTransportExecutionPlan(input) | T055 | approved transport evidence | execution plan manifest | execution |
+| createExecutionArtifactReceipt(input) | T056 | execution artifact evidence | receipt manifest | artifact fabrication |
+| createRolloutGateChecklist(input) | T057 | rollout evidence | rollout gate checklist | rollout execution |
+| createPostTransportAuditPlan(input) | T058 | post-transport evidence | audit plan manifest | audit job execution |
+| createLineageHandoffPack(input) | T059 | lineage handoff evidence | handoff pack manifest | federation transport |
+| createCompletionBundle(input) | T060 | completion evidence | completion bundle manifest | final-state overclaim |
+
+### Mutation invariants
+
+- `packages/mutate` remains manifest-only.
+- It does not execute mutations, push branches, create PRs, call GitHub APIs, write approvals, or self-approve high-risk changes.
+
+---
+
+## packages/network
+
+| API | Task | Input | Output | Forbidden |
+|---|---:|---|---|---|
+| exportLineagePack(input) | T061 | lineage refs + treaty scope | lineage pack manifest | treatyless export |
+| composeCrossRepoPr(input) | T062 | peer proposal + treaty evidence | cross-repo PR composition manifest | live PR creation |
+| scheduleGossipSync(input) | T064 | peer registry + cadence state | gossip sync schedule manifest | network transport |
+| enforceNetworkBoundary(input) | T067 | peer action + treaty/runtime evidence | boundary decision manifest | treaty bypass |
+
+### Network invariants
+
+- `packages/network` defines deterministic federation manifests and boundary decisions only.
+- It does not perform network transport, open federation, production treaty creation, GitHub transport, or automatic lineage adoption.
+
+---
+
+## packages/reporting
+
+| API | Task | Input | Output | Forbidden |
+|---|---:|---|---|---|
+| renderFederationReport(input) | T068 | peer/treaty/lineage/reputation/boundary state | Markdown/JSON federation report manifest | source-of-truth replacement |
+| validateFederationReport(report) | T068 | federation report manifest | validation result | derived report drift |
+
+### Reporting invariants
+
+- Reports are derived artifacts only.
+- Reporting does not replace peer registry, treaty, reputation, boundary, memory, or policy source-of-truth state.
 
 ---
 
