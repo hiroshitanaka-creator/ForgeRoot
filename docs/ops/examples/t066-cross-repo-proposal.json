@@ -1,0 +1,171 @@
+{
+  "$schema": "urn:forgeroot:symbiosis-demo:v1",
+  "manifest_version": 1,
+  "demo_id": "t066-lib-app-symbiosis-demo",
+  "created_at": "2026-07-06T00:00:00Z",
+  "scope": "lab_only",
+  "topology": {
+    "lab_namespace": "labs/forge-net/lib-app-demo",
+    "repositories": [
+      {
+        "peer_id": "forge-lab-lib",
+        "repository_full_name": "forgeroot-labs/forge-lab-lib",
+        "role": "library_provider",
+        "status": "active"
+      },
+      {
+        "peer_id": "forge-lab-app",
+        "repository_full_name": "forgeroot-labs/forge-lab-app",
+        "role": "application_consumer",
+        "status": "active"
+      }
+    ],
+    "treaty": {
+      "treaty_id": "treaty-lib-app-11111111",
+      "status": "active",
+      "source_peer_id": "forge-lab-lib",
+      "target_peer_id": "forge-lab-app",
+      "allowed_actions": [
+        "lineage_export",
+        "lineage_import_candidate",
+        "cross_repo_pr"
+      ],
+      "allowed_lineage_roots": [
+        "forge://forgeroot-labs/forge-lab-lib/species/api-stability"
+      ],
+      "allowed_record_kinds": [
+        "species",
+        "mutation",
+        "evaluation"
+      ],
+      "expires_at": "2026-08-06T00:00:00Z"
+    }
+  },
+  "lineage_pack_exchange": {
+    "task": "T061",
+    "api": "exportLineagePack(input)",
+    "lineage_pack_ref": "lineage-pack:lib-app-api-stability-11111111",
+    "source_peer_id": "forge-lab-lib",
+    "target_peer_id": "forge-lab-app",
+    "archive_pack_ref": "archive-pack:api-stability-11111111",
+    "export_payload_digest": "sha-fnv1a-11111111",
+    "signature_ref": "sigstore:lab-demo-11111111",
+    "import_candidate": {
+      "registered": true,
+      "adoption_performed": false
+    },
+    "guards": {
+      "no_network_transport": true,
+      "no_automatic_adoption": true,
+      "no_file_write": true,
+      "no_github_api_call": true,
+      "no_git_push": true
+    }
+  },
+  "cross_repo_proposal": {
+    "task": "T062",
+    "api": "composeCrossRepoPr(input)",
+    "proposal_ref": "cross-repo-pr:lib-app-api-stability-22222222",
+    "target_peer_id": "forge-lab-app",
+    "title": "Adopt stable parser facade from forge-lab-lib",
+    "summary": "Route app parser integration through a stable facade exported by the lab library.",
+    "head_branch": "forge-lab-lib/api-stability-facade",
+    "base_branch": "main",
+    "changed_paths": [
+      "apps/demo/src/parser-adapter.ts",
+      "docs/integration/parser-facade.md"
+    ],
+    "risk": "medium",
+    "rollback": "Restore the previous parser adapter and remove the facade integration doc.",
+    "draft_only": true,
+    "maintainer_can_modify": false,
+    "review_gate": {
+      "approval_class": "C",
+      "human_review_required_before_merge": true
+    },
+    "guards": {
+      "no_github_api_call": true,
+      "no_pull_request_creation": true,
+      "no_fork_creation": true,
+      "no_merge_operation": true,
+      "no_auto_approval": true,
+      "no_treaty_creation": true,
+      "no_open_federation": true
+    }
+  },
+  "reputation_signal": {
+    "task": "T063",
+    "api": "evaluatePeerReputation(input)",
+    "peer_id": "forge-lab-lib",
+    "score": 68,
+    "band": "neutral",
+    "recommended_action": "observe",
+    "advisory_only": true,
+    "source_of_truth_for_adoption": false
+  },
+  "arena_comparison": {
+    "task": "T065",
+    "api": "compareArenaCandidates(input)",
+    "arena_id": "arena-lib-app-33333333",
+    "conflict_id": "conflict-parser-facade-33333333",
+    "reason": "behavior_conflict",
+    "eval_binding": {
+      "shadow_run_ref": "eval-shadow-run:parser-facade-33333333",
+      "eval_suite_ref": ".forge/evals/root.forge",
+      "lineage_threshold_ref": "lineage-threshold:api-stability-33333333"
+    },
+    "candidates": [
+      {
+        "candidate_id": "candidate-lib-proposal-33333333",
+        "source_kind": "peer",
+        "proposal_ref": "cross-repo-pr:lib-app-api-stability-22222222",
+        "eval_score": 84,
+        "lineage_score": 78,
+        "reputation_score": 68,
+        "risk": "medium",
+        "decision": "winner"
+      },
+      {
+        "candidate_id": "candidate-app-local-44444444",
+        "source_kind": "local",
+        "proposal_ref": "local-proposal:keep-current-adapter-44444444",
+        "eval_score": 73,
+        "lineage_score": 65,
+        "reputation_score": 50,
+        "risk": "low",
+        "decision": "loser"
+      }
+    ],
+    "status": "arena_ready",
+    "winner_candidate_id": "candidate-lib-proposal-33333333",
+    "reputation_is_sole_basis": false,
+    "automatic_merge_allowed": false
+  },
+  "app_response": {
+    "response_id": "app-response-parser-facade-55555555",
+    "repository_full_name": "forgeroot-labs/forge-lab-app",
+    "decision": "accept_with_local_guard",
+    "human_summary": "The app accepts the lib proposal as a lab candidate, but keeps merge blocked until a human reviews the draft PR evidence.",
+    "required_followups": [
+      "review changed paths against app allowlist",
+      "run local parser adapter tests in a real repo before any PR transport",
+      "confirm rollback text before merge consideration"
+    ],
+    "merge_performed": false,
+    "github_pr_created": false
+  },
+  "safety_boundaries": {
+    "lab_only": true,
+    "public_repo_federation": false,
+    "live_github_pr_creation": false,
+    "open_peer_discovery": false,
+    "production_treaty": false,
+    "network_transport_performed": false,
+    "file_write_performed": false,
+    "policy_mutation_performed": false
+  },
+  "walkthrough_refs": [
+    "labs/forge-net/lib-app-demo/README.md",
+    "docs/ops/t066-symbiosis-demo.md"
+  ]
+}

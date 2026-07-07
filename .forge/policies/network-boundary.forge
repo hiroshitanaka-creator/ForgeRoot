@@ -1,0 +1,171 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:forge:policy:v1
+kind: policy
+id: forge://hiroshitanaka-creator/ForgeRoot/policy/network-boundary
+revision: 01KZ1000000000000000000000
+mind_ref: forge://hiroshitanaka-creator/ForgeRoot/mind/root
+status: active
+title: ForgeRoot Network Boundary Policy
+summary: Treaty-gated sandbox policy for manifest-only peer boundary decisions. It rejects treaty breaches, quarantines unknown or open-federation input, and keeps imported lineage as candidate evidence only.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-07-07T00:00:00Z
+updated_at: 2026-07-07T00:00:00Z
+policy_type: network-boundary
+rules:
+  - id: treaty-gated-actions-only
+    statement: Peer actions are allowed only when the active treaty explicitly allows the requested action.
+    pass_conditions:
+      treaty_status: active
+      requested_action_in_treaty_allowlist: true
+      treaty_source_and_target_match_request: true
+    fail_conditions:
+      treaty_status:
+        - missing
+        - suspended
+        - revoked
+      requested_action_in_treaty_allowlist: false
+      treaty_source_or_target_mismatch: true
+    required_approval_class: C
+  - id: known-active-peer-required
+    statement: Peer input must come from a known active peer registry entry before any boundary decision can allow it.
+    pass_conditions:
+      peer_registry_known: true
+      peer_status: active
+    fail_conditions:
+      peer_registry_known: false
+      peer_status:
+        - unknown
+        - quarantined
+        - suspended
+        - deprecated
+    required_approval_class: C
+  - id: lineage-import-candidate-only
+    statement: Imported lineage may be recorded only as candidate evidence and must not be adopted by the boundary evaluator.
+    pass_conditions:
+      import_candidate_only: true
+      lineage_adoption_performed: false
+    fail_conditions:
+      imported_lineage_adoption_requested: true
+      lineage_adoption_performed: true
+    required_approval_class: C
+  - id: open-federation-forbidden
+    statement: Open federation is not a default or fallback mode for T067.
+    pass_conditions:
+      open_federation_default: false
+      open_federation_enabled: false
+    fail_conditions:
+      open_federation_requested: true
+      open_federation_enabled: true
+    required_approval_class: D
+  - id: manifest-only-boundary
+    statement: The network boundary evaluator emits deterministic manifests only and does not perform live network, GitHub, file, or policy mutation side effects.
+    pass_conditions:
+      network_transport_performed: false
+      github_api_called: false
+      file_written: false
+      git_push_performed: false
+      policy_mutation_performed: false
+    fail_conditions:
+      network_transport_performed: true
+      github_api_called: true
+      file_written: true
+      git_push_performed: true
+      policy_mutation_performed: true
+    required_approval_class: C
+thresholds:
+  min_reputation_score_for_allow: 30
+  open_federation_default: false
+  allowed_peer_actions:
+    - cross_repo_pr
+    - gossip_sync
+    - lineage_export
+    - lineage_import_candidate
+    - reputation_update
+  allowed_runtime_modes:
+    - federate
+  denied_runtime_modes:
+    - observe
+    - quarantine
+    - halted
+  quarantine_peer_statuses:
+    - unknown
+    - quarantined
+  rejected_peer_statuses:
+    - suspended
+    - deprecated
+actions_on_breach:
+  treaty-gated-actions-only:
+    - reject_change
+    - require_treaty_update_review
+  known-active-peer-required:
+    - quarantine_candidate
+    - require_peer_registry_review
+  lineage-import-candidate-only:
+    - reject_change
+    - require_import_quarantine_review
+  open-federation-forbidden:
+    - quarantine_candidate
+    - hold_for_human_governance
+  manifest-only-boundary:
+    - reject_change
+    - hold_for_human_governance
+required_approvals:
+  A:
+    summary: docs, tests, comments, and low-risk refactors
+    min_human_approvals: 0
+    auto_pr_allowed: true
+    merge_requires_human: false
+  B:
+    summary: normal code changes and internal package behavior changes
+    min_human_approvals: 1
+    auto_pr_allowed: true
+    merge_requires_human: true
+  C:
+    summary: policies, network treaties, federation boundaries, and spawn settings
+    min_human_approvals: 2
+    auto_pr_allowed: false
+    codeowner_required: true
+  D:
+    summary: branch protection, app permissions, open federation, and workflow mutation
+    min_human_approvals: 2
+    auto_pr_allowed: false
+    codeowner_required: true
+    self_approval_forbidden: true
+    human_only_operation: true
+cooldowns:
+  unknown_peer_quarantine_seconds: 86400
+  reputation_quarantine_seconds: 86400
+  treaty_breach_review_seconds: 3600
+  open_federation_hold_seconds: 604800
+quarantine_triggers:
+  - unknown_peer_input
+  - peer_status_quarantined
+  - reputation_quarantine
+  - reputation_revocation_review
+  - reputation_score_below_threshold
+  - open_federation_requested
+provenance:
+  seed_task: T067
+  seed_basis:
+    - 03_issue_続き
+    - 00_ForgeRoot_blueprint_設計書_続き.md
+  created_by: github://hiroshitanaka-creator
+  implementation_api: enforceNetworkBoundary(input)
+  approval:
+    approved_at: 2026-07-07T00:00:00Z
+    approved_scope:
+      - .forge/policies/**
+      - federation/network boundary
+    approved_by_user_text: T067 .forge policies and federation network boundary changes approved
+extensions:
+  t067:
+    canonical_api: enforceNetworkBoundary(input)
+    validation_api: validateNetworkBoundary(result)
+    package: packages/network
+    result_schema_ref: urn:forgeroot:network-boundary:v1
+    boundary_only: true
+    live_transport: false
+    open_federation_default: false

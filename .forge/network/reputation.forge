@@ -1,0 +1,100 @@
+#!forge/v1
+forge_version: 1
+schema_ref: urn:forgeroot:peer-reputation:v1
+kind: peer_reputation_schema
+id: forge://hiroshitanaka-creator/ForgeRoot/network/reputation
+revision: T063
+status: seeded
+title: Peer Reputation Scoring Schema
+summary: Manifest-only advisory scoring surface for peer proposal outcomes, policy compliance, and adoption outcomes.
+owners:
+  - github://hiroshitanaka-creator
+  - github-app://forgeroot
+created_at: 2026-07-06T00:00:00Z
+updated_at: 2026-07-06T00:00:00Z
+
+inputs:
+  peer_ref:
+    required: true
+    fields:
+      - peer_id
+      - repository_full_name
+      - status
+  treaty_ref:
+    required: true
+    fields:
+      - treaty_id
+      - status
+      - source_peer_id
+      - target_peer_id
+      - expires_at
+  outcomes:
+    required: true
+    fields:
+      - outcome_id
+      - proposal_ref
+      - source_kind
+      - adoption_outcome
+      - policy_compliant
+      - risk
+      - evidence_digest
+  policy_events:
+    required: false
+    fields:
+      - event_id
+      - trigger
+      - severity
+      - action
+      - summary
+      - evidence_digest
+
+score_model:
+  baseline: 50
+  range_min: 0
+  range_max: 100
+  default_weights:
+    accepted: 8
+    rejected: -10
+    blocked: -6
+    invalid: -12
+    policy_breach_low: -4
+    policy_breach_medium: -10
+    policy_breach_high: -22
+    policy_breach_critical: -35
+    policy_event_low: -4
+    policy_event_medium: -10
+    policy_event_high: -25
+    policy_event_critical: -40
+  thresholds:
+    trusted_min: 75
+    downrank_below: 50
+    quarantine_below: 30
+    revocation_below: 15
+
+boundaries:
+  advisory_only: true
+  source_of_truth_for_adoption: false
+  automatic_adoption_allowed: false
+  adoption_decision_required: human_review_and_policy_gate
+  global_reputation_network: forbidden
+  public_ranking: forbidden
+  network_transport: forbidden
+  file_write: forbidden
+  github_api_call: forbidden
+  policy_mutation: forbidden
+
+validation:
+  deterministic_recalculation: true
+  resolved_weights_required: true
+  sorted_outcomes_required: true
+  sorted_policy_events_required: true
+  digest_covers_manifest_payload: true
+  unknown_enums_fail_closed: true
+  secret_material_forbidden: true
+
+provenance:
+  task_id: T063
+  source: issue-file-03-t063
+  canonical_api: evaluatePeerReputation(input)
+  generated_by: codex
+  manifest_only: true
