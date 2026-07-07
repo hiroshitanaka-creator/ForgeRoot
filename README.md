@@ -15,7 +15,14 @@ ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelli
 
 ## Current implementation status
 
-The repository has moved through the Phase 0 kernel and the first Phase 1 planning and pre-execution primitives.
+The repository has moved through the Phase 0 kernel, Phase 1 forged-PR
+manifest chain, Phase 2 memory/eval foundations, Phase 3 bounded
+self-evolution manifests, and Phase 4 manifest-only federation stack through
+the lab-only T069 three-repo forge-net testnet.
+
+T070 distributed evolution demo is the next candidate. It is not implemented
+yet and requires explicit approval before any federation or self-evolution
+boundary work.
 
 Implemented so far:
 
@@ -38,6 +45,15 @@ Implemented so far:
 - T026 — deterministic approval checkpoint and trusted transport authorization manifest
 - T027 — deterministic rate governor queue and dispatch manifest
 - T028 — deterministic end-to-end forged PR demo manifest chain
+
+- T029-T033 - memory partition, working memory update, episode digest,
+  archive pack, and retrieval context manifests
+- T034-T045 - eval suite, merge outcome, security report source, eval result,
+  and shadow-run foundations
+- T046-T060 - bounded mutation, audit routing, guard, transport, rollout, and
+  completion bundle manifests
+- T061-T069 - lineage pack, cross-repo PR composition, reputation, gossip,
+  arena, network boundary, federation reporting, and lab-only forge-net topology
 
 ## Repo layout
 
@@ -62,6 +78,11 @@ packages/
   planner/
   executor/
   auditor/
+  memory/
+  eval/
+  mutate/
+  network/
+  reporting/
   pr-composer/
   github-pr-adapter/
   approval-checkpoint/
@@ -93,12 +114,46 @@ The first forging loop now has pre-execution contracts that narrow one issue int
 
 The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request. The T023 auditor runtime validates existing evidence only; it does not execute commands, edit files, compose PRs, mutate GitHub, approve merges, update memory, or federate. The T024 PR composer prepares review text and metadata only; it does not call GitHub, create the pull request, approve, merge, update memory, or federate. The T025 GitHub PR adapter prepares GitHub App REST request metadata only; it does not perform network transport by itself, merge, approve, persist tokens, update memory, or federate. The T026 approval checkpoint emits authorization manifests only; it does not call GitHub, create the PR, merge, approve, self-approve, persist tokens, update memory, or federate. The T027 rate governor emits queue/dispatch manifests only; it does not call GitHub, create the PR, merge, approve, persist tokens, bypass rate limits, update memory, or federate. The T028 forge demo only validates and packages the manifest chain; it does not call GitHub, create a real PR, execute commands, merge, approve, update memory, or federate.
 
+## Memory, evaluation, and mutation path
+
+The Phase 2 and Phase 3 packages add deterministic manifests without making
+runtime state authoritative:
+
+1. `packages/memory` creates and validates working memory updates, episode
+   digests, archive packs, and bounded retrieval contexts.
+2. `packages/eval` validates eval suites, collects explicit merge outcomes,
+   runs shadow-only eval manifests, scores peer reputation advisory data, and
+   compares arena candidates without automatic adoption.
+3. `packages/mutate` prepares prompt/tool/speciation mutation proposals,
+   routes independent audits, evaluates EvolutionGuard decisions, prepares
+   mutation PR and transport manifests, and packages rollout/completion
+   evidence without executing mutation or live transport.
+
+These packages do not write `.forge`, call GitHub APIs, create PRs, execute
+mutations, self-approve high-risk changes, or make scores authoritative.
+
+## Federation path
+
+The Phase 4 federation stack remains manifest-only:
+
+1. `packages/network` exports treaty-scoped lineage packs, composes cross-repo
+   PR manifests, schedules gossip without transport, and enforces network
+   boundary decisions.
+2. `packages/reporting` renders derived Markdown/JSON federation reports.
+3. `labs/forge-net/topology.yml` defines the T069 three-repo lab-only topology.
+
+The federation stack does not perform live network transport, open federation,
+production treaty creation, GitHub transport, authoritative reputation writes,
+or automatic lineage adoption.
+
 ## Safety defaults
 
 - GitHub App only for production automation.
 - Protected default branch required.
 - Runtime mode starts conservative.
 - Workflow, policy, permission, and network changes are elevated.
+- Federation and self-evolution boundary work requires explicit approval before
+  implementation.
 - Kill switch can close the mutating lane in one operation.
 - Event Inbox dedupes GitHub delivery IDs before downstream processing.
 - One task becomes one plan, one branch/worktree manifest, one sandbox execution request, one audit result, one PR composition manifest, one GitHub PR creation request manifest, one trusted transport authorization manifest, one rate-governed dispatch manifest, one end-to-end demo manifest, and later one PR.
