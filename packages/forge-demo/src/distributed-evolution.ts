@@ -156,6 +156,40 @@ const HASH_2 = `sha256:${"2".repeat(64)}`;
 const HASH_3 = `sha256:${"3".repeat(64)}`;
 const LINEAGE_ROOT = "forge-lineage://forge-lab-lib/api-stability";
 const VALIDATION_SUMMARY_KEYS = ["lineage_pack", "peer_reputation", "network_boundary", "cross_repo_pr", "arena", "federation_report"] as const;
+const INVALID_TOPOLOGY_ID = "invalid-topology";
+const DISTRIBUTED_EVOLUTION_RESULT_KEYS = new Set([
+  "manifest_version",
+  "schema_ref",
+  "demo_id",
+  "created_at",
+  "status",
+  "decision",
+  "reasons",
+  "topology_ref",
+  "steps",
+  "summary",
+  "invariants",
+  "validation_summary",
+  "chain",
+  "demo_digest",
+  "issues",
+]);
+const SUMMARY_CHAIN_BINDINGS = [
+  { summaryKey: "lineage_pack_id", chainPath: ["lineagePack", "lineage_pack_id"] },
+  { summaryKey: "boundary_decision_id", chainPath: ["networkBoundary", "boundary_decision_id"] },
+  { summaryKey: "cross_repo_composition_id", chainPath: ["crossRepoPr", "composition_id"] },
+  { summaryKey: "arena_result_id", chainPath: ["arenaComparison", "arena_result_id"] },
+  { summaryKey: "federation_report_id", chainPath: ["federationReport", "federation_report_id"] },
+  { summaryKey: "arena_winner_candidate_id", chainPath: ["arenaComparison", "summary", "winner_candidate_id"] },
+] as const;
+const READY_CHAIN_TERMINAL_REQUIREMENTS = [
+  { field: "lineagePack", expectedStatus: "lineage_pack_ready", code: "lineage_pack_not_ready", message: "lineage pack must be ready" },
+  { field: "peerReputation", expectedStatus: "reputation_ready", code: "peer_reputation_not_ready", message: "peer reputation must be ready" },
+  { field: "networkBoundary", expectedStatus: "allowed", code: "network_boundary_not_allowed", message: "network boundary must allow the treaty-scoped dry-run request" },
+  { field: "crossRepoPr", expectedStatus: "cross_repo_pr_ready", code: "cross_repo_pr_not_ready", message: "cross-repo PR composition must be ready" },
+  { field: "arenaComparison", expectedStatus: "arena_ready", code: "arena_not_ready", message: "arena must select a ready winner" },
+  { field: "federationReport", expectedStatus: "federation_report_ready", code: "federation_report_not_ready", message: "federation report must render" },
+] as const;
 const CHAIN_VALIDATORS = [
   { summaryKey: "lineage_pack", field: "lineagePack", code: "invalid_lineage_pack", message: "lineage pack must validate", validate: validateLineagePack },
   { summaryKey: "peer_reputation", field: "peerReputation", code: "invalid_peer_reputation", message: "peer reputation must validate", validate: validatePeerReputation },
@@ -207,7 +241,7 @@ export function runDistributedEvolutionDemo(input: DistributedEvolutionDemoInput
     ? []
     : [issue("chain", "read_back_validation_failed", "one or more generated manifests failed read-back validation")];
   const sideEffectIssues = sideEffectGuardIssues(lineagePack, networkBoundary, crossRepoPr, arenaComparison, federationReport);
-  const statusIssues = chainStatusIssues(lineagePack, networkBoundary, crossRepoPr, arenaComparison, federationReport);
+  const statusIssues = chainStatusIssues(lineagePack, peerReputation, networkBoundary, crossRepoPr, arenaComparison, federationReport);
   const issues = [...validationIssues, ...sideEffectIssues, ...statusIssues];
   const status: DistributedEvolutionDemoStatus = issues.length > 0 ? "blocked" : "ready";
   const decision: DistributedEvolutionDemoDecision = status === "ready" ? "distributed_evolution_demo_ready" : "distributed_evolution_demo_blocked";
@@ -239,6 +273,7 @@ export function runDistributedEvolutionDemo(input: DistributedEvolutionDemoInput
 export function validateDistributedEvolutionDemo(value: unknown): DistributedEvolutionDemoValidation {
   const issues: DistributedEvolutionDemoIssue[] = [];
   if (!isRecord(value)) return { ok: false, issues: [issue("result", "result_must_be_object", "demo result must be an object")] };
+  validateAllowedTopLevelKeys(value, issues);
   if (value.manifest_version !== DISTRIBUTED_EVOLUTION_DEMO_VERSION) issues.push(issue("manifest_version", "invalid_manifest_version", "manifest_version must be 1"));
   if (value.schema_ref !== DISTRIBUTED_EVOLUTION_DEMO_SCHEMA_REF) issues.push(issue("schema_ref", "invalid_schema_ref", "schema_ref must identify T070 distributed evolution demo"));
   if (typeof value.created_at !== "string" || !isRfc3339Utc(value.created_at)) issues.push(issue("created_at", "invalid_created_at", "created_at must be RFC3339 UTC"));
@@ -251,6 +286,8 @@ export function validateDistributedEvolutionDemo(value: unknown): DistributedEvo
   validateInvariants(value.invariants, issues);
   validateValidationSummary(value.validation_summary, issues);
   validateChain(value.chain, value.validation_summary, value.status, issues);
+  validateSummaryChainBindings(value.summary, value.chain, value.status, issues);
+  validateReadyChainTerminalStates(value.chain, value.status, issues);
   validateReadBackConsistency(value.validation_summary, value.invariants, value.status, issues);
   validateNoSecretMaterial(value, "result", issues);
   if (value.status === "invalid") {
@@ -349,7 +386,7 @@ function invalidResult(createdAt: string, topology: Topology, issues: readonly D
     status: "invalid",
     decision: "invalid_distributed_evolution_demo_input",
     reasons: uniqueStrings(["invalid_distributed_evolution_demo_input", ...issues.map((entry) => entry.code)]),
-    topology_ref: { topology_id: topology.topology_id || "invalid-topology", topology_path: TOPOLOGY_PATH, scope: "lab_only", source_of_truth: false },
+    topology_ref: { topology_id: INVALID_TOPOLOGY_ID, topology_path: TOPOLOGY_PATH, scope: "lab_only", source_of_truth: false },
     steps: [],
     summary: { route_id: null, source_peer_id: null, target_peer_id: null, lineage_pack_id: null, boundary_decision_id: null, cross_repo_composition_id: null, arena_result_id: null, federation_report_id: null, arena_winner_candidate_id: null },
     invariants: {
@@ -554,14 +591,21 @@ function sideEffectGuardIssues(lineagePack: any, boundary: any, crossRepoPr: any
   return issues;
 }
 
-function chainStatusIssues(lineagePack: any, boundary: any, crossRepoPr: any, arena: any, report: any): readonly DistributedEvolutionDemoIssue[] {
+function chainStatusIssues(lineagePack: any, peerReputation: any, boundary: any, crossRepoPr: any, arena: any, report: any): readonly DistributedEvolutionDemoIssue[] {
   const issues: DistributedEvolutionDemoIssue[] = [];
   if (lineagePack.status !== "lineage_pack_ready") issues.push(issue("lineagePack.status", "lineage_pack_not_ready", "lineage pack must be ready"));
+  if (peerReputation.status !== "reputation_ready") issues.push(issue("peerReputation.status", "peer_reputation_not_ready", "peer reputation must be ready"));
   if (boundary.status !== "allowed") issues.push(issue("networkBoundary.status", "network_boundary_not_allowed", "network boundary must allow the treaty-scoped dry-run request"));
   if (crossRepoPr.status !== "cross_repo_pr_ready") issues.push(issue("crossRepoPr.status", "cross_repo_pr_not_ready", "cross-repo PR composition must be ready"));
   if (arena.status !== "arena_ready") issues.push(issue("arena.status", "arena_not_ready", "arena must select a ready winner"));
   if (report.status !== "federation_report_ready") issues.push(issue("federationReport.status", "federation_report_not_ready", "federation report must render"));
   return issues;
+}
+
+function validateAllowedTopLevelKeys(value: JsonRecord, issues: DistributedEvolutionDemoIssue[]): void {
+  for (const key of Object.keys(value)) {
+    if (!DISTRIBUTED_EVOLUTION_RESULT_KEYS.has(key)) issues.push(issue(`result.${key}`, "unknown_top_level_key", `${key} is not part of the signed T070 demo result payload`));
+  }
 }
 
 function validateChain(chain: unknown, summary: unknown, status: unknown, issues: DistributedEvolutionDemoIssue[]): void {
@@ -583,6 +627,31 @@ function validateChain(chain: unknown, summary: unknown, status: unknown, issues
     if (!ok) issues.push(issue(`chain.${spec.field}`, spec.code, spec.message));
     if (validation !== null && typeof validation[spec.summaryKey] === "boolean" && validation[spec.summaryKey] !== ok) {
       issues.push(issue(`validation_summary.${spec.summaryKey}`, "validation_summary_mismatch", `${spec.summaryKey} must match chain manifest validation`));
+    }
+  }
+}
+
+function validateSummaryChainBindings(summary: unknown, chain: unknown, status: unknown, issues: DistributedEvolutionDemoIssue[]): void {
+  if (status !== "ready" && status !== "blocked") return;
+  const summaryRecord = asRecord(summary);
+  const chainRecord = asRecord(chain);
+  if (summaryRecord === null || chainRecord === null) return;
+  for (const binding of SUMMARY_CHAIN_BINDINGS) {
+    const expected = nestedString(chainRecord, binding.chainPath);
+    if (expected !== null && summaryRecord[binding.summaryKey] !== expected) {
+      issues.push(issue(`summary.${binding.summaryKey}`, "summary_chain_mismatch", `${binding.summaryKey} must match chain.${binding.chainPath.join(".")}`));
+    }
+  }
+}
+
+function validateReadyChainTerminalStates(chain: unknown, status: unknown, issues: DistributedEvolutionDemoIssue[]): void {
+  if (status !== "ready") return;
+  const chainRecord = asRecord(chain);
+  if (chainRecord === null) return;
+  for (const requirement of READY_CHAIN_TERMINAL_REQUIREMENTS) {
+    const manifest = asRecord(chainRecord[requirement.field]);
+    if (manifest?.status !== requirement.expectedStatus) {
+      issues.push(issue(`chain.${requirement.field}.status`, requirement.code, requirement.message));
     }
   }
 }
@@ -682,9 +751,19 @@ function validateTopology(topology: Topology): readonly DistributedEvolutionDemo
   if (topology.manifest_version !== 1) issues.push(issue("topology.manifest_version", "invalid_topology_version", "topology manifest_version must be 1"));
   if (topology.scope !== "lab_only") issues.push(issue("topology.scope", "lab_only_required", "T070 demo only accepts lab-only topology"));
   if (topology.source_of_truth !== false) issues.push(issue("topology.source_of_truth", "source_of_truth_forbidden", "topology must not replace source of truth"));
-  if (topology.safety_boundaries.open_federation_enabled !== false) issues.push(issue("topology.safety_boundaries.open_federation_enabled", "open_federation_forbidden", "open federation must stay disabled"));
-  if (topology.safety_boundaries.network_transport_performed !== false) issues.push(issue("topology.safety_boundaries.network_transport_performed", "network_transport_forbidden", "topology must not perform network transport"));
-  if (topology.safety_boundaries.lineage_adoption_performed !== false) issues.push(issue("topology.safety_boundaries.lineage_adoption_performed", "adoption_forbidden", "topology must not adopt lineage"));
+  if (topology.safety_boundaries.lab_only !== true) issues.push(issue("topology.safety_boundaries.lab_only", "lab_only_required", "topology safety boundaries must be lab-only"));
+  const forbiddenSafetyFlags = [
+    { key: "open_federation_enabled", code: "open_federation_forbidden", message: "open federation must stay disabled" },
+    { key: "network_transport_performed", code: "network_transport_forbidden", message: "topology must not perform network transport" },
+    { key: "github_api_called", code: "github_api_forbidden", message: "topology must not call GitHub APIs" },
+    { key: "github_pr_created", code: "github_pr_forbidden", message: "topology must not create GitHub pull requests" },
+    { key: "git_push_performed", code: "git_push_forbidden", message: "topology must not perform git pushes" },
+    { key: "policy_mutation_performed", code: "policy_mutation_forbidden", message: "topology must not mutate policies" },
+    { key: "lineage_adoption_performed", code: "adoption_forbidden", message: "topology must not adopt lineage" },
+  ] as const;
+  for (const flag of forbiddenSafetyFlags) {
+    if (topology.safety_boundaries[flag.key] !== false) issues.push(issue(`topology.safety_boundaries.${flag.key}`, flag.code, flag.message));
+  }
   return issues;
 }
 
@@ -915,6 +994,16 @@ function arrayValue(value: unknown): readonly unknown[] {
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function nestedString(value: JsonRecord, path: readonly string[]): string | null {
+  let cursor: unknown = value;
+  for (const segment of path) {
+    const recordValue = asRecord(cursor);
+    if (recordValue === null) return null;
+    cursor = recordValue[segment];
+  }
+  return stringValue(cursor);
 }
 
 function stringArray(value: unknown): readonly string[] {

@@ -255,7 +255,22 @@ jobs:
 
             async function mirrorGlobalDebtToOpenPrChecks(groups, messages) {
               const isReviewDebtEvent = context.eventName === 'pull_request_review' || context.eventName === 'pull_request_review_comment';
-              if (!isReviewDebtEvent || messages.length === 0) return 0;
+              if (!isReviewDebtEvent) return 0;
+              const conclusion = messages.length > 0 ? 'failure' : 'success';
+              const title = messages.length > 0
+                ? 'Forge PR Governor: global Codex review debt'
+                : 'Forge PR Governor: global Codex review debt cleared';
+              const summaryLines = messages.length > 0
+                ? [
+                  `A review event on PR #${prNumber} changed repository-wide Codex review debt.`,
+                  '',
+                  ...messages.map((message) => `- ${message}`),
+                ]
+                : [
+                  `A review event on PR #${prNumber} changed repository-wide Codex review debt.`,
+                  '',
+                  'No active repository-wide Codex review debt remains.',
+                ];
               let mirrored = 0;
               for (const group of groups) {
                 if (group.number === prNumber || typeof group.headSha !== 'string' || group.headSha.length === 0) continue;
@@ -266,14 +281,10 @@ jobs:
                     name: 'completion gate',
                     head_sha: group.headSha,
                     status: 'completed',
-                    conclusion: 'failure',
+                    conclusion,
                     output: {
-                      title: 'Forge PR Governor: global Codex review debt',
-                      summary: [
-                        `A review event on PR #${prNumber} changed repository-wide Codex review debt.`,
-                        '',
-                        ...messages.map((message) => `- ${message}`),
-                      ].join('\n'),
+                      title,
+                      summary: summaryLines.join('\n'),
                     },
                   });
                   mirrored += 1;

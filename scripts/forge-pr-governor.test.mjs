@@ -64,5 +64,8 @@ describe("Forge PR governor workflow guards", () => {
     assert.match(WORKFLOW, /mirrorGlobalDebtToOpenPrChecks/);
     assert.match(WORKFLOW, /github\.rest\.checks\.create/);
     assert.match(WORKFLOW, /name:\s*'completion gate'/);
+    assert.doesNotMatch(WORKFLOW, /!isReviewDebtEvent \|\| messages\.length === 0/);
+    assert.match(WORKFLOW, /const conclusion = messages\.length > 0 \? 'failure' : 'success'/);
+    assert.match(WORKFLOW, /No active repository-wide Codex review debt remains/);
   });
 });
