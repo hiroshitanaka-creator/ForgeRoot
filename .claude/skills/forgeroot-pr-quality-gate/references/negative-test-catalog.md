@@ -59,6 +59,19 @@ test("tamper-harness: every field mutation is rejected on read-back", () => {
 - このテストが通る = 「全フィールドがdigest/ID再計算または直接検証でカバーされている」の機械的証明。R1/R2に従った実装なら自然に通る。通らないなら実装が非対称
 - 改ざんしても意味が変わらないフィールドが本当にあるなら(稀)、除外リストを作りテスト内に理由をコメントで書く。黙って除外しない
 - ネストオブジェクトの**丸ごとnull化・削除**も1系統流す(C7: throwせず `{ ok: false }` を返すことの検証を兼ねる)
+- **leafPathsは空配列・空オブジェクトを素通りする**(リーフが無いため)。空配列フィールドは変異対象に現れないので、「配列フィールドをnull/非配列に置換」する変異を明示的に別途流す(PR #29のC7実例はこの盲点で漏れた)
+- 未知キー注入は「ID陳腐化で落ちる」だけでは不十分。**明示的な `unknown_key` 系issueで落ちること**をassertする(C11: IDは再計算可能)
+
+## 1.5 対称性ループ(validator系は必須)
+
+`validate(collect(x)).ok === true` を、**正常入力・不正入力・unknown入力を混ぜた入力群**でループ検証する。collectorの全出力(invalid封筒を含む)がvalidatorを通ることの機械的証明(C13対策)。
+
+```js
+for (const input of [VALID_INPUT, ...MALFORMED_INPUTS]) {
+  const manifest = collectXxx(input);
+  assert.deepEqual(validateXxx(manifest), { ok: true, issues: [] });
+}
+```
 
 ## 2. フィールド×異常系の網羅表
 
@@ -82,6 +95,8 @@ test("tamper-harness: every field mutation is rejected on read-back", () => {
 | 禁止ターゲット | `.forge/policies/constitution.forge`, `.github/workflows/test.yml` | 全パス系フィールド |
 | allowlist外 | 禁止namespace(例 `browser.open`) | route名が現れる**全**フィールド(fallback含む) |
 | enum外 | `"approved"`, `"__unknown__"` | 全status/decision/kind |
+| **省略変種** | キーを完全に省略(present-and-emptyとは別ケース) | 意味ルールを持つ**全任意フィールド**(C12: 「failedなら失敗名必須」等のルールが省略で素通りしないか) |
+| 偽装再鋳造 | 正常レコードのstatusをinvalid/rejectedに書き換え+つじつま合わせ | 全status付きレコード(C13: 空封筒との一致検証で落ちること) |
 
 ## 3. multi-op系列テスト(該当コードのみ)
 
