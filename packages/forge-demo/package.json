@@ -5,6 +5,7 @@
   "type": "module",
   "description": "ForgeRoot demo harnesses for T028 forged PR flow and T070 distributed evolution manifests.",
   "scripts": {
+    "prebuild": "npm --prefix ../eval run build && npm --prefix ../network run build && npm --prefix ../reporting run build",
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test tests/*.test.mjs"
   },
