@@ -18,8 +18,9 @@ ForgeRoot turns a repository into a self-improving, PR-native, evolvable intelli
 The repository has moved through the Phase 0 kernel, Phase 1 forged-PR
 manifest chain, Phase 2 memory/eval foundations, Phase 3 bounded
 self-evolution manifests, Phase 4 manifest-only federation stack through the
-lab-only T069 three-repo forge-net testnet, and the T070 lab-only distributed
-evolution demo.
+lab-only T069 three-repo forge-net testnet, the T070 lab-only distributed
+evolution demo, and the T071 manifest-only self-host bootstrap readiness
+check that is the first Phase 5 self-hosting step.
 
 Implemented so far:
 
@@ -54,6 +55,11 @@ Implemented so far:
 - T070 - lab-only distributed evolution demo wiring the T069 topology through
   lineage, reputation, boundary, cross-repo PR composition, arena, and derived
   federation reporting without live transport or automatic adoption
+- T071 - manifest-only self-host bootstrap readiness check that reuses the
+  T028 forged-PR chain as evidence the forging loop can target ForgeRoot
+  itself in dry-run, gated on an explicit human approval and locked to
+  `dry_run` mode and the ForgeRoot repository only; it never performs
+  self-host execution, workflow/policy mutation, or real PR creation
 
 ## Repo layout
 
@@ -112,8 +118,9 @@ The first forging loop now has pre-execution contracts that narrow one issue int
 10. `packages/rate-governor/src/run.ts` consumes one trusted transport authorization and emits a queued / delayed / blocked dispatch decision while preserving one-repo mutating lane, write spacing, content-create budget, PR-create budget, retry-after, and cooldown controls.
 11. `packages/forge-demo/src/run.ts` wires the Phase 1 manifests from one `forge:auto` issue-like input through the rate-governed dispatch manifest without performing live transport.
 12. `packages/forge-demo/src/distributed-evolution.ts` wires the T069 lab topology through T061 lineage export, T063 reputation, T067 network boundary, T062 cross-repo PR composition, T065 arena comparison, and T068 federation report manifests without live network transport, GitHub API calls, open federation, or automatic lineage adoption.
+13. `packages/forge-demo/src/self-host-bootstrap.ts` reuses the T028 forged-PR chain as evidence the forging loop can target ForgeRoot itself in dry-run, and requires an explicit `human_bootstrap_approval` object plus a `target_repository` locked to `hiroshitanaka-creator/ForgeRoot` and a `self_host_mode` locked to `dry_run` before reporting readiness; it never performs self-host execution, workflow/policy mutation, or real PR creation.
 
-The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request. The T023 auditor runtime validates existing evidence only; it does not execute commands, edit files, compose PRs, mutate GitHub, approve merges, update memory, or federate. The T024 PR composer prepares review text and metadata only; it does not call GitHub, create the pull request, approve, merge, update memory, or federate. The T025 GitHub PR adapter prepares GitHub App REST request metadata only; it does not perform network transport by itself, merge, approve, persist tokens, update memory, or federate. The T026 approval checkpoint emits authorization manifests only; it does not call GitHub, create the PR, merge, approve, self-approve, persist tokens, update memory, or federate. The T027 rate governor emits queue/dispatch manifests only; it does not call GitHub, create the PR, merge, approve, persist tokens, bypass rate limits, update memory, or federate. The T028 forge demo only validates and packages the manifest chain; it does not call GitHub, create a real PR, execute commands, merge, approve, update memory, or federate. The T070 distributed evolution demo only validates and packages a lab-only manifest chain; it does not perform live federation, call GitHub APIs, create real pull requests, write authoritative reputation, adopt imported lineage, mutate policies, or execute self-evolution.
+The planner runtime still does not edit files, create branches, open PRs, run tests, or generate audit reports. The T018 worktree manager still does not run `git`, create branches, add worktrees, edit files, create commits, open PRs, run tests, or invoke a sandbox. The T019 sandbox harness still does not execute commands, edit files, create commits, open PRs, generate audit reports, or mutate GitHub; it only prepares and validates a bounded sandbox request. The T023 auditor runtime validates existing evidence only; it does not execute commands, edit files, compose PRs, mutate GitHub, approve merges, update memory, or federate. The T024 PR composer prepares review text and metadata only; it does not call GitHub, create the pull request, approve, merge, update memory, or federate. The T025 GitHub PR adapter prepares GitHub App REST request metadata only; it does not perform network transport by itself, merge, approve, persist tokens, update memory, or federate. The T026 approval checkpoint emits authorization manifests only; it does not call GitHub, create the PR, merge, approve, self-approve, persist tokens, update memory, or federate. The T027 rate governor emits queue/dispatch manifests only; it does not call GitHub, create the PR, merge, approve, persist tokens, bypass rate limits, update memory, or federate. The T028 forge demo only validates and packages the manifest chain; it does not call GitHub, create a real PR, execute commands, merge, approve, update memory, or federate. The T070 distributed evolution demo only validates and packages a lab-only manifest chain; it does not perform live federation, call GitHub APIs, create real pull requests, write authoritative reputation, adopt imported lineage, mutate policies, or execute self-evolution. The T071 self-host bootstrap check only validates a readiness manifest; it does not execute self-host mode, mutate workflows or policies, create a real pull request, or perform any merge/approval action, and it rejects any `self_host_mode` other than `dry_run` even when human approval is present.
 
 ## Memory, evaluation, and mutation path
 

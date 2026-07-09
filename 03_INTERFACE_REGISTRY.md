@@ -2,7 +2,7 @@
 
 This file is the canonical registry of inter-agent data contracts in ForgeRoot. It is the source of truth for what each agent produces and consumes.
 
-**Last updated:** 2026-07-08 (T070 Distributed Evolution Demo after T069 post-merge source-of-truth normalization)
+**Last updated:** 2026-07-09 (T071 Self-Host Bootstrap)
 
 ---
 
@@ -255,6 +255,10 @@ Fields: action (dispatch | queue | block | cooldown), dispatch_at (timestamp), r
 | validateDistributedEvolutionDemo(result) | T070 | T070 demo result | validation result | unchecked side-effect flags |
 | runT070DistributedEvolutionDemo(input) | T070 | stable alias for T070 demo | distributed evolution demo manifest | API-name drift |
 | validateT070DistributedEvolutionDemo(result) | T070 | stable alias validator | validation result | API-name drift |
+| runSelfHostBootstrap(input) | T071 | target repository + self_host_mode + human_bootstrap_approval | self-host bootstrap readiness manifest | self-host live mode, self-host execution, workflow/policy mutation, real PR creation |
+| validateSelfHostBootstrap(result) | T071 | T071 bootstrap result | validation result | unchecked approval spoofing, unchecked forge-demo chain mismatch |
+| runT071SelfHostBootstrap(input) | T071 | stable alias for T071 bootstrap | self-host bootstrap readiness manifest | API-name drift |
+| validateT071SelfHostBootstrap(result) | T071 | stable alias validator | validation result | API-name drift |
 
 ### T070 distributed evolution invariants
 
@@ -265,3 +269,22 @@ Fields: action (dispatch | queue | block | cooldown), dispatch_at (timestamp), r
   lineage adoption disabled.
 - The T070 validator checks the generated chain with the existing package
   read-back validators and protects the demo result with a deterministic digest.
+
+### T071 self-host bootstrap invariants
+
+- `packages/forge-demo/src/self-host-bootstrap.ts` reuses the existing T028
+  `runEndToEndForgedPrDemo`/`validateEndToEndForgedPrDemo` chain as evidence
+  that the forging loop can target ForgeRoot itself in dry-run, and gates
+  readiness on an explicit `human_bootstrap_approval` object plus a locked
+  `target_repository` (only `hiroshitanaka-creator/ForgeRoot` is allowed).
+- `self_host_mode` only accepts `"dry_run"`; `"live"` is rejected as invalid
+  input even when approval is present, matching the AGENTS.md/blueprint rule
+  that self-host execution requires a phase gate and explicit approval this
+  repository does not yet have.
+- The T071 result never performs self-host execution, workflow mutation,
+  policy mutation, real PR creation, or merge/approval; these invariants are
+  hard-coded `false` and re-verified on every `validateSelfHostBootstrap` call.
+- The validator cross-checks `forge_demo_ref.status`/`demo_id` against the
+  embedded `chain.forgeDemoResult`, and rejects unknown keys in every nested
+  object (`request`, `approval`, `invariants`, `forge_demo_ref`, `chain`,
+  top level) so a forged manifest cannot pass by only recomputing the digest.
