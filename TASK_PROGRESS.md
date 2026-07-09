@@ -2,8 +2,9 @@
 
 ## Current phase
 
-T070 - distributed evolution demo implementation in PR #34 after T069
-post-merge source-of-truth normalization.
+T071 - self-host bootstrap readiness manifest in `packages/forge-demo`, after
+T070 distributed evolution demo (merged via PR #34) and the T070 Codex review
+follow-up (PR #35).
 
 ## Initial assessment summary
 
@@ -237,3 +238,53 @@ T070 - distributed evolution demo.
 - Docs-only quality gate report added to
   `docs/ops/thread-handoff-after-t069.md`.
 - Draft PR package added to `docs/ops/thread-handoff-after-t069.md`.
+- PR #34 merged T070 into `main`.
+- PR #35 (Codex review follow-up for T070) opened by the repository owner,
+  independently re-verified (`npm test`, `npm run build`,
+  `npm run validate:skills` all passed on this session's Linux environment),
+  and moved from draft to ready for review with explicit user approval.
+
+## T071 self-host bootstrap
+
+- User explicitly approved a lab-only, manifest-only scope for T071 before
+  implementation: no live self-modifying commits, no real PR creation
+  against ForgeRoot itself, no automatic mutation execution, no
+  workflow/policy changes, no live GitHub API calls.
+- `packages/forge-demo/src/self-host-bootstrap.ts` adds
+  `runSelfHostBootstrap`/`validateSelfHostBootstrap` (with stable
+  `runT071SelfHostBootstrap`/`validateT071SelfHostBootstrap` aliases). It
+  reuses the existing T028 `runEndToEndForgedPrDemo` chain as evidence that
+  the forging loop can target ForgeRoot itself in dry-run, and requires an
+  explicit `human_bootstrap_approval` object before reporting `ready`.
+- `target_repository` is locked to `hiroshitanaka-creator/ForgeRoot` only;
+  `self_host_mode` only accepts `"dry_run"` and rejects `"live"` even when
+  approval is present. Self-host execution, workflow mutation, policy
+  mutation, real PR creation, and merge/approval are hard-coded `false`
+  invariants, re-verified on every validation call.
+- Internal two-lens adversarial audit (architecture + P1-P6 adversarial
+  passes) found and fixed two real issues before this was considered done:
+  (1) `forge_demo_ref.status`/`demo_id` were not cross-checked against the
+  embedded `chain.forgeDemoResult`, so a forged manifest could claim
+  readiness while the embedded T028 chain was actually blocked; (2) nested
+  objects (`request`, `approval`, `invariants`, `forge_demo_ref`, `chain`,
+  and the top level) did not reject unknown/injected keys, so an attacker
+  who could recompute the digest after adding an extra field would have
+  passed validation. Both are now covered by dedicated tests.
+- Verification passed: `npm --prefix packages/forge-demo test` (32/32,
+  including a tamper-harness covering 2000+ leaf fields of the embedded T028
+  chain).
+- Verification passed: `npm test` (all 14 npm workspaces, 0 failures).
+- Verification passed: `npm run build`.
+- Verification passed: `npm run validate:skills`.
+- Verification passed: `git diff --check` and `git diff --cached --check`.
+- Verification passed: changed-file mojibake scan (no matches).
+- Verification passed: side-effect API scan (no `fetch`/`fs`/`child_process`/
+  `process.env` in the new file).
+- Verification passed: canonical API name grep
+  (`runSelfHostBootstrap`/`validateSelfHostBootstrap`/T071 aliases exported
+  from `packages/forge-demo/src/index.ts` and `dist/index.js`).
+- Verification not run: `cargo test --workspace --locked` - this session's
+  environment blocks crates.io downloads through the network proxy
+  (`CONNECT tunnel failed, response 403`), so the Rust workspace was never
+  reached. This is an environment limitation, not a result of this change
+  (no `crates/*` files were touched). CI should run this check.
