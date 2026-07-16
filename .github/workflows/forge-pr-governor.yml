@@ -256,10 +256,25 @@ jobs:
             async function mirrorGlobalDebtToOpenPrChecks(groups, messages) {
               const isReviewDebtEvent = context.eventName === 'pull_request_review' || context.eventName === 'pull_request_review_comment';
               if (!isReviewDebtEvent) return 0;
+              const reviewDebtTitle = 'Forge PR Governor: global Codex review debt';
+              const reviewDebtClearedTitle = 'Forge PR Governor: global Codex review debt cleared';
+              const isMirroredReviewDebtCheck = (check) => check?.name === 'completion gate' &&
+                (check.output?.title === reviewDebtTitle || check.output?.title === reviewDebtClearedTitle);
+              const latestCompletionGateCheck = async (headSha) => {
+                const { data } = await github.rest.checks.listForRef({
+                  owner,
+                  repo,
+                  ref: headSha,
+                  check_name: 'completion gate',
+                  filter: 'latest',
+                  per_page: 10,
+                });
+                return (data.check_runs || []).find((check) => check.name === 'completion gate') || null;
+              };
               const conclusion = messages.length > 0 ? 'failure' : 'success';
               const title = messages.length > 0
-                ? 'Forge PR Governor: global Codex review debt'
-                : 'Forge PR Governor: global Codex review debt cleared';
+                ? reviewDebtTitle
+                : reviewDebtClearedTitle;
               const summaryLines = messages.length > 0
                 ? [
                   `A review event on PR #${prNumber} changed repository-wide Codex review debt.`,
@@ -275,6 +290,10 @@ jobs:
               for (const group of groups) {
                 if (group.number === prNumber || typeof group.headSha !== 'string' || group.headSha.length === 0) continue;
                 try {
+                  if (messages.length === 0) {
+                    const latestCheck = await latestCompletionGateCheck(group.headSha);
+                    if (!(latestCheck?.conclusion === 'failure' && isMirroredReviewDebtCheck(latestCheck))) continue;
+                  }
                   await github.rest.checks.create({
                     owner,
                     repo,
