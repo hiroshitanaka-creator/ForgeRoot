@@ -140,6 +140,84 @@ describe("T070 distributed evolution demo", () => {
     assert.ok(chainValidation.issues.some((entry) => entry.code === "chain_manifest_required"));
   });
 
+  it("rejects every topology side-effect flag before running the chain", () => {
+    const forbiddenFlags = [
+      ["open_federation_enabled", "open_federation_forbidden"],
+      ["network_transport_performed", "network_transport_forbidden"],
+      ["github_api_called", "github_api_forbidden"],
+      ["github_pr_created", "github_pr_forbidden"],
+      ["git_push_performed", "git_push_forbidden"],
+      ["policy_mutation_performed", "policy_mutation_forbidden"],
+      ["lineage_adoption_performed", "adoption_forbidden"],
+    ];
+
+    for (const [flag, code] of forbiddenFlags) {
+      const unsafeTopology = topology();
+      unsafeTopology.safety_boundaries = { ...unsafeTopology.safety_boundaries, [flag]: true };
+      const result = runDistributedEvolutionDemo({ now: NOW, topology: unsafeTopology });
+
+      assert.equal(result.status, "invalid", flag);
+      assert.ok(result.reasons.includes(code), `${flag} should report ${code}`);
+      assert.deepEqual(validateDistributedEvolutionDemo(result), { ok: true, issues: [] });
+    }
+
+    const nonLabTopology = topology();
+    nonLabTopology.safety_boundaries = { ...nonLabTopology.safety_boundaries, lab_only: false };
+    const nonLab = runDistributedEvolutionDemo({ now: NOW, topology: nonLabTopology });
+
+    assert.equal(nonLab.status, "invalid");
+    assert.ok(nonLab.reasons.includes("lab_only_required"));
+    assert.deepEqual(validateDistributedEvolutionDemo(nonLab), { ok: true, issues: [] });
+  });
+
+  it("does not echo untrusted topology IDs when invalid inputs fail closed", () => {
+    const unsafeTopology = topology();
+    unsafeTopology.topology_id = "ghp_untrustedTopologyIdShouldNotAppear";
+    unsafeTopology.safety_boundaries = { ...unsafeTopology.safety_boundaries, open_federation_enabled: true };
+
+    const result = runDistributedEvolutionDemo({ now: NOW, topology: unsafeTopology });
+
+    assert.equal(result.status, "invalid");
+    assert.equal(result.topology_ref.topology_id, "invalid-topology");
+    assert.doesNotMatch(JSON.stringify(result), /ghp_untrustedTopologyIdShouldNotAppear/);
+    assert.deepEqual(validateDistributedEvolutionDemo(result), { ok: true, issues: [] });
+  });
+
+  it("rejects top-level fields outside the signed demo payload", () => {
+    const tampered = readyDemo();
+    tampered.live_network_transport_performed = true;
+
+    const validation = validateDistributedEvolutionDemo(tampered);
+
+    assert.equal(validation.ok, false);
+    assert.ok(validation.issues.some((entry) => entry.code === "unknown_top_level_key" && entry.path === "result.live_network_transport_performed"));
+  });
+
+  it("binds summary IDs to the chain manifests", () => {
+    const tampered = readyDemo();
+    tampered.summary.lineage_pack_id = "lineage-pack:wrong";
+
+    const validation = validateDistributedEvolutionDemo(tampered);
+
+    assert.equal(validation.ok, false);
+    assert.ok(validation.issues.some((entry) => entry.code === "summary_chain_mismatch" && entry.path === "summary.lineage_pack_id"));
+  });
+
+  it("requires ready demos to have ready chain terminal states", () => {
+    const tampered = runDistributedEvolutionDemo({ now: NOW, open_federation_requested: true });
+    assert.equal(tampered.status, "blocked");
+
+    tampered.status = "ready";
+    tampered.decision = "distributed_evolution_demo_ready";
+    tampered.reasons = ["distributed_evolution_demo_ready"];
+    delete tampered.issues;
+
+    const validation = validateDistributedEvolutionDemo(tampered);
+
+    assert.equal(validation.ok, false);
+    assert.ok(validation.issues.some((entry) => entry.code === "network_boundary_not_allowed" && entry.path === "chain.networkBoundary.status"));
+  });
+
   it("supports stable T070 aliases", () => {
     const result = runT070DistributedEvolutionDemo({ now: NOW });
 
